@@ -14,6 +14,7 @@ use crate::graphs::Graph;
 
 type PygCompatible<'a> = (&'a PyDict, &'a PyDict, &'a PyDict);
 
+#[cfg(not(test))]
 fn construct_col_to_features<'pl>(input: HashMap<String, HashMap<String, Array<f64, Ix2>>>,  py: Python<'pl>) -> PyResult<&'pl PyDict> {
     let dict = PyDict::new(py);
     (&input).into_iter()
@@ -28,6 +29,7 @@ fn construct_col_to_features<'pl>(input: HashMap<String, HashMap<String, Array<f
     Ok(dict)
 }
 
+#[cfg(not(test))]
 fn construct_coo_by_from_edge_to<'pl>(input: HashMap<(String, String, String), Array<usize, Ix2>>, py: Python<'pl>) -> PyResult<&'pl PyDict> {
     let dict = PyDict::new(py);
     (&input).into_iter()
@@ -37,6 +39,7 @@ fn construct_coo_by_from_edge_to<'pl>(input: HashMap<(String, String, String), A
     Ok(dict)
 }
 
+#[cfg(not(test))]
 fn construct_cols_to_keys_to_inds<'pl>(input: HashMap<String, HashMap<String, usize>>, py: Python<'pl>) -> PyResult<&'pl PyDict> {
     let dict = PyDict::new(py);
     (&input).into_iter()
@@ -50,6 +53,7 @@ fn construct_cols_to_keys_to_inds<'pl>(input: HashMap<String, HashMap<String, us
 
 /// Loads a graph (from the name and description, into a PyG friendly format
 /// Requires numpy as a runtime dependency
+#[cfg(not(test))]
 #[pyfunction]
 fn graph_to_pyg_format<'a>(py: Python<'a>) -> PyResult<PygCompatible<'a>> {
     let graph_arc = retrieval::get_arangodb_graph();
@@ -92,6 +96,7 @@ fn graph_to_pyg_format<'a>(py: Python<'a>) -> PyResult<PygCompatible<'a>> {
 }
 
 /// A Python module implemented in Rust.
+#[cfg(not(test))]
 #[pymodule]
 fn phenolrs(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(graph_to_pyg_format, m)?)?;

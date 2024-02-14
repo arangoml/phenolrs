@@ -10,7 +10,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 numpy = "0.20.0"
-pyo3 = "0.20.2"
 tokio = { version = "1", features = ["full"] }
 bytes = "1.4.0"
 byteorder = "1.4.3"
@@ -21,3 +20,10 @@ reqwest = { version= "0.11.16", features = ["json", "rustls-tls-manual-roots"] }
 log = "0.4"
 base64 = "0.21.2"
 rand = "0.8.5"
+
+[dependencies.pyo3]
+version = "0.20.2"
+
+[features]
+extension-module = ["pyo3/extension-module"]
+default = ["extension-module"]
