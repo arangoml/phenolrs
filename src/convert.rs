@@ -6,10 +6,12 @@ pub fn convert_coo_edge_map(
 ) -> HashMap<(String, String, String), Array2<usize>> {
     coo_edge_map
         .iter()
-        .filter_map(|(edge_tup, edge_mat)| match twod_vec_to_array(edge_mat) {
-            None => None,
-            Some(arr) => Some((edge_tup.clone(), arr)),
-        })
+        .filter_map(
+            |(edge_tup, edge_mat)| match two_dim_vec_to_array(edge_mat) {
+                None => None,
+                Some(arr) => Some((edge_tup.clone(), arr)),
+            },
+        )
         .collect()
 }
 
@@ -22,7 +24,7 @@ pub fn convert_nested_features_map(
             let col_map: HashMap<String, Array2<f64>> = features
                 .iter()
                 .filter_map(|(feature_name, nested_feature_vec)| {
-                    match twod_vec_to_array(nested_feature_vec) {
+                    match two_dim_vec_to_array(nested_feature_vec) {
                         None => None,
                         Some(arr) => Some((feature_name.clone(), arr)),
                     }
@@ -33,7 +35,7 @@ pub fn convert_nested_features_map(
         .collect()
 }
 
-fn twod_vec_to_array<T: std::default::Default + Copy>(twod: &Vec<Vec<T>>) -> Option<Array2<T>> {
+fn two_dim_vec_to_array<T: Default + Copy>(twod: &Vec<Vec<T>>) -> Option<Array2<T>> {
     if twod.is_empty() {
         return None;
     }

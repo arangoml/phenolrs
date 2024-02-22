@@ -1,7 +1,8 @@
 use crate::arangodb::{
-    build_client, compute_shard_map, get_all_shard_data, handle_arangodb_response_with_parsed_body,
+    compute_shard_map, get_all_shard_data, handle_arangodb_response_with_parsed_body,
     ShardDistribution,
 };
+use crate::client::{build_client, handle_auth};
 use crate::graphs::Graph;
 use crate::load_request::DataLoadRequest;
 use bytes::Bytes;
@@ -48,21 +49,14 @@ pub async fn fetch_graph_from_arangodb(
     );
 
     let use_tls = db_config.endpoints[0].starts_with("https://");
-    let client = build_client(use_tls)?;
+    let client = build_client(use_tls, &db_config.tls_cert)?;
 
     let make_url =
         |path: &str| -> String { db_config.endpoints[0].clone() + "/_db/" + &req.database + path };
 
     // First ask for the shard distribution:
     let url = make_url("/_admin/cluster/shardDistribution");
-    let resp = client
-        .get(url)
-        .basic_auth(
-            db_config.username.as_ref().unwrap(),
-            db_config.password.as_ref(),
-        )
-        .send()
-        .await;
+    let resp = handle_auth(client.get(url), db_config).send().await;
     let shard_dist =
         handle_arangodb_response_with_parsed_body::<ShardDistribution>(resp, StatusCode::OK)
             .await?;
@@ -214,15 +208,7 @@ pub async fn fetch_graph_from_arangodb(
             });
             consumers.push(consumer);
         }
-        get_all_shard_data(
-            &req,
-            &db_config.endpoints,
-            db_config.username.as_ref().unwrap(),
-            db_config.password.as_ref().unwrap(),
-            &vertex_map,
-            senders,
-        )
-        .await?;
+        get_all_shard_data(&req, &db_config, &vertex_map, senders).await?;
         info!(
             "{:?} Got all data, processing...",
             std::time::SystemTime::now().duration_since(begin).unwrap()
@@ -334,15 +320,7 @@ pub async fn fetch_graph_from_arangodb(
             });
             consumers.push(consumer);
         }
-        get_all_shard_data(
-            &req,
-            &db_config.endpoints,
-            db_config.username.as_ref().unwrap(),
-            db_config.password.as_ref().unwrap(),
-            &edge_map,
-            senders,
-        )
-        .await?;
+        get_all_shard_data(&req, &db_config, &edge_map, senders).await?;
         info!(
             "{:?} Got all data, processing...",
             std::time::SystemTime::now().duration_since(begin).unwrap()

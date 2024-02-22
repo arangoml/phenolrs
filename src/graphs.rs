@@ -112,9 +112,6 @@ impl Graph {
                 }
             }
             Some(j) => {
-                // Now we have to pay for our laziness:
-                // init the feature hashmap
-
                 // now parse the data
                 let data = j.as_object();
                 match data {
@@ -130,7 +127,7 @@ impl Graph {
                                 .iter()
                                 .filter_map(|(feature_name, val)| {
                                     // now try to parse the value
-                                    match parse_value_to_array(val) {
+                                    match parse_value_to_vec(val) {
                                         Some(v) => Some((feature_name.clone(), v)),
                                         None => None,
                                     }
@@ -142,34 +139,12 @@ impl Graph {
                     None => {
                         if field_names.len() == 1 {
                             let feature_name = &field_names[0];
-                            // if !current_col_to_feats.contains_key(feature_name) {
-                            //     current_col_to_feats.insert(feature_name.clone(), vec![]);
-                            // }
-                            match parse_value_to_array(&j) {
+                            match parse_value_to_vec(&j) {
                                 Some(value_vec) => {
                                     Ok(HashMap::from([(feature_name.clone(), value_vec)]))
                                 }
                                 None => Err(()),
                             }
-                            // match j.as_array() {
-                            //     Some(v) => {
-                            //         current_col_to_feats.get_mut(feature_name).unwrap().append(
-                            //             &mut vec![v.iter().map(|v| { v.as_f64().unwrap() }).collect()]
-                            //         );
-                            //         Ok(())
-                            //     }
-                            //     None => {
-                            //         match j.as_f64() {
-                            //             Some(new_v) => {
-                            //                 current_col_to_feats.get_mut(feature_name).unwrap().append(&mut vec![vec![new_v]]);
-                            //                 Ok(())
-                            //             },
-                            //             None => {
-                            //                 Err(())
-                            //             }
-                            //         }
-                            //     }
-                            // }
                         } else {
                             Err(())
                         }
@@ -256,7 +231,7 @@ impl Graph {
     }
 }
 
-fn parse_value_to_array(val: &Value) -> Option<Vec<f64>> {
+fn parse_value_to_vec(val: &Value) -> Option<Vec<f64>> {
     // first try array
     match val.as_array() {
         Some(v) => {

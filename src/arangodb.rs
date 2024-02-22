@@ -1,4 +1,6 @@
-use crate::load_request::DataLoadRequest;
+use crate::client;
+use crate::client::handle_auth;
+use crate::load_request::{DataLoadRequest, DatabaseConfiguration};
 use bytes::Bytes;
 use log::debug;
 use reqwest::StatusCode;
@@ -34,31 +36,6 @@ pub struct ArangoDBError {
     error_num: i32,
     error_message: String,
     code: i32,
-}
-
-pub fn build_client(use_tls: bool) -> Result<reqwest::Client, String> {
-    let builder = reqwest::Client::builder();
-    if use_tls {
-        let client = builder
-            .use_rustls_tls()
-            .min_tls_version(reqwest::tls::Version::TLS_1_2)
-            .danger_accept_invalid_certs(true)
-            .https_only(true)
-            .build();
-        if let Err(err) = client {
-            return Err(format!("Error message from request builder: {:?}", err));
-        }
-        Ok(client.unwrap())
-    } else {
-        let client = builder
-            //.connection_verbose(true)
-            //.http2_prior_knowledge()
-            .build();
-        if let Err(err) = client {
-            return Err(format!("Error message from request builder: {:?}", err));
-        }
-        Ok(client.unwrap())
-    }
 }
 
 // This function handles an HTTP response from ArangoDB, including
@@ -164,18 +141,18 @@ struct DumpStartBody {
 
 pub async fn get_all_shard_data(
     req: &DataLoadRequest,
-    endpoints: &Vec<String>,
-    username: &String,
-    password: &String,
+    connection_config: &DatabaseConfiguration,
     shard_map: &ShardMap,
     result_channels: Vec<std::sync::mpsc::Sender<Bytes>>,
 ) -> Result<(), String> {
     let begin = SystemTime::now();
 
-    let use_tls = endpoints[0].starts_with("https://");
-    let client = build_client(use_tls)?;
+    let use_tls = connection_config.endpoints[0].starts_with("https://");
+    let client = client::build_client(use_tls, &connection_config.tls_cert)?;
 
-    let make_url = |path: &str| -> String { endpoints[0].clone() + "/_db/" + &req.database + path };
+    let make_url = |path: &str| -> String {
+        connection_config.endpoints[0].clone() + "/_db/" + &req.database + path
+    };
 
     // Start a single dump context on all involved dbservers, we can do
     // this sequentially, since it is not performance critical, we can
@@ -193,9 +170,7 @@ pub async fn get_all_shard_data(
         };
         let body_v =
             serde_json::to_vec::<DumpStartBody>(&body).expect("could not serialize DumpStartBody");
-        let resp = client
-            .post(url)
-            .basic_auth(&username, Some(&password))
+        let resp = handle_auth(client.post(url), connection_config)
             .body(body_v)
             .send()
             .await;
@@ -229,9 +204,7 @@ pub async fn get_all_shard_data(
                 "/_api/dump/{}?dbserver={}",
                 dbserver.dump_id, dbserver.dbserver
             ));
-            let resp = client_clone_for_cleanup
-                .delete(url)
-                .basic_auth(&username, Some(&password))
+            let resp = handle_auth(client_clone_for_cleanup.delete(url), connection_config)
                 .send()
                 .await;
             let r =
@@ -279,12 +252,10 @@ pub async fn get_all_shard_data(
             };
             //let client_clone = client.clone(); // the clones will share
             //                                   // the connection pool
-            let client_clone = build_client(use_tls)?;
-            let endpoint_clone = endpoints[endpoints_round_robin].clone();
-            let username_clone = username.clone();
-            let password_clone = password.clone();
+            let client_clone = client::build_client(use_tls, &connection_config.tls_cert)?;
+            let endpoint_clone = (&connection_config.endpoints[endpoints_round_robin]).clone();
             endpoints_round_robin += 1;
-            if endpoints_round_robin >= endpoints.len() {
+            if endpoints_round_robin >= connection_config.endpoints.len() {
                 endpoints_round_robin = 0;
             }
             let database_clone = req.database.clone();
@@ -293,6 +264,7 @@ pub async fn get_all_shard_data(
             if consumers_round_robin >= result_channels.len() {
                 consumers_round_robin = 0;
             }
+            let connection_config_clone = (*connection_config).clone();
             task_set.spawn(async move {
                 loop {
                     let mut url = format!(
@@ -314,9 +286,7 @@ pub async fn get_all_shard_data(
                         task_info.dbserver.dbserver,
                         task_info.current_batch_id
                     );
-                    let resp = client_clone
-                        .post(url)
-                        .basic_auth(&username_clone, Some(&password_clone))
+                    let resp = handle_auth(client_clone.post(url), &connection_config_clone)
                         .send()
                         .await;
                     let resp = handle_arangodb_response(resp, |c| {

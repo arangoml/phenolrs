@@ -1,4 +1,5 @@
 mod arangodb;
+mod client;
 mod convert;
 mod graphs;
 mod input;
@@ -7,9 +8,7 @@ mod output;
 mod retrieval;
 
 use crate::convert::{convert_coo_edge_map, convert_nested_features_map};
-use crate::load_request::{
-    CollectionDescription, DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration,
-};
+use crate::load_request::DataLoadRequest;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 

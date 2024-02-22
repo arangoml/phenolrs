@@ -26,6 +26,7 @@ impl DataLoadConfiguration {
     }
 }
 
+#[derive(Clone)]
 pub struct DatabaseConfiguration {
     pub endpoints: Vec<String>,
     // optional components of this configuration
