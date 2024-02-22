@@ -20,9 +20,11 @@ reqwest = { version= "0.11.16", features = ["json", "rustls-tls-manual-roots"] }
 log = "0.4"
 base64 = "0.21.2"
 rand = "0.8.5"
+ndarray = "0.15.6"
 
 [dependencies.pyo3]
 version = "0.20.2"
+default-features = false
 
 [features]
 extension-module = ["pyo3/extension-module"]
