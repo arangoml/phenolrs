@@ -1,41 +1,41 @@
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-use std::thread::JoinHandle;
+use crate::arangodb::{
+    build_client, compute_shard_map, get_all_shard_data, handle_arangodb_response_with_parsed_body,
+    ShardDistribution,
+};
+use crate::graphs::Graph;
+use crate::load_request::{
+    CollectionDescription, DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration,
+};
 use bytes::Bytes;
 use log::{debug, info};
 use reqwest::StatusCode;
 use serde_json::{json, Value};
-use crate::arangodb::{build_client, compute_shard_map, get_all_shard_data, handle_arangodb_response_with_parsed_body, ShardDistribution};
-use crate::graphs::Graph;
-use crate::load_request::{CollectionDescription, DatabaseConfiguration, DataLoadConfiguration, DataLoadRequest};
-
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+use std::thread::JoinHandle;
 
 pub fn get_arangodb_graph() -> Graph {
     let body = DataLoadRequest {
         database: "abide".into(),
-        vertex_collections: vec![
-            CollectionDescription {
-                name: "Subjects".into(),
-                fields: vec!["label".into(), "brain_fmri_features".into()]
-            }
-        ],
-        edge_collections: vec![
-            CollectionDescription {
-                name: "medical_affinity_graph".into(),
-                fields: vec![]
-            }
-        ],
+        vertex_collections: vec![CollectionDescription {
+            name: "Subjects".into(),
+            fields: vec!["label".into(), "brain_fmri_features".into()],
+        }],
+        edge_collections: vec![CollectionDescription {
+            name: "medical_affinity_graph".into(),
+            fields: vec![],
+        }],
         configuration: DataLoadConfiguration {
             database_config: DatabaseConfiguration {
                 endpoints: vec!["http://localhost:8529".into()],
                 username: Some("root".into()),
                 password: Some("test".into()),
                 jwt_token: None,
-                tls_cert_location: None
+                tls_cert_location: None,
             },
             batch_size: Some(400000),
-            parallelism: Some(5)
-        }
+            parallelism: Some(5),
+        },
     };
 
     let graph = Graph::new(true, 64, 0);
@@ -75,13 +75,17 @@ pub async fn fetch_graph_from_arangodb(
     let use_tls = db_config.endpoints[0].starts_with("https://");
     let client = build_client(use_tls)?;
 
-    let make_url = |path: &str| -> String { db_config.endpoints[0].clone() + "/_db/" + &req.database + path };
+    let make_url =
+        |path: &str| -> String { db_config.endpoints[0].clone() + "/_db/" + &req.database + path };
 
     // First ask for the shard distribution:
     let url = make_url("/_admin/cluster/shardDistribution");
     let resp = client
         .get(url)
-        .basic_auth(db_config.username.as_ref().unwrap(), db_config.password.as_ref())
+        .basic_auth(
+            db_config.username.as_ref().unwrap(),
+            db_config.password.as_ref(),
+        )
         .send()
         .await;
     let shard_dist =
@@ -123,7 +127,11 @@ pub async fn fetch_graph_from_arangodb(
         // We use multiple threads to receive the data in batches:
         let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
         let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
-        for _i in 0..req.configuration.parallelism.expect("Why is parallelism missing") {
+        for _i in 0..req
+            .configuration
+            .parallelism
+            .expect("Why is parallelism missing")
+        {
             let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
             senders.push(sender);
             let graph_clone = graph_arc.clone();
@@ -231,7 +239,15 @@ pub async fn fetch_graph_from_arangodb(
             });
             consumers.push(consumer);
         }
-        get_all_shard_data(&req, &db_config.endpoints, db_config.username.as_ref().unwrap(), db_config.password.as_ref().unwrap(), &vertex_map, senders).await?;
+        get_all_shard_data(
+            &req,
+            &db_config.endpoints,
+            db_config.username.as_ref().unwrap(),
+            db_config.password.as_ref().unwrap(),
+            &vertex_map,
+            senders,
+        )
+        .await?;
         info!(
             "{:?} Got all data, processing...",
             std::time::SystemTime::now().duration_since(begin).unwrap()
@@ -245,7 +261,11 @@ pub async fn fetch_graph_from_arangodb(
     {
         let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
         let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
-        for _i in 0..req.configuration.parallelism.expect("Why is parallelism missing") {
+        for _i in 0..req
+            .configuration
+            .parallelism
+            .expect("Why is parallelism missing")
+        {
             let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
             senders.push(sender);
             let graph_clone = graph_arc.clone();
@@ -320,7 +340,11 @@ pub async fn fetch_graph_from_arangodb(
                     for i in 0..froms.len() {
                         let from_key = &froms[i];
                         let to_key = &tos[i];
-                        edges.push((current_col_name.clone().unwrap(), from_key.clone(), to_key.clone()));
+                        edges.push((
+                            current_col_name.clone().unwrap(),
+                            from_key.clone(),
+                            to_key.clone(),
+                        ));
                     }
                     {
                         // Now actually insert edges by writing the graph
@@ -335,7 +359,15 @@ pub async fn fetch_graph_from_arangodb(
             });
             consumers.push(consumer);
         }
-        get_all_shard_data(&req, &db_config.endpoints, db_config.username.as_ref().unwrap(), db_config.password.as_ref().unwrap(), &edge_map, senders).await?;
+        get_all_shard_data(
+            &req,
+            &db_config.endpoints,
+            db_config.username.as_ref().unwrap(),
+            db_config.password.as_ref().unwrap(),
+            &edge_map,
+            senders,
+        )
+        .await?;
         info!(
             "{:?} Got all data, processing...",
             std::time::SystemTime::now().duration_since(begin).unwrap()

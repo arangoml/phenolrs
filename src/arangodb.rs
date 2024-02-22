@@ -1,11 +1,11 @@
-use std::collections::{HashMap, HashSet};
-use std::time::SystemTime;
+use crate::load_request::DataLoadRequest;
 use bytes::Bytes;
 use log::debug;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::time::SystemTime;
 use tokio::task::JoinSet;
-use crate::load_request::DataLoadRequest;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ShardLocation {
@@ -61,7 +61,6 @@ pub fn build_client(use_tls: bool) -> Result<reqwest::Client, String> {
     }
 }
 
-
 // This function handles an HTTP response from ArangoDB, including
 // connection errors, bad status codes and body parsing. The template
 // type is the type of the expected body in the good case.
@@ -69,8 +68,8 @@ pub async fn handle_arangodb_response_with_parsed_body<T>(
     resp: reqwest::Result<reqwest::Response>,
     expected_code: reqwest::StatusCode,
 ) -> Result<T, String>
-    where
-        T: serde::de::DeserializeOwned,
+where
+    T: serde::de::DeserializeOwned,
 {
     if let Err(err) = resp {
         return Err(err.to_string());
@@ -101,7 +100,10 @@ pub async fn handle_arangodb_response_with_parsed_body<T>(
 
 pub type ShardMap = HashMap<String, Vec<String>>;
 
-pub fn compute_shard_map(sd: &ShardDistribution, coll_list: &Vec<String>) -> Result<ShardMap, String> {
+pub fn compute_shard_map(
+    sd: &ShardDistribution,
+    coll_list: &Vec<String>,
+) -> Result<ShardMap, String> {
     let mut result: ShardMap = HashMap::new();
     for c in coll_list.into_iter() {
         // Handle the case of a smart edge collection. If c is
@@ -144,8 +146,6 @@ pub fn compute_shard_map(sd: &ShardDistribution, coll_list: &Vec<String>) -> Res
     }
     Ok(result)
 }
-
-
 
 #[derive(Debug, Clone)]
 struct DBServerInfo {
@@ -202,7 +202,7 @@ pub async fn get_all_shard_data(
         let r = handle_arangodb_response(resp, |c| {
             c == StatusCode::NO_CONTENT || c == StatusCode::OK || c == StatusCode::CREATED
         })
-            .await;
+        .await;
         if let Err(rr) = r {
             error = rr;
             error_happened = true;
@@ -264,7 +264,8 @@ pub async fn get_all_shard_data(
         id: u64,
     }
 
-    let par_per_dbserver = (req.configuration.parallelism.unwrap() as usize + dbservers.len() - 1) / dbservers.len();
+    let par_per_dbserver =
+        (req.configuration.parallelism.unwrap() as usize + dbservers.len() - 1) / dbservers.len();
     let mut task_set = JoinSet::new();
     let mut endpoints_round_robin: usize = 0;
     let mut consumers_round_robin: usize = 0;
@@ -321,7 +322,7 @@ pub async fn get_all_shard_data(
                     let resp = handle_arangodb_response(resp, |c| {
                         c == StatusCode::OK || c == StatusCode::NO_CONTENT
                     })
-                        .await?;
+                    .await?;
                     let end = SystemTime::now();
                     let dur = end.duration_since(start).unwrap();
                     if resp.status() == StatusCode::NO_CONTENT {
