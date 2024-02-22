@@ -1,11 +1,15 @@
 mod arangodb;
 mod convert;
 mod graphs;
+mod input;
 mod load_request;
 mod output;
 mod retrieval;
 
 use crate::convert::{convert_coo_edge_map, convert_nested_features_map};
+use crate::load_request::{
+    CollectionDescription, DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration,
+};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
@@ -15,8 +19,11 @@ type PygCompatible<'a> = (&'a PyDict, &'a PyDict, &'a PyDict);
 /// Requires numpy as a runtime dependency
 #[cfg(not(test))]
 #[pyfunction]
-fn graph_to_pyg_format<'a>(py: Python<'a>) -> PyResult<PygCompatible<'a>> {
-    let graph = retrieval::get_arangodb_graph();
+fn graph_to_pyg_format<'a>(
+    py: Python<'a>,
+    request: DataLoadRequest,
+) -> PyResult<PygCompatible<'a>> {
+    let graph = retrieval::get_arangodb_graph(request);
     let col_to_features =
         output::construct_col_to_features(convert_nested_features_map(graph.cols_to_features), py)?;
     let coo_by_from_edge_to =

@@ -3,9 +3,7 @@ use crate::arangodb::{
     ShardDistribution,
 };
 use crate::graphs::Graph;
-use crate::load_request::{
-    CollectionDescription, DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration,
-};
+use crate::load_request::DataLoadRequest;
 use bytes::Bytes;
 use log::{debug, info};
 use reqwest::StatusCode;
@@ -14,30 +12,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 
-pub fn get_arangodb_graph() -> Graph {
-    let body = DataLoadRequest {
-        database: "abide".into(),
-        vertex_collections: vec![CollectionDescription {
-            name: "Subjects".into(),
-            fields: vec!["label".into(), "brain_fmri_features".into()],
-        }],
-        edge_collections: vec![CollectionDescription {
-            name: "medical_affinity_graph".into(),
-            fields: vec![],
-        }],
-        configuration: DataLoadConfiguration {
-            database_config: DatabaseConfiguration {
-                endpoints: vec!["http://localhost:8529".into()],
-                username: Some("root".into()),
-                password: Some("test".into()),
-                jwt_token: None,
-                tls_cert_location: None,
-            },
-            batch_size: Some(400000),
-            parallelism: Some(5),
-        },
-    };
-
+pub fn get_arangodb_graph(req: DataLoadRequest) -> Graph {
     let graph = Graph::new(true, 64, 0);
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
@@ -49,7 +24,7 @@ pub fn get_arangodb_graph() -> Graph {
             .unwrap()
             .block_on(async {
                 println!("Loading!");
-                fetch_graph_from_arangodb(body, graph_clone).await
+                fetch_graph_from_arangodb(req, graph_clone).await
             })
     });
     let _ = handle.join().expect("Couldn't finish computation");

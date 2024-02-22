@@ -16,11 +16,33 @@ pub struct DataLoadConfiguration {
     pub batch_size: Option<u64>,
 }
 
+impl DataLoadConfiguration {
+    pub fn default() -> DataLoadConfiguration {
+        DataLoadConfiguration {
+            database_config: DatabaseConfiguration::default(),
+            parallelism: Some(5),
+            batch_size: Some(400000),
+        }
+    }
+}
+
 pub struct DatabaseConfiguration {
     pub endpoints: Vec<String>,
     // optional components of this configuration
     pub username: Option<String>,
     pub password: Option<String>,
     pub jwt_token: Option<String>,
-    pub tls_cert_location: Option<String>,
+    pub tls_cert: Option<String>,
+}
+
+impl DatabaseConfiguration {
+    pub fn default() -> DatabaseConfiguration {
+        DatabaseConfiguration {
+            endpoints: vec!["http://localhost:8529".into()],
+            username: Some("root".into()),
+            password: Some("".into()),
+            jwt_token: None,
+            tls_cert: None,
+        }
+    }
 }
