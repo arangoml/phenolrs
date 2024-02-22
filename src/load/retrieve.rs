@@ -1,0 +1,182 @@
+use crate::arangodb::{
+    compute_shard_map, get_all_shard_data, handle_arangodb_response_with_parsed_body,
+    ShardDistribution, ShardMap,
+};
+use crate::client::{build_client, handle_auth};
+use crate::graphs::Graph;
+use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
+use crate::load::receive;
+use bytes::Bytes;
+use log::info;
+use reqwest::StatusCode;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+use std::thread::JoinHandle;
+use std::time::SystemTime;
+
+pub fn get_arangodb_graph(req: DataLoadRequest) -> Graph {
+    let graph = Graph::new(true, 64, 0);
+    let graph_clone = graph.clone(); // for background thread
+    println!("Starting computation");
+    // Fetch from ArangoDB in a background thread:
+    let handle = std::thread::spawn(move || {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                println!("Loading!");
+                fetch_graph_from_arangodb(req, graph_clone).await
+            })
+    });
+    let _ = handle.join().expect("Couldn't finish computation");
+    let inner_rw_lock = Arc::<std::sync::RwLock<Graph>>::try_unwrap(graph).unwrap();
+    inner_rw_lock.into_inner().unwrap()
+}
+
+pub async fn fetch_graph_from_arangodb(
+    req: DataLoadRequest,
+    graph_arc: Arc<RwLock<Graph>>,
+) -> Result<Arc<RwLock<Graph>>, String> {
+    let db_config = &req.configuration.database_config;
+    if db_config.endpoints.is_empty() {
+        return Err("no endpoints given".to_string());
+    }
+    let begin = std::time::SystemTime::now();
+
+    info!(
+        "{:?} Fetching graph from ArangoDB...",
+        std::time::SystemTime::now().duration_since(begin).unwrap()
+    );
+
+    let use_tls = db_config.endpoints[0].starts_with("https://");
+    let client = build_client(use_tls, &db_config.tls_cert)?;
+
+    let make_url =
+        |path: &str| -> String { db_config.endpoints[0].clone() + "/_db/" + &req.database + path };
+
+    // First ask for the shard distribution:
+    let url = make_url("/_admin/cluster/shardDistribution");
+    let resp = handle_auth(client.get(url), db_config).send().await;
+    let shard_dist =
+        handle_arangodb_response_with_parsed_body::<ShardDistribution>(resp, StatusCode::OK)
+            .await?;
+
+    // Compute which shard we must get from which dbserver, we do vertices
+    // and edges right away to be able to error out early:
+    let vertex_coll_list = req
+        .vertex_collections
+        .iter()
+        .map(|ci| -> String { ci.name.clone() })
+        .collect();
+    let vertex_map = compute_shard_map(&shard_dist, &vertex_coll_list)?;
+    let vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>> =
+        Arc::new(RwLock::new(HashMap::new()));
+    {
+        let mut guard = vertex_coll_field_map.write().unwrap();
+        for vc in req.vertex_collections.iter() {
+            guard.insert(vc.name.clone(), vc.fields.clone());
+        }
+    }
+    let edge_coll_list = req
+        .edge_collections
+        .iter()
+        .map(|ci| -> String { ci.name.clone() })
+        .collect();
+    let edge_map = compute_shard_map(&shard_dist, &edge_coll_list)?;
+
+    info!(
+        "{:?} Need to fetch data from {} vertex shards and {} edge shards...",
+        std::time::SystemTime::now().duration_since(begin).unwrap(),
+        vertex_map.values().map(|v| v.len()).sum::<usize>(),
+        edge_map.values().map(|v| v.len()).sum::<usize>()
+    );
+
+    load_vertices(
+        &req,
+        &graph_arc,
+        &db_config,
+        begin,
+        &vertex_map,
+        vertex_coll_field_map,
+    )
+    .await?;
+    load_edges(&req, &graph_arc, &db_config, begin, &edge_map).await?;
+
+    // And now the edges:
+    {
+        info!(
+            "{:?} Graph loaded.",
+            std::time::SystemTime::now().duration_since(begin).unwrap()
+        );
+    }
+    info!("hi");
+    Ok(graph_arc)
+}
+
+async fn load_edges(
+    req: &DataLoadRequest,
+    graph_arc: &Arc<RwLock<Graph>>,
+    db_config: &&DatabaseConfiguration,
+    begin: SystemTime,
+    edge_map: &ShardMap,
+) -> Result<(), String> {
+    let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
+    let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
+    for _i in 0..req
+        .configuration
+        .parallelism
+        .expect("Why is parallelism missing")
+    {
+        let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
+        senders.push(sender);
+        let graph_clone = graph_arc.clone();
+        let consumer = std::thread::spawn(move || receive::receive_edges(receiver, graph_clone));
+        consumers.push(consumer);
+    }
+    get_all_shard_data(&req, &db_config, &edge_map, senders).await?;
+    info!(
+        "{:?} Got all data, processing...",
+        std::time::SystemTime::now().duration_since(begin).unwrap()
+    );
+    for c in consumers {
+        let _guck = c.join();
+    }
+    Ok(())
+}
+
+async fn load_vertices(
+    req: &DataLoadRequest,
+    graph_arc: &Arc<RwLock<Graph>>,
+    db_config: &&DatabaseConfiguration,
+    begin: SystemTime,
+    vertex_map: &ShardMap,
+    vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>>,
+) -> Result<(), String> {
+    // We use multiple threads to receive the data in batches:
+    let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
+    let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
+    for _i in 0..req
+        .configuration
+        .parallelism
+        .expect("Why is parallelism missing")
+    {
+        let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
+        senders.push(sender);
+        let graph_clone = graph_arc.clone();
+        let vertex_coll_field_map_clone = vertex_coll_field_map.clone();
+        let consumer = std::thread::spawn(move || {
+            receive::receive_vertices(receiver, graph_clone, vertex_coll_field_map_clone)
+        });
+        consumers.push(consumer);
+    }
+    get_all_shard_data(&req, &db_config, &vertex_map, senders).await?;
+    info!(
+        "{:?} Got all data, processing...",
+        std::time::SystemTime::now().duration_since(begin).unwrap()
+    );
+    for c in consumers {
+        let _guck = c.join();
+    }
+    Ok(())
+}

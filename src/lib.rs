@@ -1,14 +1,13 @@
 mod arangodb;
 mod client;
-mod convert;
 mod graphs;
 mod input;
-mod load_request;
+mod load;
 mod output;
-mod retrieval;
 
-use crate::convert::{convert_coo_edge_map, convert_nested_features_map};
-use crate::load_request::DataLoadRequest;
+use crate::input::load_request::DataLoadRequest;
+use output::construct;
+use output::convert::{convert_coo_edge_map, convert_nested_features_map};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
@@ -22,13 +21,17 @@ fn graph_to_pyg_format<'a>(
     py: Python<'a>,
     request: DataLoadRequest,
 ) -> PyResult<PygCompatible<'a>> {
-    let graph = retrieval::get_arangodb_graph(request);
-    let col_to_features =
-        output::construct_col_to_features(convert_nested_features_map(graph.cols_to_features), py)?;
-    let coo_by_from_edge_to =
-        output::construct_coo_by_from_edge_to(convert_coo_edge_map(graph.coo_by_from_edge_to), py)?;
+    let graph = load::retrieve::get_arangodb_graph(request);
+    let col_to_features = construct::construct_col_to_features(
+        convert_nested_features_map(graph.cols_to_features),
+        py,
+    )?;
+    let coo_by_from_edge_to = construct::construct_coo_by_from_edge_to(
+        convert_coo_edge_map(graph.coo_by_from_edge_to),
+        py,
+    )?;
     let cols_to_keys_to_inds =
-        output::construct_cols_to_keys_to_inds(graph.cols_to_keys_to_inds, py)?;
+        construct::construct_cols_to_keys_to_inds(graph.cols_to_keys_to_inds, py)?;
     println!("Finished retrieval!");
     let res = (col_to_features, coo_by_from_edge_to, cols_to_keys_to_inds);
     Ok(res)

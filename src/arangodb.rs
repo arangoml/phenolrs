@@ -1,6 +1,6 @@
 use crate::client;
 use crate::client::handle_auth;
-use crate::load_request::{DataLoadRequest, DatabaseConfiguration};
+use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
 use bytes::Bytes;
 use log::debug;
 use reqwest::StatusCode;

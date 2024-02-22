@@ -1,4 +1,4 @@
-use crate::load_request::DatabaseConfiguration;
+use crate::input::load_request::DatabaseConfiguration;
 use reqwest::RequestBuilder;
 use std::fs::File;
 use std::io::Read;
