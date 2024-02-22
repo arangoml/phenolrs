@@ -1,13 +1,12 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 use bytes::Bytes;
 use log::{debug, info};
 use reqwest::StatusCode;
 use serde_json::{json, Value};
-use xxhash_rust::xxh3::xxh3_64_with_seed;
 use crate::arangodb::{build_client, compute_shard_map, get_all_shard_data, handle_arangodb_response_with_parsed_body, ShardDistribution};
-use crate::graphs::{Graph, VertexHash, VertexIndex};
+use crate::graphs::Graph;
 use crate::load_request::{CollectionDescription, DatabaseConfiguration, DataLoadConfiguration, DataLoadRequest};
 
 
@@ -124,12 +123,10 @@ pub async fn fetch_graph_from_arangodb(
         // We use multiple threads to receive the data in batches:
         let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
         let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
-        let prog_reported = Arc::new(Mutex::new(0 as u64));
         for _i in 0..req.configuration.parallelism.expect("Why is parallelism missing") {
             let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
             senders.push(sender);
             let graph_clone = graph_arc.clone();
-            let prog_reported_clone = prog_reported.clone();
             let vertex_coll_field_map_clone = vertex_coll_field_map.clone();
             let consumer = std::thread::spawn(move || -> Result<(), String> {
                 let vcf_map = vertex_coll_field_map_clone.read().unwrap();
@@ -248,12 +245,10 @@ pub async fn fetch_graph_from_arangodb(
     {
         let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
         let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
-        let prog_reported = Arc::new(Mutex::new(0 as u64));
         for _i in 0..req.configuration.parallelism.expect("Why is parallelism missing") {
             let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
             senders.push(sender);
             let graph_clone = graph_arc.clone();
-            let prog_reported_clone = prog_reported.clone();
             let consumer = std::thread::spawn(move || -> Result<(), String> {
                 while let Ok(resp) = receiver.recv() {
                     let body = std::str::from_utf8(resp.as_ref())
@@ -319,18 +314,13 @@ pub async fn fetch_graph_from_arangodb(
                     }
                     let mut edges: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = vec![];
                     edges.reserve(froms.len());
-                    {
-                        // First translate keys to indexes by reading
-                        // the graph object:
-                        let graph = graph_clone.read().unwrap();
-                        assert!(froms.len() == tos.len());
-                        for i in 0..froms.len() {
-                            let from_key = &froms[i];
-                            let from_opt = graph.index_from_vertex_key(from_key);
-                            let to_key = &tos[i];
-                            let to_opt = graph.index_from_vertex_key(to_key);
-                            edges.push((current_col_name.clone().unwrap(), from_key.clone(), to_key.clone()));
-                        }
+                    // First translate keys to indexes by reading
+                    // the graph object:
+                    assert!(froms.len() == tos.len());
+                    for i in 0..froms.len() {
+                        let from_key = &froms[i];
+                        let to_key = &tos[i];
+                        edges.push((current_col_name.clone().unwrap(), from_key.clone(), to_key.clone()));
                     }
                     {
                         // Now actually insert edges by writing the graph

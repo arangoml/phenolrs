@@ -1,36 +1,12 @@
-use base64::{engine::general_purpose, Engine as _};
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use log::info;
-use rand::Rng;
-use serde_json::{json, Value};
-use std::cmp::Ordering;
+use serde_json::Value;
 use std::collections::HashMap;
-use std::convert::Infallible;
-use std::io::Cursor;
-use std::sync::{Arc, Mutex, RwLock};
-use xxhash_rust::xxh3::xxh3_64_with_seed;
+use std::sync::{Arc, RwLock};
 
 #[derive(Eq, Hash, PartialEq, Clone, Copy, Ord, PartialOrd, Debug)]
 pub struct VertexHash(u64);
-impl VertexHash {
-    pub fn new(x: u64) -> VertexHash {
-        VertexHash(x)
-    }
-    pub fn to_u64(&self) -> u64 {
-        self.0
-    }
-}
 
 #[derive(Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Debug)]
 pub struct VertexIndex(u64);
-impl VertexIndex {
-    pub fn new(x: u64) -> VertexIndex {
-        VertexIndex(x)
-    }
-    pub fn to_u64(&self) -> u64 {
-        self.0
-    }
-}
 
 #[derive(Debug)]
 pub struct Edge {
@@ -91,16 +67,6 @@ pub struct Graph {
     pub cols_to_features: HashMap<String, HashMap<String, Vec<Vec<f64>>>>
 }
 
-struct EdgeTemp {
-    pub from: VertexIndex,
-    pub to: VertexIndex,
-}
-
-pub enum KeyOrHash {
-    Key(Vec<u8>),
-    Hash(VertexHash),
-}
-
 impl Graph {
     pub fn new(store_keys: bool, _bits_for_hash: u8, id: u64) -> Arc<RwLock<Graph>> {
         Arc::new(RwLock::new(Graph {
@@ -154,7 +120,7 @@ impl Graph {
                 match data {
                     Some(data) => {
                         let features_in_json = field_names.iter()
-                            .filter(|name| { data.contains_key(*name)} ).collect::<Vec<&String>>();;
+                            .filter(|name| { data.contains_key(*name)} ).collect::<Vec<&String>>();
                         if features_in_json.len() != field_names.len() {
                             Err(())
                         } else {
@@ -226,7 +192,7 @@ impl Graph {
                 if !self.cols_to_features.contains_key(&col_name) {
                     self.cols_to_features.insert(col_name.clone(), HashMap::new());
                 }
-                let mut current_col_to_feats = self.cols_to_features.get_mut(&col_name).expect("Unable to get col");
+                let current_col_to_feats = self.cols_to_features.get_mut(&col_name).expect("Unable to get col");
 
                 for (feature_name, feature_vec) in feature_map {
                     if !current_col_to_feats.contains_key(&feature_name) {
@@ -239,62 +205,7 @@ impl Graph {
         }
     }
 
-    pub fn hash_from_vertex_key(&self, k: &[u8]) -> Option<VertexHash> {
-        let hash = VertexHash(xxh3_64_with_seed(k, 0xdeadbeefdeadbeef));
-        let index = self.hash_to_index.get(&hash);
-        match index {
-            None => None,
-            Some(index) => {
-                if index.0 & 0x80000000_00000000 != 0 {
-                    // collision!
-                    let except = self.exceptions.get(k);
-                    match except {
-                        Some(h) => Some(*h),
-                        None => Some(hash),
-                    }
-                } else {
-                    Some(hash)
-                }
-            }
-        }
-    }
-
-    pub fn index_from_vertex_key(&self, k: &[u8]) -> Option<VertexIndex> {
-        let hash: Option<VertexHash> = self.hash_from_vertex_key(k);
-        match hash {
-            None => None,
-            Some(vh) => {
-                let index = self.hash_to_index.get(&vh);
-                match index {
-                    None => None,
-                    Some(index) => Some(*index),
-                }
-            }
-        }
-    }
-
-    pub fn index_from_hash(&self, h: &VertexHash) -> Option<VertexIndex> {
-        let index = self.hash_to_index.get(h);
-        match index {
-            None => None,
-            Some(i) => Some(*i),
-        }
-    }
-
-    pub fn index_from_key_or_hash(&self, key_or_hash: &KeyOrHash) -> Option<VertexIndex> {
-        match key_or_hash {
-            KeyOrHash::Hash(h) => {
-                // Lookup if hash exists, if so, this is the index
-                self.index_from_hash(h)
-            }
-            KeyOrHash::Key(k) => {
-                // Hash key, look up hash, check for exception:
-                self.index_from_vertex_key(k)
-            }
-        }
-    }
-
-    pub fn insert_edge(&mut self, col_name: Vec<u8>, from_id: Vec<u8>, to_id: Vec<u8>, data: Vec<u8>) {
+    pub fn insert_edge(&mut self, col_name: Vec<u8>, from_id: Vec<u8>, to_id: Vec<u8>, _data: Vec<u8>) {
         // build up the coo representation
         let from_col: String = String::from_utf8({
             let s = String::from_utf8(from_id.clone()).expect("_from to be a string");
