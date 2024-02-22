@@ -14,7 +14,7 @@ use crate::graphs::Graph;
 
 type PygCompatible<'a> = (&'a PyDict, &'a PyDict, &'a PyDict);
 
-#[cfg(not(test))]
+#[cfg(not(test))] // not(test) is needed to let us use `cargo test`
 fn construct_col_to_features<'pl>(input: HashMap<String, HashMap<String, Array<f64, Ix2>>>,  py: Python<'pl>) -> PyResult<&'pl PyDict> {
     let dict = PyDict::new(py);
     (&input).into_iter()
@@ -56,9 +56,7 @@ fn construct_cols_to_keys_to_inds<'pl>(input: HashMap<String, HashMap<String, us
 #[cfg(not(test))]
 #[pyfunction]
 fn graph_to_pyg_format<'a>(py: Python<'a>) -> PyResult<PygCompatible<'a>> {
-    let graph_arc = retrieval::get_arangodb_graph();
-    let inner_rw = Arc::<std::sync::RwLock<Graph>>::try_unwrap(graph_arc).unwrap();
-    let graph = inner_rw.into_inner().unwrap();
+    let graph = retrieval::get_arangodb_graph();
     let col_to_features = construct_col_to_features(graph.cols_to_features.iter().map(|(col_name, features)| {
         let mut col_map: HashMap<String, Array2<f64>> = features.iter().filter_map(|(feature_name, nested_feature_vec)| {
             if nested_feature_vec.is_empty() {

@@ -8,11 +8,11 @@ use serde_json::{json, Value};
 use xxhash_rust::xxh3::xxh3_64_with_seed;
 use crate::arangodb::{build_client, compute_shard_map, get_all_shard_data, handle_arangodb_response_with_parsed_body, ShardDistribution};
 use crate::graphs::{Graph, VertexHash, VertexIndex};
-use crate::load_request::{CollectionDescription, GraphAnalyticsEngineDataLoadRequest};
+use crate::load_request::{CollectionDescription, DatabaseConfiguration, DataLoadConfiguration, DataLoadRequest};
 
 
-pub fn get_arangodb_graph() -> Arc<RwLock<Graph>> {
-    let body = GraphAnalyticsEngineDataLoadRequest {
+pub fn get_arangodb_graph() -> Graph {
+    let body = DataLoadRequest {
         database: "abide".into(),
         vertex_collections: vec![
             CollectionDescription {
@@ -26,8 +26,17 @@ pub fn get_arangodb_graph() -> Arc<RwLock<Graph>> {
                 fields: vec![]
             }
         ],
-        batch_size: Some(400000),
-        parallelism: Some(5)
+        configuration: DataLoadConfiguration {
+            database_config: DatabaseConfiguration {
+                endpoints: vec!["http://localhost:8529".into()],
+                username: Some("root".into()),
+                password: Some("test".into()),
+                jwt_token: None,
+                tls_cert_location: None
+            },
+            batch_size: Some(400000),
+            parallelism: Some(5)
+        }
     };
 
     let graph = Graph::new(true, 64, 0);
@@ -45,19 +54,16 @@ pub fn get_arangodb_graph() -> Arc<RwLock<Graph>> {
             })
     });
     let _ = handle.join().expect("Couldn't finish computation");
-    graph
+    let inner_rw_lock = Arc::<std::sync::RwLock<Graph>>::try_unwrap(graph).unwrap();
+    inner_rw_lock.into_inner().unwrap()
 }
 
 pub async fn fetch_graph_from_arangodb(
-    req: GraphAnalyticsEngineDataLoadRequest,
+    req: DataLoadRequest,
     graph_arc: Arc<RwLock<Graph>>,
 ) -> Result<Arc<RwLock<Graph>>, String> {
-    // TODO: update this
-    let endpoints: Vec<String> = vec!["http://localhost:8529".into()];
-    let username: String = "root".into();
-    let password: String = "test".into();
-
-    if endpoints.is_empty() {
+    let db_config = &req.configuration.database_config;
+    if db_config.endpoints.is_empty() {
         return Err("no endpoints given".to_string());
     }
     let begin = std::time::SystemTime::now();
@@ -67,16 +73,16 @@ pub async fn fetch_graph_from_arangodb(
         std::time::SystemTime::now().duration_since(begin).unwrap()
     );
 
-    let use_tls = endpoints[0].starts_with("https://");
+    let use_tls = db_config.endpoints[0].starts_with("https://");
     let client = build_client(use_tls)?;
 
-    let make_url = |path: &str| -> String { endpoints[0].clone() + "/_db/" + &req.database + path };
+    let make_url = |path: &str| -> String { db_config.endpoints[0].clone() + "/_db/" + &req.database + path };
 
     // First ask for the shard distribution:
     let url = make_url("/_admin/cluster/shardDistribution");
     let resp = client
         .get(url)
-        .basic_auth(&username, Some(&password))
+        .basic_auth(db_config.username.as_ref().unwrap(), db_config.password.as_ref())
         .send()
         .await;
     let shard_dist =
@@ -119,7 +125,7 @@ pub async fn fetch_graph_from_arangodb(
         let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
         let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
         let prog_reported = Arc::new(Mutex::new(0 as u64));
-        for _i in 0..req.parallelism.expect("Why is parallelism missing") {
+        for _i in 0..req.configuration.parallelism.expect("Why is parallelism missing") {
             let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
             senders.push(sender);
             let graph_clone = graph_arc.clone();
@@ -228,7 +234,7 @@ pub async fn fetch_graph_from_arangodb(
             });
             consumers.push(consumer);
         }
-        get_all_shard_data(&req, &endpoints, &username, &password, &vertex_map, senders).await?;
+        get_all_shard_data(&req, &db_config.endpoints, db_config.username.as_ref().unwrap(), db_config.password.as_ref().unwrap(), &vertex_map, senders).await?;
         info!(
             "{:?} Got all data, processing...",
             std::time::SystemTime::now().duration_since(begin).unwrap()
@@ -243,7 +249,7 @@ pub async fn fetch_graph_from_arangodb(
         let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
         let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
         let prog_reported = Arc::new(Mutex::new(0 as u64));
-        for _i in 0..req.parallelism.expect("Why is parallelism missing") {
+        for _i in 0..req.configuration.parallelism.expect("Why is parallelism missing") {
             let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
             senders.push(sender);
             let graph_clone = graph_arc.clone();
@@ -339,7 +345,7 @@ pub async fn fetch_graph_from_arangodb(
             });
             consumers.push(consumer);
         }
-        get_all_shard_data(&req, &endpoints, &username, &password, &edge_map, senders).await?;
+        get_all_shard_data(&req, &db_config.endpoints, db_config.username.as_ref().unwrap(), db_config.password.as_ref().unwrap(), &edge_map, senders).await?;
         info!(
             "{:?} Got all data, processing...",
             std::time::SystemTime::now().duration_since(begin).unwrap()

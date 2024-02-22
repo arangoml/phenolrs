@@ -5,7 +5,7 @@ use log::debug;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinSet;
-use crate::load_request::GraphAnalyticsEngineDataLoadRequest;
+use crate::load_request::DataLoadRequest;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ShardLocation {
@@ -163,7 +163,7 @@ struct DumpStartBody {
 }
 
 pub async fn get_all_shard_data(
-    req: &GraphAnalyticsEngineDataLoadRequest,
+    req: &DataLoadRequest,
     endpoints: &Vec<String>,
     username: &String,
     password: &String,
@@ -186,9 +186,9 @@ pub async fn get_all_shard_data(
     for (server, shard_list) in shard_map.iter() {
         let url = make_url(&format!("/_api/dump/start?dbserver={}", server));
         let body = DumpStartBody {
-            batch_size: req.batch_size.unwrap(),
+            batch_size: req.configuration.batch_size.unwrap(),
             prefetch_count: 5,
-            parallelism: req.parallelism.unwrap(),
+            parallelism: req.configuration.parallelism.unwrap(),
             shards: shard_list.clone(),
         };
         let body_v =
@@ -264,7 +264,7 @@ pub async fn get_all_shard_data(
         id: u64,
     }
 
-    let par_per_dbserver = (req.parallelism.unwrap() as usize + dbservers.len() - 1) / dbservers.len();
+    let par_per_dbserver = (req.configuration.parallelism.unwrap() as usize + dbservers.len() - 1) / dbservers.len();
     let mut task_set = JoinSet::new();
     let mut endpoints_round_robin: usize = 0;
     let mut consumers_round_robin: usize = 0;
