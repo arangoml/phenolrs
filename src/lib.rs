@@ -60,8 +60,11 @@ fn graph_to_pyg_format<'a>(py: Python<'a>) -> PyResult<PygCompatible<'a>> {
     let inner_rw = Arc::<std::sync::RwLock<Graph>>::try_unwrap(graph_arc).unwrap();
     let graph = inner_rw.into_inner().unwrap();
     let col_to_features = construct_col_to_features(graph.cols_to_features.iter().map(|(col_name, features)| {
-        let mut col_map: HashMap<String, Array2<f64>> = features.iter().map(|(feature_name, nested_feature_vec)| {
-            let num_verts: usize = graph.number_of_vertices() as usize;
+        let mut col_map: HashMap<String, Array2<f64>> = features.iter().filter_map(|(feature_name, nested_feature_vec)| {
+            if nested_feature_vec.is_empty() {
+                return None;
+            }
+            let num_verts: usize = nested_feature_vec.len();
             let dim =
                 if nested_feature_vec.len() > 0 {
                     nested_feature_vec[0].len()
@@ -74,20 +77,23 @@ fn graph_to_pyg_format<'a>(py: Python<'a>) -> PyResult<PygCompatible<'a>> {
                     *col = nested_feature_vec[i][j];
                 }
             }
-            (feature_name.clone(), arr)
+            Some((feature_name.clone(), arr))
         }).collect();
         (col_name.clone(), col_map)
     }).collect(), py)?;
-    let coo_by_from_edge_to = construct_coo_by_from_edge_to(graph.coo_by_from_edge_to.iter().map(|item| {
-        let num_edges: usize = graph.number_of_edges() as usize;
+    let coo_by_from_edge_to = construct_coo_by_from_edge_to(graph.coo_by_from_edge_to.iter().filter_map(|(edge_tup, edge_mat)| {
+        if edge_mat.is_empty() {
+            return None;
+        }
+        let num_edges: usize = edge_mat[0].len();
         let dim: usize = 2;
         let mut arr = Array2::<usize>::default((dim, num_edges));
         for (i, mut row) in arr.axis_iter_mut(Axis(0)).enumerate() {
             for (j, col) in row.iter_mut().enumerate() {
-                *col = item.1[i][j];
+                *col = edge_mat[i][j];
             }
         }
-        (item.0.clone(), arr)
+        Some((edge_tup.clone(), arr))
     }).collect(), py)?;
     let cols_to_keys_to_inds = construct_cols_to_keys_to_inds(graph.cols_to_keys_to_inds, py)?;
     println!("Finished retrieval!");

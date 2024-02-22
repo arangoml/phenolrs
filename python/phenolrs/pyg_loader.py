@@ -1,3 +1,5 @@
+import typing
+
 from torch_geometric.data import HeteroData, Data
 import torch
 import numpy as np
@@ -14,7 +16,15 @@ class PygLoader:
         pass
 
     @staticmethod
-    def load_into_pyg_heterodata() -> HeteroData:
+    def load_into_pyg_heterodata(
+            vertex_collections: dict[str, typing.Any],
+            edge_collections: dict[str, typing.Any],
+            hosts: list[str],
+            user_jwt: str = None,
+            username: str = None,
+            password: str = None,
+            tls_cert: typing.Any = None,
+    ) -> HeteroData:
         data = HeteroData()
         features_by_col, coo_map, col_to_key_inds  = graph_to_pyg_format()
 

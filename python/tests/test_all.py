@@ -1,6 +1,8 @@
-import pytest
-import phenolrs
+from torch_geometric.data import HeteroData
+
+from phenolrs.pyg_loader import PygLoader
 
 
-def test_sum_as_string():
-    assert phenolrs.sum_as_string(1, 1) == "2"
+def test_phenol():
+    result = PygLoader.load_into_pyg_heterodata({}, {}, [])
+    assert isinstance(result, HeteroData)

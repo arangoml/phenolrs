@@ -13,7 +13,7 @@ use crate::load_request::{CollectionDescription, GraphAnalyticsEngineDataLoadReq
 
 pub fn get_arangodb_graph() -> Arc<RwLock<Graph>> {
     let body = GraphAnalyticsEngineDataLoadRequest {
-        database: "ABIDE".into(),
+        database: "abide".into(),
         vertex_collections: vec![
             CollectionDescription {
                 name: "Subjects".into(),
@@ -207,39 +207,21 @@ pub async fn fetch_graph_from_arangodb(
                             }
                         }
                     }
-                    let nr_vertices: u64;
                     {
                         let mut graph = graph_clone.write().unwrap();
-                        let mut exceptional: Vec<(u32, VertexHash)> = vec![];
-                        let mut exceptional_keys: Vec<Vec<u8>> = vec![];
                         for i in 0..vertex_keys.len() {
                             let k = &vertex_keys[i];
-                            let hash = VertexHash::new(xxh3_64_with_seed(k, 0xdeadbeefdeadbeef));
                             graph.insert_vertex(
-                                i as u32,
-                                hash,
                                 k.clone(),
-                                vec![],
                                 if vertex_json.is_empty() {
                                     None
                                 } else {
                                     Some(vertex_json[i].clone())
                                 },
-                                &mut exceptional,
-                                &mut exceptional_keys,
-                                current_vertex_col.clone().unwrap()
+                                current_vertex_col.clone().unwrap(),
+                                &fields,
                             );
                         }
-                        nr_vertices = graph.number_of_vertices();
-                    }
-                    let mut prog = prog_reported_clone.lock().unwrap();
-                    if nr_vertices > *prog + 1000000 as u64 {
-                        *prog = nr_vertices;
-                        info!(
-                            "{:?} Have imported {} vertices.",
-                            std::time::SystemTime::now().duration_since(begin).unwrap(),
-                            *prog
-                        );
                     }
                 }
                 Ok(())
@@ -254,8 +236,6 @@ pub async fn fetch_graph_from_arangodb(
         for c in consumers {
             let _guck = c.join();
         }
-        let mut graph = graph_arc.write().unwrap();
-        graph.seal_vertices();
     }
 
     // And now the edges:
@@ -331,7 +311,7 @@ pub async fn fetch_graph_from_arangodb(
                             _ => {}
                         };
                     }
-                    let mut edges: Vec<(VertexIndex, VertexIndex, Vec<u8>, Vec<u8>, Vec<u8>)> = vec![];
+                    let mut edges: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = vec![];
                     edges.reserve(froms.len());
                     {
                         // First translate keys to indexes by reading
@@ -343,31 +323,16 @@ pub async fn fetch_graph_from_arangodb(
                             let from_opt = graph.index_from_vertex_key(from_key);
                             let to_key = &tos[i];
                             let to_opt = graph.index_from_vertex_key(to_key);
-                            if from_opt.is_some() && to_opt.is_some() {
-                                edges.push((from_opt.unwrap(), to_opt.unwrap(), current_col_name.clone().unwrap(), from_key.clone(), to_key.clone()));
-                            } else {
-                                eprintln!("Did not find _from or _to key in vertices!");
-                            }
+                            edges.push((current_col_name.clone().unwrap(), from_key.clone(), to_key.clone()));
                         }
                     }
-                    let nr_edges: u64;
                     {
                         // Now actually insert edges by writing the graph
                         // object:
                         let mut graph = graph_clone.write().unwrap();
                         for e in edges {
-                            graph.insert_edge(e.0, e.1, e.2, e.3, e.4, vec![]);
+                            graph.insert_edge(e.0, e.1, e.2, vec![]);
                         }
-                        nr_edges = graph.number_of_edges();
-                    }
-                    let mut prog = prog_reported_clone.lock().unwrap();
-                    if nr_edges > *prog + 1000000 as u64 {
-                        *prog = nr_edges;
-                        info!(
-                            "{:?} Have imported {} edges.",
-                            std::time::SystemTime::now().duration_since(begin).unwrap(),
-                            *prog
-                        );
                     }
                 }
                 Ok(())
@@ -383,8 +348,6 @@ pub async fn fetch_graph_from_arangodb(
             let _guck = c.join();
         }
 
-        let mut graph = graph_arc.write().unwrap();
-        graph.seal_edges();
         info!(
             "{:?} Graph loaded.",
             std::time::SystemTime::now().duration_since(begin).unwrap()
