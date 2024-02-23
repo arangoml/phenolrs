@@ -1,11 +1,13 @@
+use super::receive;
 use crate::arangodb::{
     compute_shard_map, get_all_shard_data, handle_arangodb_response_with_parsed_body,
     ShardDistribution, ShardMap,
 };
-use crate::client::{build_client, handle_auth};
+use crate::client::auth::handle_auth;
+use crate::client::build_client;
+use crate::client::config::ClientConfig;
 use crate::graphs::Graph;
 use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
-use crate::load::receive;
 use bytes::Bytes;
 use log::info;
 use reqwest::StatusCode;
@@ -50,7 +52,12 @@ pub async fn fetch_graph_from_arangodb(
     );
 
     let use_tls = db_config.endpoints[0].starts_with("https://");
-    let client = build_client(use_tls, &db_config.tls_cert)?;
+    let client_config = ClientConfig::builder()
+        .n_retries(5)
+        .use_tls(use_tls)
+        .tls_cert_opt(db_config.tls_cert.clone())
+        .build();
+    let client = build_client(&client_config)?;
 
     let make_url =
         |path: &str| -> String { db_config.endpoints[0].clone() + "/_db/" + &req.database + path };

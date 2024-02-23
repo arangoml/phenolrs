@@ -1,5 +1,6 @@
 use crate::client;
-use crate::client::handle_auth;
+use crate::client::auth::handle_auth;
+use crate::client::config::ClientConfig;
 use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
 use bytes::Bytes;
 use log::debug;
@@ -42,7 +43,7 @@ pub struct ArangoDBError {
 // connection errors, bad status codes and body parsing. The template
 // type is the type of the expected body in the good case.
 pub async fn handle_arangodb_response_with_parsed_body<T>(
-    resp: reqwest::Result<reqwest::Response>,
+    resp: reqwest_middleware::Result<reqwest::Response>,
     expected_code: reqwest::StatusCode,
 ) -> Result<T, String>
 where
@@ -148,7 +149,12 @@ pub async fn get_all_shard_data(
     let begin = SystemTime::now();
 
     let use_tls = connection_config.endpoints[0].starts_with("https://");
-    let client = client::build_client(use_tls, &connection_config.tls_cert)?;
+    let client_config = ClientConfig::builder()
+        .n_retries(5)
+        .use_tls(use_tls)
+        .tls_cert_opt(connection_config.tls_cert.clone())
+        .build();
+    let client = client::build_client(&client_config)?;
 
     let make_url = |path: &str| -> String {
         connection_config.endpoints[0].clone() + "/_db/" + &req.database + path
@@ -252,7 +258,7 @@ pub async fn get_all_shard_data(
             };
             //let client_clone = client.clone(); // the clones will share
             //                                   // the connection pool
-            let client_clone = client::build_client(use_tls, &connection_config.tls_cert)?;
+            let client_clone = client::build_client(&client_config)?;
             let endpoint_clone = (&connection_config.endpoints[endpoints_round_robin]).clone();
             endpoints_round_robin += 1;
             if endpoints_round_robin >= connection_config.endpoints.len() {
@@ -341,7 +347,7 @@ pub async fn get_all_shard_data(
 // This function handles an empty HTTP response from ArangoDB, including
 // connection errors and bad status codes.
 async fn handle_arangodb_response(
-    resp: reqwest::Result<reqwest::Response>,
+    resp: reqwest_middleware::Result<reqwest::Response>,
     code_test: fn(code: reqwest::StatusCode) -> bool,
 ) -> Result<reqwest::Response, String> {
     if let Err(err) = resp {

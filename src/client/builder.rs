@@ -1,20 +1,22 @@
-use crate::input::load_request::DatabaseConfiguration;
-use reqwest::RequestBuilder;
+use crate::client::config::ClientConfig;
+use reqwest::Client;
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_retry::policies::ExponentialBackoff;
+use reqwest_retry::RetryTransientMiddleware;
 use std::fs::File;
 use std::io::Read;
 
 pub fn build_client(
-    use_tls: bool,
-    tls_cert_path: &Option<String>,
-) -> Result<reqwest::Client, String> {
+    config: &ClientConfig,
+) -> Result<reqwest_middleware::ClientWithMiddleware, String> {
     let builder = reqwest::Client::builder();
-    if use_tls {
+    if config.use_tls {
         let mut client_builder = builder
             .use_rustls_tls()
             .min_tls_version(reqwest::tls::Version::TLS_1_2)
             .https_only(true);
 
-        if let Some(cert_path) = tls_cert_path {
+        if let Some(cert_path) = &config.tls_cert {
             let mut cert_buf = vec![];
             let file_open = File::open(cert_path);
             if let Err(err) = file_open {
@@ -40,38 +42,25 @@ pub fn build_client(
         if let Err(err) = client {
             return Err(format!("Error message from request builder: {:?}", err));
         }
-        Ok(client.unwrap())
+        let client = client_with_retries(&config.n_retries, client.unwrap());
+        Ok(client)
     } else {
-        let client = builder
-            //.connection_verbose(true)
-            //.http2_prior_knowledge()
-            .build();
+        let client = builder.build();
         if let Err(err) = client {
             return Err(format!("Error message from request builder: {:?}", err));
         }
-        Ok(client.unwrap())
+        let client = client_with_retries(&config.n_retries, client.unwrap());
+        Ok(client)
     }
 }
 
-pub fn handle_auth(
-    request_builder: RequestBuilder,
-    db_config: &DatabaseConfiguration,
-) -> RequestBuilder {
-    match &db_config.jwt_token {
-        Some(token) => request_builder.bearer_auth(token),
-        None => handle_basic_auth(request_builder, &db_config),
-    }
-}
-
-fn handle_basic_auth(
-    request_builder: RequestBuilder,
-    db_config: &&DatabaseConfiguration,
-) -> RequestBuilder {
-    match &db_config.username {
-        Some(username) => request_builder.basic_auth(username, db_config.password.as_ref()),
-        None => {
-            // proceed without authentication
-            request_builder
-        }
-    }
+pub fn client_with_retries(n_retries: &u32, client: Client) -> ClientWithMiddleware {
+    let retry_policy = ExponentialBackoff::builder()
+        .retry_bounds(
+            std::time::Duration::from_millis(30),
+            std::time::Duration::from_millis(3000),
+        )
+        .build_with_max_retries(*n_retries);
+    let retry_middleware = RetryTransientMiddleware::new_with_policy(retry_policy);
+    ClientBuilder::new(client).with(retry_middleware).build()
 }

@@ -5,7 +5,7 @@ mod input;
 mod load;
 mod output;
 
-use crate::input::load_request::DataLoadRequest;
+use input::load_request::DataLoadRequest;
 use output::construct;
 use output::convert::{convert_coo_edge_map, convert_nested_features_map};
 use pyo3::prelude::*;

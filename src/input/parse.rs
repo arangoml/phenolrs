@@ -1,4 +1,4 @@
-use crate::input::load_request::{
+use super::load_request::{
     CollectionDescription, DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration,
 };
 use pyo3::exceptions::PyValueError;
