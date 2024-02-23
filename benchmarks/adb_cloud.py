@@ -13,6 +13,8 @@ def load_abide(host: str, password: str, cert_path: str) -> None:
         username="root",
         password=password,
         tls_cert=cert_path,
+        parallelism=10,
+        batch_size=400000,
     )
     assert data["Subjects"]["brain_fmri_features"].shape == (871, 2000)
 

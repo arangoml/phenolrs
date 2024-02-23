@@ -25,26 +25,32 @@ class PygLoader:
         username: str = None,
         password: str = None,
         tls_cert: typing.Any = None,
+        parallelism: int = None,
+        batch_size: int = None,
     ) -> HeteroData:
-        config_options = {
+        db_config_options = {
             "endpoints": hosts,
         }
         if username:
-            config_options["username"] = username
+            db_config_options["username"] = username
         if password:
-            config_options["password"] = password
+            db_config_options["password"] = password
         if user_jwt:
-            config_options["jwt_token"] = user_jwt
+            db_config_options["jwt_token"] = user_jwt
         if tls_cert:
-            config_options["tls_cert"] = tls_cert
+            db_config_options["tls_cert"] = tls_cert
+
+        config = {"database_config": db_config_options}
+        if parallelism:
+            config["parallelism"] = parallelism
+        if batch_size:
+            config["batch_size"] = batch_size
         features_by_col, coo_map, col_to_key_inds = graph_to_pyg_format(
             {
                 "database": database,
                 "vertex_collections": vertex_collections,
                 "edge_collections": edge_collections,
-                "configuration": {
-                    "database_config": config_options
-                }
+                "configuration": {"database_config": db_config_options},
             }
         )
 
