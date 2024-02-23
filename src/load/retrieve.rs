@@ -16,7 +16,7 @@ use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 use std::time::SystemTime;
 
-pub fn get_arangodb_graph(req: DataLoadRequest) -> Graph {
+pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
     let graph = Graph::new(true, 64, 0);
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
@@ -31,9 +31,12 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Graph {
                 fetch_graph_from_arangodb(req, graph_clone).await
             })
     });
-    let _ = handle.join().expect("Couldn't finish computation");
+    handle
+        .join()
+        .map_err(|s| "Computation failed")?
+        .map_err(|s| s)?;
     let inner_rw_lock = Arc::<std::sync::RwLock<Graph>>::try_unwrap(graph).unwrap();
-    inner_rw_lock.into_inner().unwrap()
+    Ok(inner_rw_lock.into_inner().unwrap())
 }
 
 pub async fn fetch_graph_from_arangodb(
@@ -46,7 +49,7 @@ pub async fn fetch_graph_from_arangodb(
     }
     let begin = std::time::SystemTime::now();
 
-    info!(
+    println!(
         "{:?} Fetching graph from ArangoDB...",
         std::time::SystemTime::now().duration_since(begin).unwrap()
     );

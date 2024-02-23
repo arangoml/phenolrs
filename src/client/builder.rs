@@ -9,10 +9,9 @@ use std::io::Read;
 pub fn build_client(
     config: &ClientConfig,
 ) -> Result<reqwest_middleware::ClientWithMiddleware, String> {
-    let builder = reqwest::Client::builder();
+    let mut client_builder = reqwest::Client::builder();
     if config.use_tls {
-        let mut client_builder = builder
-            .use_rustls_tls()
+        client_builder = client_builder
             .min_tls_version(reqwest::tls::Version::TLS_1_2)
             .https_only(true);
 
@@ -36,7 +35,9 @@ pub fn build_client(
             if let Err(err) = cert {
                 return Err(format!("Error message from request builder: {:?}", err));
             }
-            client_builder = client_builder.add_root_certificate(cert.unwrap());
+            client_builder = client_builder
+                .add_root_certificate(cert.unwrap())
+                .use_rustls_tls();
         }
         let client = client_builder.build();
         if let Err(err) = client {
@@ -45,7 +46,7 @@ pub fn build_client(
         let client = client_with_retries(&config.n_retries, client.unwrap());
         Ok(client)
     } else {
-        let client = builder.build();
+        let client = client_builder.build();
         if let Err(err) = client {
             return Err(format!("Error message from request builder: {:?}", err));
         }

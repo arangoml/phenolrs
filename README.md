@@ -28,7 +28,7 @@ Release build
 `pip install pytest arango-datasets`
 
 ##### Python db setup
-```
+```python
 import arango
 from arango_datasets import Datasets
 

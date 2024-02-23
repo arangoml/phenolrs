@@ -26,15 +26,29 @@ class PygLoader:
         password: str = None,
         tls_cert: typing.Any = None,
     ) -> HeteroData:
-        data = HeteroData()
+        config_options = {
+            "endpoints": hosts,
+        }
+        if username:
+            config_options["username"] = username
+        if password:
+            config_options["password"] = password
+        if user_jwt:
+            config_options["jwt_token"] = user_jwt
+        if tls_cert:
+            config_options["tls_cert"] = tls_cert
         features_by_col, coo_map, col_to_key_inds = graph_to_pyg_format(
             {
                 "database": database,
                 "vertex_collections": vertex_collections,
                 "edge_collections": edge_collections,
+                "configuration": {
+                    "database_config": config_options
+                }
             }
         )
 
+        data = HeteroData()
         for col in features_by_col.keys():
             for feature in features_by_col[col].keys():
                 data[col][feature] = torch.from_numpy(
