@@ -10,6 +10,12 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
+dependencies = [
+    "numpy",
+    "torch",
+    "torch-geometric"
+]
+
 [project.optional-dependencies]
 tests = [
     "pytest",
@@ -19,3 +25,6 @@ dynamic = ["version"]
 [tool.maturin]
 python-source = "python"
 features = ["pyo3/extension-module"]
+
+[tool.isort]
+profile = "black"

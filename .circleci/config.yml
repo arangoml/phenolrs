@@ -1,0 +1,67 @@
+version: 2.1
+
+executors:
+  generate-executor:
+    docker:
+      - image: cimg/python:3.10
+    working_directory: ~/project
+
+workflows:
+  version: 2
+  ci:
+    jobs:
+      - lint-python
+      - lint-rust
+      - build
+      - test-rust
+      - test-python:
+          requires: build
+
+
+jobs:
+  lint-python:
+    docker:
+      - image: cimg/python:3.10
+    steps:
+      - checkout
+      - restore_cache:
+          key: py_lint_cache
+      - run: |
+          pip install -r dev-requirements.txt
+      - run:
+          name: Black
+          command: black --check --verbose --diff --color ./python
+      - run:
+          name: Mypy
+          command: mypy ./python
+      - run:
+          name: Flake8
+          command: flake8 python
+      - run:
+          name: Bandit
+          command: bandit -r ./python/phenolrs
+      - save_cache:
+          key: py_lint_cache
+          paths:
+            - ~/.local
+            - ~/.cache/pip
+  lint-rust:
+    docker:
+      - image: cimg/rust
+    steps:
+      - checkout
+  build:
+    docker:
+      - image: cimg/rust
+    steps:
+      - checkout
+  test-rust:
+    docker:
+      - image: cimg/rust
+    steps:
+      - checkout
+  test-python:
+    docker:
+      - image: cimg/rust
+    steps:
+      - checkout
