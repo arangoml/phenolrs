@@ -96,6 +96,16 @@ jobs:
       - attach_workspace:
           at: ~/project/target
       - run:
+          name: Set up python 3.10
+          command: |
+            mkdir -p ~/miniconda3
+            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
+            bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+            ~/miniconda3/bin/conda init bash
+            source ~/.bashrc
+            conda create -n phenolrs python=3.10 -y
+            conda activate phenolrs
+      - run:
           name: Install Phenol deps
           command: |
             pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.1.0+cpu && \
@@ -109,14 +119,11 @@ jobs:
           name: Install Phenol
           command: pip install phenolrs --find-links ./target/wheels
       - run:
-          name: Install Arango tools deb
-          command: (yes || true) | sudo dpkg -i ./tests/utilities/arangodb3-client_3.10.1-1_amd64.deb
-      - run:
           name: Start Database
           command: ./docker/start_db.sh
           environment:
             STARTER_MODE: cluster
-            DOCKER_IMAGE: docker.io/arangodb/arangodb:3.11
+            DOCKER_IMAGE: docker.io/arangodb/arangodb:3.11.7
       - run:
           name: Run tests
           command: pytest --url http://172.28.0.1:8529
