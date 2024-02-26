@@ -2,8 +2,8 @@ version: 2.1
 
 executors:
   generate-executor:
-    docker:
-      - image: cimg/python:3.10
+    machine:
+      image: ubuntu-2204:2024.01.1
     working_directory: ~/project
 
 workflows:
@@ -67,7 +67,6 @@ jobs:
     executor: generate-executor
     steps:
       - checkout
-      - setup_remote_docker
       - run:
           name: Build builder image
           command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
@@ -85,14 +84,15 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Cargo build
+          command: cargo build --no-default-features
+      - run:
           name: Cargo Test
-          command: cargo test --no-default-features
+          command: cargo test
   test-python:
-    docker:
-      - image: cimg/python:3.10
+    executor: generate-executor
     steps:
       - checkout
-      - setup_remote_docker
       - attach_workspace:
           at: ~/project/target
       - run:
