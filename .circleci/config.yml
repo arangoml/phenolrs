@@ -84,6 +84,13 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Setup lib
+          command: |
+            sudo apt update -y && sudo apt install python3-pip python3.10-venv && python -m venv ./venv
+            source ./venv/bin/activate
+            pip install maturin
+            maturin develop
+      - run:
           name: Cargo Test
           command: cargo test --no-default-features
   test-python:
@@ -128,4 +135,4 @@ jobs:
           name: Run tests
           command: |
             conda activate phenolrs
-            pytest --url http://172.28.0.1:8529
+            pytest --url http://172.28.0.1:8529 python/tests
