@@ -21,11 +21,8 @@ create_exception!(phenolrs, PhenolError, PyException);
 /// Requires numpy as a runtime dependency
 #[cfg(not(test))]
 #[pyfunction]
-fn graph_to_pyg_format<'a>(
-    py: Python<'a>,
-    request: DataLoadRequest,
-) -> PyResult<PygCompatible<'a>> {
-    let graph = load::retrieve::get_arangodb_graph(request).map_err(|e| PhenolError::new_err(e))?;
+fn graph_to_pyg_format(py: Python, request: DataLoadRequest) -> PyResult<PygCompatible> {
+    let graph = load::retrieve::get_arangodb_graph(request).map_err(PhenolError::new_err)?;
     let col_to_features = construct::construct_col_to_features(
         convert_nested_features_map(graph.cols_to_features),
         py,

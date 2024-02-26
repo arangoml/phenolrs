@@ -97,7 +97,7 @@ impl Graph {
         key: Vec<u8>, // cannot be empty
         json: Option<Value>,
         collection_name: Vec<u8>,
-        field_names: &Vec<String>,
+        field_names: &[String],
     ) {
         let col_name = String::from_utf8(collection_name).unwrap();
 
@@ -125,13 +125,9 @@ impl Graph {
                         } else {
                             let data_map = data
                                 .iter()
-                                .filter_map(|(feature_name, val)| {
+                                .filter_map(|(feature_name, val)|
                                     // now try to parse the value
-                                    match parse_value_to_vec(val) {
-                                        Some(v) => Some((feature_name.clone(), v)),
-                                        None => None,
-                                    }
-                                })
+                                    parse_value_to_vec(val).map(|v| (feature_name.clone(), v)))
                                 .collect();
                             Ok(data_map)
                         }
@@ -153,37 +149,34 @@ impl Graph {
             }
         };
 
-        match feature_res {
-            Ok(feature_map) => {
-                // insert the vertex
-                if !self.cols_to_keys_to_inds.contains_key(&col_name) {
-                    self.cols_to_keys_to_inds
-                        .insert(col_name.clone(), HashMap::new());
-                }
-                let col_inds = self.cols_to_keys_to_inds.get_mut(&col_name).unwrap();
-                let cur_ind = col_inds.len();
-                col_inds.insert(String::from_utf8(key.clone()).unwrap(), cur_ind);
-
-                if !self.cols_to_features.contains_key(&col_name) {
-                    self.cols_to_features
-                        .insert(col_name.clone(), HashMap::new());
-                }
-                let current_col_to_feats = self
-                    .cols_to_features
-                    .get_mut(&col_name)
-                    .expect("Unable to get col");
-
-                for (feature_name, feature_vec) in feature_map {
-                    if !current_col_to_feats.contains_key(&feature_name) {
-                        current_col_to_feats.insert(feature_name.clone(), vec![]);
-                    }
-                    current_col_to_feats
-                        .get_mut(&feature_name)
-                        .unwrap()
-                        .append(&mut vec![feature_vec]);
-                }
+        if let Ok(feature_map) = feature_res {
+            // insert the vertex
+            if !self.cols_to_keys_to_inds.contains_key(&col_name) {
+                self.cols_to_keys_to_inds
+                    .insert(col_name.clone(), HashMap::new());
             }
-            Err(_) => {} // don't insert the edge
+            let col_inds = self.cols_to_keys_to_inds.get_mut(&col_name).unwrap();
+            let cur_ind = col_inds.len();
+            col_inds.insert(String::from_utf8(key.clone()).unwrap(), cur_ind);
+
+            if !self.cols_to_features.contains_key(&col_name) {
+                self.cols_to_features
+                    .insert(col_name.clone(), HashMap::new());
+            }
+            let current_col_to_feats = self
+                .cols_to_features
+                .get_mut(&col_name)
+                .expect("Unable to get col");
+
+            for (feature_name, feature_vec) in feature_map {
+                if !current_col_to_feats.contains_key(&feature_name) {
+                    current_col_to_feats.insert(feature_name.clone(), vec![]);
+                }
+                current_col_to_feats
+                    .get_mut(&feature_name)
+                    .unwrap()
+                    .append(&mut vec![feature_vec]);
+            }
         }
     }
 
@@ -197,13 +190,13 @@ impl Graph {
         // build up the coo representation
         let from_col: String = String::from_utf8({
             let s = String::from_utf8(from_id.clone()).expect("_from to be a string");
-            let id_split = s.find("/").unwrap();
+            let id_split = s.find('/').unwrap();
             (&s[0..id_split]).into()
         })
         .unwrap();
         let to_col: String = String::from_utf8({
             let s = String::from_utf8(to_id.clone()).expect("_to to be a string");
-            let id_split = s.find("/").unwrap();
+            let id_split = s.find('/').unwrap();
             (&s[0..id_split]).into()
         })
         .unwrap();
@@ -221,12 +214,9 @@ impl Graph {
         let cur_coo = self.coo_by_from_edge_to.get_mut(&key_tup).unwrap();
         let from_col_id = from_col_keys.get(&String::from_utf8(from_id).unwrap());
         let to_col_id = to_col_keys.get(&String::from_utf8(to_id).unwrap());
-        match (from_col_id, to_col_id) {
-            (Some(from_id), Some(to_id)) => {
-                cur_coo[0].push(from_id.clone());
-                cur_coo[1].push(to_id.clone());
-            }
-            _ => {} // just skip the edge
+        if let (Some(from_id), Some(to_id)) = (from_col_id, to_col_id) {
+            cur_coo[0].push(*from_id);
+            cur_coo[1].push(*to_id);
         };
     }
 }
@@ -242,9 +232,6 @@ fn parse_value_to_vec(val: &Value) -> Option<Vec<f64>> {
                 Some(float_casted)
             }
         }
-        None => match val.as_f64() {
-            Some(only_val) => Some(vec![only_val]),
-            None => None,
-        },
+        None => val.as_f64().map(|only_val| vec![only_val]),
     }
 }
