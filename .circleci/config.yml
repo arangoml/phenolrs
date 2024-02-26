@@ -15,7 +15,8 @@ workflows:
       - build
       - test-rust
       - test-python:
-          requires: build
+          requires:
+            - build
 
 
 jobs:
@@ -47,21 +48,65 @@ jobs:
             - ~/.cache/pip
   lint-rust:
     docker:
-      - image: cimg/rust
+      - image: cimg/rust:1.75
     steps:
       - checkout
+      - run:
+          name: Install clippy
+          command: rustup component add clippy
+      - run:
+          name: Set flags
+          command: export RUSTFLAGS="-Dwarnings"
+      - run:
+          name: clippy
+          command: cargo clippy
+      - run:
+          name: fmt
+          command: cargo fmt --check
   build:
-    docker:
-      - image: cimg/rust
+    executor: generate-executor
     steps:
       - checkout
+      - setup_remote_docker
+      - run:
+          name: Build builder image
+          command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
+      - run:
+          name: Build release
+          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter python3.10
+      - persist_to_workspace:
+          root: ~/project/target
+          paths:
+            - wheels
+
   test-rust:
     docker:
-      - image: cimg/rust
+      - image: cimg/rust:1.75
     steps:
       - checkout
+      - run:
+          name: Cargo Test
+          command: cargo test --no-default-features
   test-python:
     docker:
-      - image: cimg/rust
+      - image: cimg/python:3.10
     steps:
       - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: ~/project/target
+      - run:
+          name: Install Phenol
+          command: pip install phenolrs --find-links ./target/wheels
+      - run:
+          name: Install Arango tools deb
+          command: (yes || true) | sudo dpkg -i ./tests/utilities/arangodb3-client_3.10.1-1_amd64.deb
+      - run:
+          name: Start Database
+          command: ./docker/start_db.sh
+          environment:
+            STARTER_MODE: cluster
+            DOCKER_IMAGE: docker.io/arangodb/arangodb:3.11
+      - run:
+          name: Run tests
+          command: pytest --url http://172.28.0.1:8529
