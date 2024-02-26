@@ -72,7 +72,7 @@ jobs:
           command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
       - run:
           name: Build release
-          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter python3.10
+          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter python3.12
       - persist_to_workspace:
           root: ~/project/target
           paths:
@@ -95,6 +95,16 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/project/target
+      - run:
+          name: Install Phenol deps
+          command: |
+            pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.1.0+cpu && \
+            pip install -f https://data.pyg.org/whl/torch-2.1.0+cpu.html \
+                           torch-scatter==2.1.2 \
+                           torch-sparse==0.6.18 \
+                           torch-geometric==2.4.0 \
+                           pyg_lib==0.3.1 && \
+            pip install python-arango pytest
       - run:
           name: Install Phenol
           command: pip install phenolrs --find-links ./target/wheels

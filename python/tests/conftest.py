@@ -2,6 +2,8 @@ from typing import Any, Dict
 
 import pytest
 
+connection_config: Dict[str, Any]
+
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--url", action="store", default="http://localhost:8529")

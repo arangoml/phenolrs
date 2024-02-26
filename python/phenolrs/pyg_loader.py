@@ -2,15 +2,12 @@ import typing
 
 import numpy as np
 import torch
-from torch_geometric.data import Data, HeteroData  # type: ignore[import]
+from torch_geometric.data import Data, HeteroData
 
 from phenolrs import graph_to_pyg_format
 
 
 class PygLoader:
-    def __init__(self):
-        pass
-
     @staticmethod
     def load_into_pyg_data() -> Data:
         pass
