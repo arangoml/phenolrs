@@ -72,7 +72,7 @@ jobs:
           command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
       - run:
           name: Build 3.10 package
-          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter python3.12
+          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter python3.10
       - persist_to_workspace:
           root: ~/project/target
           paths:
