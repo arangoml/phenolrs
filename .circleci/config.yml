@@ -71,7 +71,7 @@ jobs:
           name: Build builder image
           command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
       - run:
-          name: Build release
+          name: Build 3.10 package
           command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter python3.12
       - persist_to_workspace:
           root: ~/project/target
@@ -84,11 +84,8 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Cargo build
-          command: cargo build --no-default-features
-      - run:
           name: Cargo Test
-          command: cargo test
+          command: cargo test --no-default-features
   test-python:
     executor: generate-executor
     steps:
@@ -108,6 +105,7 @@ jobs:
       - run:
           name: Install Phenol deps
           command: |
+            conda activate phenolrs
             pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.1.0+cpu && \
             pip install -f https://data.pyg.org/whl/torch-2.1.0+cpu.html \
                            torch-scatter==2.1.2 \
@@ -117,7 +115,9 @@ jobs:
             pip install python-arango pytest
       - run:
           name: Install Phenol
-          command: pip install phenolrs --find-links ./target/wheels
+          command: |
+            conda activate phenolrs
+            pip install phenolrs --find-links ~/project/target/wheels
       - run:
           name: Start Database
           command: ./docker/start_db.sh
@@ -126,4 +126,6 @@ jobs:
             DOCKER_IMAGE: docker.io/arangodb/arangodb:3.11.7
       - run:
           name: Run tests
-          command: pytest --url http://172.28.0.1:8529
+          command: |
+            conda activate phenolrs
+            pytest --url http://172.28.0.1:8529
