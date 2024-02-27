@@ -85,7 +85,8 @@ pub fn receive_edges(
             // object:
             let mut graph = graph_clone.write().unwrap();
             for e in edges {
-                graph.insert_edge(e.0, e.1, e.2, vec![]);
+                // don't need to worry about this error for now
+                let _ = graph.insert_edge(e.0, e.1, e.2, vec![]);
             }
         }
     }

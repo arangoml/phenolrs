@@ -8,11 +8,15 @@ def test_phenol_abide_hetero(
 ) -> None:
     result = PygLoader.load_into_pyg_heterodata(
         connection_information["dbName"],
-        [{"name": "Subjects", "fields": ["label", "brain_fmri_features"]}],
-        [{"name": "medical_affinity_graph"}],
+        {
+            "vertexCollections": {
+                "Subjects": {"x": "brain_fmri_features", "y": "label"}
+            },
+            "edgeCollections": {"medical_affinity_graph": {}},
+        },
         [connection_information["url"]],
         username=connection_information["username"],
         password=connection_information["password"],
     )
     assert isinstance(result, HeteroData)
-    assert result["Subjects"]["brain_fmri_features"].shape == (871, 2000)
+    assert result["Subjects"]["x"].shape == (871, 2000)

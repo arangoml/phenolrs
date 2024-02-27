@@ -2,6 +2,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use anyhow::{anyhow, Result};
+
 #[derive(Eq, Hash, PartialEq, Clone, Copy, Ord, PartialOrd, Debug)]
 pub struct VertexHash(u64);
 
@@ -186,7 +188,7 @@ impl Graph {
         from_id: Vec<u8>,
         to_id: Vec<u8>,
         _data: Vec<u8>,
-    ) {
+    ) -> Result<()> {
         // build up the coo representation
         let from_col: String = String::from_utf8({
             let s = String::from_utf8(from_id.clone()).expect("_from to be a string");
@@ -209,15 +211,25 @@ impl Graph {
             self.coo_by_from_edge_to
                 .insert(key_tup.clone(), vec![vec![], vec![]]);
         }
-        let from_col_keys = self.cols_to_keys_to_inds.get(&from_col).unwrap();
-        let to_col_keys = self.cols_to_keys_to_inds.get(&to_col).unwrap();
-        let cur_coo = self.coo_by_from_edge_to.get_mut(&key_tup).unwrap();
+        let from_col_keys = self
+            .cols_to_keys_to_inds
+            .get(&from_col)
+            .ok_or_else(|| anyhow!("Unable to get keys from for {:?}", &from_col))?;
+        let to_col_keys = self
+            .cols_to_keys_to_inds
+            .get(&to_col)
+            .ok_or_else(|| anyhow!("Unable to get keys to for {:?}", &to_col))?;
+        let cur_coo = self
+            .coo_by_from_edge_to
+            .get_mut(&key_tup)
+            .ok_or_else(|| anyhow!("Unable to get COO from to for {:?}", &key_tup))?;
         let from_col_id = from_col_keys.get(&String::from_utf8(from_id).unwrap());
         let to_col_id = to_col_keys.get(&String::from_utf8(to_id).unwrap());
         if let (Some(from_id), Some(to_id)) = (from_col_id, to_col_id) {
             cur_coo[0].push(*from_id);
             cur_coo[1].push(*to_id);
         };
+        Ok(())
     }
 }
 

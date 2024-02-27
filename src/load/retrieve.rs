@@ -12,6 +12,7 @@ use bytes::Bytes;
 use log::info;
 use reqwest::StatusCode;
 use std::collections::HashMap;
+use std::error::Error;
 use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 use std::time::SystemTime;
@@ -32,8 +33,22 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
             })
     });
     handle.join().map_err(|_s| "Computation failed")??;
-    let inner_rw_lock = Arc::<std::sync::RwLock<Graph>>::try_unwrap(graph).unwrap();
-    Ok(inner_rw_lock.into_inner().unwrap())
+    let inner_rw_lock =
+        Arc::<std::sync::RwLock<Graph>>::try_unwrap(graph).map_err(|poisoned_arc| {
+            if poisoned_arc.is_poisoned() {
+                "Computation failed: thread failed - poisoned arc"
+            } else {
+                "Computation failed"
+            }
+        })?;
+    inner_rw_lock.into_inner().map_err(|poisoned_lock| {
+        format!(
+            "Computation failed: thread failed - poisoned lock {}",
+            poisoned_lock
+                .source()
+                .map_or(String::from(""), <dyn Error>::to_string)
+        )
+    })
 }
 
 pub async fn fetch_graph_from_arangodb(
