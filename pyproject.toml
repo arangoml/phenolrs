@@ -10,6 +10,13 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
+dependencies = [
+    "numpy",
+    "torch",
+    "torch-geometric",
+    "python-arango"
+]
+
 [project.optional-dependencies]
 tests = [
     "pytest",
@@ -19,3 +26,21 @@ dynamic = ["version"]
 [tool.maturin]
 python-source = "python"
 features = ["pyo3/extension-module"]
+
+[tool.isort]
+profile = "black"
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503", "E251"]
+exclude = [".git", ".idea", ".*_cache", "dist", "venv", "vendor"]
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+implicit_reexport = true
+scripts_are_modules = true
+follow_imports = "skip"
+disallow_subclassing_any = false
+disallow_untyped_decorators = false
+exclude = ["venv", "build"]

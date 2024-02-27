@@ -1,16 +1,13 @@
 import typing
 
-from torch_geometric.data import HeteroData, Data
-import torch
 import numpy as np
+import torch
+from torch_geometric.data import Data, HeteroData
 
 from phenolrs import graph_to_pyg_format
 
 
 class PygLoader:
-    def __init__(self):
-        pass
-
     @staticmethod
     def load_into_pyg_data() -> Data:
         pass
@@ -21,14 +18,15 @@ class PygLoader:
         vertex_collections: list[dict[str, typing.Any]],
         edge_collections: list[dict[str, typing.Any]],
         hosts: list[str],
-        user_jwt: str = None,
-        username: str = None,
-        password: str = None,
-        tls_cert: typing.Any = None,
-        parallelism: int = None,
-        batch_size: int = None,
+        user_jwt: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+        tls_cert: typing.Any | None = None,
+        parallelism: int | None = None,
+        batch_size: int | None = None,
     ) -> HeteroData:
-        db_config_options = {
+        # TODO: replace with pydantic validation
+        db_config_options: dict[str, typing.Any] = {
             "endpoints": hosts,
         }
         if username:
@@ -40,7 +38,7 @@ class PygLoader:
         if tls_cert:
             db_config_options["tls_cert"] = tls_cert
 
-        config = {"database_config": db_config_options}
+        config: dict[str, typing.Any] = {"database_config": db_config_options}
         if parallelism:
             config["parallelism"] = parallelism
         if batch_size:
@@ -67,7 +65,3 @@ class PygLoader:
             )
 
         return data
-
-
-if __name__ == "__main__":
-    PygLoader.load_into_pyg_heterodata()

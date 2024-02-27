@@ -1,0 +1,167 @@
+version: 2.1
+
+executors:
+  generate-executor:
+    machine:
+      image: ubuntu-2204:2024.01.1
+    working_directory: ~/project
+
+workflows:
+  version: 2
+  ci:
+    jobs:
+      - lint-python
+      - lint-rust
+      - build
+      - test-rust
+      - test-python:
+          requires:
+            - build
+  release_package:
+    jobs:
+      - publish:
+          context: agml-pypi
+          filters:
+            tags:
+              only:
+                - /^v.*/
+            branches:
+              ignore: /.*/
+
+
+jobs:
+  lint-python:
+    docker:
+      - image: cimg/python:3.10
+    steps:
+      - checkout
+      - restore_cache:
+          key: py_lint_cache
+      - run: |
+          pip install -r dev-requirements.txt
+      - run:
+          name: Black
+          command: black --check --verbose --diff --color ./python
+      - run:
+          name: Mypy
+          command: mypy ./python
+      - run:
+          name: Flake8
+          command: flake8 python
+      - run:
+          name: Bandit
+          command: bandit -r ./python/phenolrs
+      - save_cache:
+          key: py_lint_cache
+          paths:
+            - ~/.local
+            - ~/.cache/pip
+  lint-rust:
+    docker:
+      - image: cimg/rust:1.75
+    steps:
+      - checkout
+      - run:
+          name: Install clippy
+          command: rustup component add clippy
+      - run:
+          name: Set flags
+          command: export RUSTFLAGS="-Dwarnings"
+      - run:
+          name: clippy
+          command: cargo clippy
+      - run:
+          name: fmt
+          command: cargo fmt --check
+  build:
+    executor: generate-executor
+    steps:
+      - checkout
+      - run:
+          name: Build builder image
+          command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
+      - run:
+          name: Build 3.10 package
+          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter python3.10
+      - persist_to_workspace:
+          root: ~/project/target
+          paths:
+            - wheels
+
+  test-rust:
+    docker:
+      - image: cimg/rust:1.75
+    steps:
+      - checkout
+      - run:
+          name: Setup lib
+          command: |
+            sudo apt update -y && sudo apt install python3-pip python3.10-venv && python -m venv ./venv
+            source ./venv/bin/activate
+            pip install maturin
+            maturin develop
+      - run:
+          name: Cargo Test
+          command: cargo test --no-default-features
+  test-python:
+    executor: generate-executor
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/project/target
+      - run:
+          name: Set up python 3.10
+          command: |
+            mkdir -p ~/miniconda3
+            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
+            bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+            ~/miniconda3/bin/conda init bash
+            source ~/.bashrc
+            conda create -n phenolrs python=3.10 -y
+            conda activate phenolrs
+      - run:
+          name: Install Phenol deps
+          command: |
+            conda activate phenolrs
+            pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.1.0+cpu && \
+            pip install -f https://data.pyg.org/whl/torch-2.1.0+cpu.html \
+                           torch-scatter==2.1.2 \
+                           torch-sparse==0.6.18 \
+                           torch-geometric==2.4.0 \
+                           pyg_lib==0.3.1 && \
+            pip install -r test-requirements.txt
+      - run:
+          name: Install Phenol
+          command: |
+            conda activate phenolrs
+            pip install phenolrs --find-links ~/project/target/wheels
+      - run:
+          name: Start Database
+          command: ./docker/start_db.sh
+          environment:
+            STARTER_MODE: cluster
+            DOCKER_IMAGE: docker.io/arangodb/arangodb:3.11.7
+      - run:
+          name: Run tests
+          command: |
+            conda activate phenolrs
+            pytest --url http://172.28.0.1:8529 python/tests
+  publish:
+    executor: generate-executor
+    steps:
+      - checkout
+      - run:
+          name: Build builder image
+          command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
+      - run:
+          name: Build package
+          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --release --interpreter python3.10 python3.11 python3.12 --sdist
+      - run:
+          name: Install release packages
+          command: pip install twine
+      - run:
+          name: Setup SA
+          command: ./setup_sa.sh "${PYTHON_REPO_ID}" "${PYTHON_REPO_URL}" "${PYPI_ACCOUNT_USER}" "${PYPI_ACCOUNT_KEY}" "${PYTHON_INDEX_URL}"
+      - run:
+          name: Publish Package
+          command: twine upload --verbose --repository "${PYTHON_REPO_ID}" target/wheels/*

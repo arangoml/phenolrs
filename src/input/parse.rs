@@ -6,7 +6,7 @@ use pyo3::types::PyDict;
 use pyo3::{FromPyObject, PyAny, PyResult};
 
 impl FromPyObject<'_> for DataLoadRequest {
-    fn extract<'s>(ob: &'s PyAny) -> PyResult<Self> {
+    fn extract(ob: &PyAny) -> PyResult<Self> {
         let input_dict: &PyDict = ob.downcast()?;
         let database_value: &str = input_dict.get_item("database")?.map_or_else(
             || Err(PyValueError::new_err("Database not set")),
@@ -35,7 +35,7 @@ impl FromPyObject<'_> for DataLoadRequest {
 }
 
 impl FromPyObject<'_> for DataLoadConfiguration {
-    fn extract<'s>(ob: &'s PyAny) -> PyResult<Self> {
+    fn extract(ob: &PyAny) -> PyResult<Self> {
         let input_dict: &PyDict = ob.downcast()?;
         let db_config: DatabaseConfiguration = input_dict
             .get_item("database_config")?

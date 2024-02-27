@@ -31,10 +31,7 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
                 fetch_graph_from_arangodb(req, graph_clone).await
             })
     });
-    handle
-        .join()
-        .map_err(|s| "Computation failed")?
-        .map_err(|s| s)?;
+    handle.join().map_err(|_s| "Computation failed")??;
     let inner_rw_lock = Arc::<std::sync::RwLock<Graph>>::try_unwrap(graph).unwrap();
     Ok(inner_rw_lock.into_inner().unwrap())
 }
@@ -78,7 +75,7 @@ pub async fn fetch_graph_from_arangodb(
         .vertex_collections
         .iter()
         .map(|ci| -> String { ci.name.clone() })
-        .collect();
+        .collect::<Vec<String>>();
     let vertex_map = compute_shard_map(&shard_dist, &vertex_coll_list)?;
     let vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>> =
         Arc::new(RwLock::new(HashMap::new()));
@@ -92,7 +89,7 @@ pub async fn fetch_graph_from_arangodb(
         .edge_collections
         .iter()
         .map(|ci| -> String { ci.name.clone() })
-        .collect();
+        .collect::<Vec<String>>();
     let edge_map = compute_shard_map(&shard_dist, &edge_coll_list)?;
 
     info!(
@@ -144,7 +141,7 @@ async fn load_edges(
         let consumer = std::thread::spawn(move || receive::receive_edges(receiver, graph_clone));
         consumers.push(consumer);
     }
-    get_all_shard_data(&req, &db_config, &edge_map, senders).await?;
+    get_all_shard_data(req, db_config, edge_map, senders).await?;
     info!(
         "{:?} Got all data, processing...",
         std::time::SystemTime::now().duration_since(begin).unwrap()
@@ -180,7 +177,7 @@ async fn load_vertices(
         });
         consumers.push(consumer);
     }
-    get_all_shard_data(&req, &db_config, &vertex_map, senders).await?;
+    get_all_shard_data(req, db_config, vertex_map, senders).await?;
     info!(
         "{:?} Got all data, processing...",
         std::time::SystemTime::now().duration_since(begin).unwrap()

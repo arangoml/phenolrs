@@ -60,8 +60,7 @@ where
             Err(e) => {
                 return Err(format!(
                     "Could not parse error body, error: {}, status code: {:?}",
-                    e.to_string(),
-                    status,
+                    e, status,
                 ));
             }
             Ok(e) => {
@@ -73,17 +72,14 @@ where
         }
     }
     let body = resp.json::<T>().await;
-    body.map_err(|e| format!("Could not parse response body, error: {}", e.to_string()))
+    body.map_err(|e| format!("Could not parse response body, error: {}", e))
 }
 
 pub type ShardMap = HashMap<String, Vec<String>>;
 
-pub fn compute_shard_map(
-    sd: &ShardDistribution,
-    coll_list: &Vec<String>,
-) -> Result<ShardMap, String> {
+pub fn compute_shard_map(sd: &ShardDistribution, coll_list: &[String]) -> Result<ShardMap, String> {
     let mut result: ShardMap = HashMap::new();
-    for c in coll_list.into_iter() {
+    for c in coll_list.iter() {
         // Handle the case of a smart edge collection. If c is
         // one, then we also find a collection called `_to_`+c.
         // In this case, we must not get those shards, because their
@@ -95,7 +91,7 @@ pub fn compute_shard_map(
             None => (),
             Some(coll_dist) => {
                 // Keys of coll_dist are the shards, value has leader:
-                for (shard, _) in &(coll_dist.plan) {
+                for shard in (coll_dist.plan).keys() {
                     ignore.insert(shard.clone());
                 }
             }
@@ -259,7 +255,7 @@ pub async fn get_all_shard_data(
             //let client_clone = client.clone(); // the clones will share
             //                                   // the connection pool
             let client_clone = client::build_client(&client_config)?;
-            let endpoint_clone = (&connection_config.endpoints[endpoints_round_robin]).clone();
+            let endpoint_clone = connection_config.endpoints[endpoints_round_robin].clone();
             endpoints_round_robin += 1;
             if endpoints_round_robin >= connection_config.endpoints.len() {
                 endpoints_round_robin = 0;
@@ -361,8 +357,7 @@ async fn handle_arangodb_response(
             Err(e) => {
                 return Err(format!(
                     "Could not parse error body, error: {}, status code: {:?}",
-                    e.to_string(),
-                    status,
+                    e, status,
                 ));
             }
             Ok(e) => {

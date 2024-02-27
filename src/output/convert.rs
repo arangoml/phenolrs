@@ -6,12 +6,9 @@ pub fn convert_coo_edge_map(
 ) -> HashMap<(String, String, String), Array2<usize>> {
     coo_edge_map
         .iter()
-        .filter_map(
-            |(edge_tup, edge_mat)| match two_dim_vec_to_array(edge_mat) {
-                None => None,
-                Some(arr) => Some((edge_tup.clone(), arr)),
-            },
-        )
+        .filter_map(|(edge_tup, edge_mat)| {
+            two_dim_vec_to_array(edge_mat).map(|arr| (edge_tup.clone(), arr))
+        })
         .collect()
 }
 
@@ -24,10 +21,7 @@ pub fn convert_nested_features_map(
             let col_map: HashMap<String, Array2<f64>> = features
                 .iter()
                 .filter_map(|(feature_name, nested_feature_vec)| {
-                    match two_dim_vec_to_array(nested_feature_vec) {
-                        None => None,
-                        Some(arr) => Some((feature_name.clone(), arr)),
-                    }
+                    two_dim_vec_to_array(nested_feature_vec).map(|arr| (feature_name.clone(), arr))
                 })
                 .collect();
             (col_name.clone(), col_map)
@@ -35,12 +29,12 @@ pub fn convert_nested_features_map(
         .collect()
 }
 
-fn two_dim_vec_to_array<T: Default + Copy>(twod: &Vec<Vec<T>>) -> Option<Array2<T>> {
+fn two_dim_vec_to_array<T: Default + Copy>(twod: &[Vec<T>]) -> Option<Array2<T>> {
     if twod.is_empty() {
         return None;
     }
     let m: usize = twod.len();
-    let n = if twod.len() > 0 { twod[0].len() } else { 0 };
+    let n = if !twod.is_empty() { twod[0].len() } else { 0 };
     let mut arr = Array2::<T>::default((m, n));
     for (i, mut row) in arr.axis_iter_mut(Axis(0)).enumerate() {
         for (j, col) in row.iter_mut().enumerate() {

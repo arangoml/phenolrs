@@ -13,10 +13,8 @@ pub fn receive_edges(
     while let Ok(resp) = receiver.recv() {
         let body = std::str::from_utf8(resp.as_ref())
             .map_err(|e| format!("UTF8 error when parsing body: {:?}", e))?;
-        let mut froms: Vec<Vec<u8>> = vec![];
-        froms.reserve(1000000);
-        let mut tos: Vec<Vec<u8>> = vec![];
-        tos.reserve(1000000);
+        let mut froms: Vec<Vec<u8>> = Vec::with_capacity(1000000);
+        let mut tos: Vec<Vec<u8>> = Vec::with_capacity(1000000);
         let mut current_col_name: Option<Vec<u8>> = None;
         for line in body.lines() {
             let v: Value = match serde_json::from_str(line) {
@@ -32,7 +30,7 @@ pub fn receive_edges(
             match from {
                 Value::String(i) => {
                     let mut buf = vec![];
-                    buf.extend_from_slice((&i[..]).as_bytes());
+                    buf.extend_from_slice(i[..].as_bytes());
                     froms.push(buf);
                 }
                 _ => {
@@ -46,7 +44,7 @@ pub fn receive_edges(
             match to {
                 Value::String(i) => {
                     let mut buf = vec![];
-                    buf.extend_from_slice((&i[..]).as_bytes());
+                    buf.extend_from_slice(i[..].as_bytes());
                     tos.push(buf);
                 }
                 _ => {
@@ -56,24 +54,20 @@ pub fn receive_edges(
                     ));
                 }
             }
-            match current_col_name {
-                None => {
-                    let id = &v["_id"];
-                    match id {
-                        Value::String(i) => {
-                            let pos = i.find("/").unwrap();
-                            current_col_name = Some((&i[0..pos]).into());
-                        }
-                        _ => {
-                            return Err(format!("JSON _id is not string attribute"));
-                        }
+            if current_col_name.is_none() {
+                let id = &v["_id"];
+                match id {
+                    Value::String(i) => {
+                        let pos = i.find('/').unwrap();
+                        current_col_name = Some((&i[0..pos]).into());
+                    }
+                    _ => {
+                        return Err("JSON _id is not string attribute".to_string());
                     }
                 }
-                _ => {}
             };
         }
-        let mut edges: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = vec![];
-        edges.reserve(froms.len());
+        let mut edges: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = Vec::with_capacity(froms.len());
         // First translate keys to indexes by reading
         // the graph object:
         assert!(froms.len() == tos.len());
@@ -133,21 +127,21 @@ pub fn receive_vertices(
             match id {
                 Value::String(i) => {
                     let mut buf = vec![];
-                    buf.extend_from_slice((&i[..]).as_bytes());
+                    buf.extend_from_slice(i[..].as_bytes());
                     vertex_keys.push(buf);
                     if current_vertex_col.is_none() {
-                        let pos = i.find("/").unwrap();
+                        let pos = i.find('/').unwrap();
                         current_vertex_col = Some((&i[0..pos]).into());
                     }
                     if !json_initialized {
                         json_initialized = true;
-                        let pos = i.find("/");
+                        let pos = i.find('/');
                         match pos {
                             None => {
                                 fields = vec![];
                             }
                             Some(p) => {
-                                let collname = (&i[0..p]).to_string();
+                                let collname = i[0..p].to_string();
                                 let flds = vcf_map.get(&collname);
                                 match flds {
                                     None => {
