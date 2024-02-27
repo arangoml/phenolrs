@@ -21,12 +21,12 @@ workflows:
     jobs:
       - publish:
           context: agml-pypi
-#          filters:
-#            tags:
-#              only:
-#                - /^v.*/
-#            branches:
-#              ignore: /.*/
+          filters:
+            tags:
+              only:
+                - /^v.*/
+            branches:
+              ignore: /.*/
 
 
 jobs:
