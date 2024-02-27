@@ -239,8 +239,12 @@ pub async fn get_all_shard_data(
         id: u64,
     }
 
-    let par_per_dbserver =
-        (req.configuration.parallelism.unwrap() as usize + dbservers.len() - 1) / dbservers.len();
+    let par_per_dbserver = if dbservers.is_empty() {
+        0
+    } else {
+        (req.configuration.parallelism.unwrap() as usize + dbservers.len() - 1) / dbservers.len()
+    };
+
     let mut task_set = JoinSet::new();
     let mut endpoints_round_robin: usize = 0;
     let mut consumers_round_robin: usize = 0;

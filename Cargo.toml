@@ -24,6 +24,7 @@ reqwest-retry = "0.3.0"
 reqwest-middleware = "0.2.4"
 log = "0.4"
 ndarray = "0.15.6"
+anyhow = "1.0.80"
 
 [dependencies.pyo3]
 version = "0.20.2"
