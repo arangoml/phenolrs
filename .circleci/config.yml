@@ -98,8 +98,11 @@ jobs:
           command: |
             sudo apt update -y && sudo apt install python3-pip python3.10-venv && python -m venv ./venv
             source ./venv/bin/activate
+            pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.1.0+cpu
             pip install maturin
-            maturin develop
+      - run:
+          name: Install Lib
+          command: LIBTORCH_USE_PYTORCH=1 maturin develop
       - run:
           name: Cargo Test
           command: cargo test --no-default-features
