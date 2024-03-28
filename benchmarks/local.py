@@ -1,21 +1,31 @@
 import argparse
 import time
 
+import torch
 from phenolrs.pyg_loader import PygLoader
 
 
 def load_abide(host: str, password: str) -> None:
     data = PygLoader.load_into_pyg_heterodata(
         "abide",
-        [{"name": "Subjects", "fields": ["label", "brain_fmri_features"]}],
-        [{"name": "medical_affinity_graph"}],
+        {
+            "vertexCollections": {
+                "Subjects": {
+                    "y": "label",
+                    "x": "brain_fmri_features"
+                }
+            },
+            "edgeCollections": {
+                "medical_affinity_graph": {}
+            }
+        },
         [host],
         username="root",
         password=password,
         parallelism=10,
         batch_size=400000,
     )
-    assert data["Subjects"]["brain_fmri_features"].shape == (871, 2000)
+    assert data["Subjects"]["x"].shape == (871, 2000)
 
 
 def main() -> None:

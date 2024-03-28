@@ -25,18 +25,19 @@ type PygCompatible<'a> = (&'a PyDict, &'a PyDict, &'a PyDict);
 create_exception!(phenolrs, PhenolError, PyException);
 
 /// Loads a graph (from the name and description, into a PyG friendly format
-/// Requires numpy as a runtime dependency
+/// Requires pytorch as a runtime dependency
 #[cfg(not(test))]
 #[pyfunction]
 #[cfg(not(test))]
 fn graph_to_pyg_format(py: Python, request: DataLoadRequest) -> PyResult<PygCompatible> {
     let graph = load::retrieve::get_arangodb_graph(request).map_err(PhenolError::new_err)?;
+    py.import("torch")?;
     let col_to_features = construct::construct_col_to_features(
-        convert_nested_features_map(graph.cols_to_features),
+        convert_nested_features_map(graph.cols_to_features).map_err(|err| PhenolError::new_err(err.to_string()))?,
         py,
     )?;
     let coo_by_from_edge_to = construct::construct_coo_by_from_edge_to(
-        convert_coo_edge_map(graph.coo_by_from_edge_to),
+        convert_coo_edge_map(graph.coo_by_from_edge_to).map_err(|err| PhenolError::new_err(err.to_string()))?,
         py,
     )?;
     let cols_to_keys_to_inds =

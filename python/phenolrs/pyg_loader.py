@@ -1,7 +1,5 @@
 import typing
 
-import numpy as np
-import numpy.typing as npt
 import torch
 from torch_geometric.data import Data, HeteroData
 
@@ -44,7 +42,7 @@ class PygLoader:
         v_col_spec = list(metagraph["vertexCollections"].values())[0]
 
         features_by_col, coo_map, col_to_key_inds, vertex_cols_source_to_output = (
-            PygLoader._load_graph_to_numpy(
+            PygLoader._load_graph_to_tensors(
                 database,
                 metagraph,
                 hosts,
@@ -67,9 +65,7 @@ class PygLoader:
                 raise PhenolError(
                     f"Unable to load features {feature_source_key} for collection {v_col_spec_name}"  # noqa: E501
                 )
-            result = torch.from_numpy(
-                features_by_col[v_col_spec_name][feature_source_key].astype(np.float64)
-            )
+            result = features_by_col[v_col_spec_name][feature_source_key].float()
             if result.numel() > 0:
                 data[feature] = result
 
@@ -78,7 +74,7 @@ class PygLoader:
         for e_tup in coo_map.keys():
             e_name, from_name, to_name = e_tup
             if e_name == edge_col_name:
-                result = torch.from_numpy(coo_map[e_tup].astype(np.int64))
+                result = coo_map[e_tup].int()
                 if result.numel() > 0:
                     data["edge_index"] = result
 
@@ -107,7 +103,7 @@ class PygLoader:
             raise PhenolError("edgeCollections must map to non-empty dictionary")
 
         features_by_col, coo_map, col_to_key_inds, vertex_cols_source_to_output = (
-            PygLoader._load_graph_to_numpy(
+            PygLoader._load_graph_to_tensors(
                 database,
                 metagraph,
                 hosts,
@@ -124,22 +120,20 @@ class PygLoader:
             col_mapping = vertex_cols_source_to_output[col]
             for feature in features_by_col[col].keys():
                 target_name = col_mapping[feature]
-                result = torch.from_numpy(
-                    features_by_col[col][feature].astype(np.float64)
-                )
+                result = features_by_col[col][feature].float()
                 if result.numel() > 0:
                     data[col][target_name] = result
 
         for edge_col in coo_map.keys():
             edge_col_name, from_name, to_name = edge_col
-            result = torch.from_numpy(coo_map[edge_col].astype(np.int64))
+            result = coo_map[edge_col].int()
             if result.numel() > 0:
                 data[(from_name, edge_col_name, to_name)].edge_index = result
 
         return data
 
     @staticmethod
-    def _load_graph_to_numpy(
+    def _load_graph_to_tensors(
         database: str,
         metagraph: dict[str, typing.Any],
         hosts: list[str],
@@ -150,8 +144,8 @@ class PygLoader:
         parallelism: int | None = None,
         batch_size: int | None = None,
     ) -> typing.Tuple[
-        dict[str, dict[str, npt.NDArray[np.float64]]],
-        dict[typing.Tuple[str, str, str], npt.NDArray[np.float64]],
+        dict[str, dict[str, torch.Tensor]],
+        dict[typing.Tuple[str, str, str], torch.Tensor],
         dict[str, dict[str, int]],
         dict[str, dict[str, str]],
     ]:
