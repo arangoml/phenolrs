@@ -15,28 +15,23 @@ use pyo3::exceptions::PyException;
 #[cfg(not(test))]
 use pyo3::prelude::*;
 #[cfg(not(test))]
-use pyo3::types::PyDict;
 use pyo3::types::PyList;
-use pyo3::types::PyTuple;
+use numpy::{PyArray1};
 
-
-#[cfg(not(test))]
-type CooCompatible<'a> = (&'a PyList, &'a PyList, &'a PyList);
 
 #[cfg(not(test))]
 create_exception!(phenolrs, PhenolError, PyException);
 
 /// Loads a graph (from the name and description, into a COO friendly format
 /// Requires numpy as a runtime dependency
-#[cfg(not(test))]
 #[pyfunction]
 #[cfg(not(test))]
-fn graph_to_coo_format(py: Python, request: DataLoadRequest) -> PyResult<(CooCompatible)> {
+fn graph_to_coo_format(py: Python, request: DataLoadRequest) -> PyResult<((&PyArray1<usize>, &PyArray1<usize>, &PyList))> {
     let graph = load::retrieve::get_arangodb_graph(request).unwrap();
-
     let coo = graph.coo;
-    let src_indices = PyList::new(py, &coo.0);
-    let dst_indices = PyList::new(py, &coo.1);
+
+    let src_indices = PyArray1::from_vec(py, coo.0);
+    let dst_indices = PyArray1::from_vec(py, coo.1);
     let vertex_ids = PyList::new(py, &graph.vertex_ids);
 
     let res = (src_indices, dst_indices, vertex_ids);
