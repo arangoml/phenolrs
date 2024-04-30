@@ -44,4 +44,4 @@ def test_phenol_abide_coo(
     assert isinstance(result, dict)
     assert len(result) == 1
     assert e_type in result
-    assert result[e_type].shape == (2, 175000)
+    assert result[e_type].shape == (2, 606770)
