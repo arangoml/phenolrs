@@ -11,14 +11,13 @@ use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
 use bytes::Bytes;
 use log::info;
 use reqwest::StatusCode;
-use std::collections::HashMap;
 use std::error::Error;
 use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 use std::time::SystemTime;
 
 pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
-    let graph = Graph::new(true, 64, 0);
+    let graph = Graph::new(0);
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
     // Fetch from ArangoDB in a background thread:
@@ -84,22 +83,6 @@ pub async fn fetch_graph_from_arangodb(
         handle_arangodb_response_with_parsed_body::<ShardDistribution>(resp, StatusCode::OK)
             .await?;
 
-    // Compute which shard we must get from which dbserver, we do vertices
-    // and edges right away to be able to error out early:
-    let vertex_coll_list = req
-        .vertex_collections
-        .iter()
-        .map(|ci| -> String { ci.name.clone() })
-        .collect::<Vec<String>>();
-    let vertex_map = compute_shard_map(&shard_dist, &vertex_coll_list)?;
-    let vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>> =
-        Arc::new(RwLock::new(HashMap::new()));
-    {
-        let mut guard = vertex_coll_field_map.write().unwrap();
-        for vc in req.vertex_collections.iter() {
-            guard.insert(vc.name.clone(), vc.fields.clone());
-        }
-    }
     let edge_coll_list = req
         .edge_collections
         .iter()
@@ -108,21 +91,11 @@ pub async fn fetch_graph_from_arangodb(
     let edge_map = compute_shard_map(&shard_dist, &edge_coll_list)?;
 
     info!(
-        "{:?} Need to fetch data from {} vertex shards and {} edge shards...",
+        "{:?} Need to fetch data from {} edge shards...",
         std::time::SystemTime::now().duration_since(begin).unwrap(),
-        vertex_map.values().map(|v| v.len()).sum::<usize>(),
         edge_map.values().map(|v| v.len()).sum::<usize>()
     );
 
-    load_vertices(
-        &req,
-        &graph_arc,
-        &db_config,
-        begin,
-        &vertex_map,
-        vertex_coll_field_map,
-    )
-    .await?;
     load_edges(&req, &graph_arc, &db_config, begin, &edge_map).await?;
 
     // And now the edges:
@@ -157,42 +130,6 @@ async fn load_edges(
         consumers.push(consumer);
     }
     get_all_shard_data(req, db_config, edge_map, senders).await?;
-    info!(
-        "{:?} Got all data, processing...",
-        std::time::SystemTime::now().duration_since(begin).unwrap()
-    );
-    for c in consumers {
-        let _guck = c.join();
-    }
-    Ok(())
-}
-
-async fn load_vertices(
-    req: &DataLoadRequest,
-    graph_arc: &Arc<RwLock<Graph>>,
-    db_config: &&DatabaseConfiguration,
-    begin: SystemTime,
-    vertex_map: &ShardMap,
-    vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>>,
-) -> Result<(), String> {
-    // We use multiple threads to receive the data in batches:
-    let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
-    let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
-    for _i in 0..req
-        .configuration
-        .parallelism
-        .expect("Why is parallelism missing")
-    {
-        let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
-        senders.push(sender);
-        let graph_clone = graph_arc.clone();
-        let vertex_coll_field_map_clone = vertex_coll_field_map.clone();
-        let consumer = std::thread::spawn(move || {
-            receive::receive_vertices(receiver, graph_clone, vertex_coll_field_map_clone)
-        });
-        consumers.push(consumer);
-    }
-    get_all_shard_data(req, db_config, vertex_map, senders).await?;
     info!(
         "{:?} Got all data, processing...",
         std::time::SystemTime::now().duration_since(begin).unwrap()
