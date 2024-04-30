@@ -7,6 +7,7 @@ from phenolrs import PhenolError, graph_to_coo_format
 
 
 class CooLoader:
+    @staticmethod
     def load_coo(
         database: str,
         metagraph: dict[str, typing.Any],
