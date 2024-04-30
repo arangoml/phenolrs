@@ -46,12 +46,27 @@ fn graph_to_pyg_format(py: Python, request: DataLoadRequest) -> PyResult<PygComp
     Ok(res)
 }
 
+/// Loads a graph (from the name and description, into a COO friendly format
+/// Requires numpy as a runtime dependency
+#[cfg(not(test))]
+#[pyfunction]
+#[cfg(not(test))]
+fn graph_to_coo_format(py: Python, request: DataLoadRequest) -> PyResult<&PyDict> {
+    let graph = load::retrieve::get_arangodb_graph(request).map_err(PhenolError::new_err)?;
+    let coo_by_from_edge_to = construct::construct_coo_by_from_edge_to(
+        convert_coo_edge_map(graph.coo_by_from_edge_to),
+        py,
+    )?;
+    Ok(coo_by_from_edge_to)
+}
+
 /// A Python module implemented in Rust.
 #[cfg(not(test))]
 #[pymodule]
 #[cfg(not(test))]
 fn phenolrs(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(graph_to_pyg_format, m)?)?;
+    m.add_function(wrap_pyfunction!(graph_to_coo_format, m)?)?;
     m.add("PhenolError", py.get_type::<PhenolError>())?;
     Ok(())
 }
