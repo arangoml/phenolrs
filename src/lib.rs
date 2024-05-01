@@ -3,11 +3,9 @@ mod client;
 mod graphs;
 mod input;
 mod load;
-mod output;
 
 use input::load_request::DataLoadRequest;
 #[cfg(not(test))]
-use output::construct;
 #[cfg(not(test))]
 use pyo3::create_exception;
 #[cfg(not(test))]
@@ -15,7 +13,7 @@ use pyo3::exceptions::PyException;
 #[cfg(not(test))]
 use pyo3::prelude::*;
 #[cfg(not(test))]
-use pyo3::types::PyList;
+use pyo3::types::{PyDict};
 use numpy::{PyArray1};
 
 
@@ -26,15 +24,19 @@ create_exception!(phenolrs, PhenolError, PyException);
 /// Requires numpy as a runtime dependency
 #[pyfunction]
 #[cfg(not(test))]
-fn graph_to_coo_format(py: Python, request: DataLoadRequest) -> PyResult<((&PyArray1<usize>, &PyArray1<usize>, &PyList))> {
+fn graph_to_coo_format(py: Python, request: DataLoadRequest) -> PyResult<(&PyArray1<usize>, &PyArray1<usize>, &PyDict)> {
     let graph = load::retrieve::get_arangodb_graph(request).unwrap();
-    let coo = graph.coo;
 
+    let coo = graph.coo;
     let src_indices = PyArray1::from_vec(py, coo.0);
     let dst_indices = PyArray1::from_vec(py, coo.1);
-    let vertex_ids = PyList::new(py, &graph.vertex_ids);
 
-    let res = (src_indices, dst_indices, vertex_ids);
+    let vertex_id_to_index = PyDict::new(py);
+    graph.vertex_id_to_index
+        .iter()
+        .for_each(|item| vertex_id_to_index.set_item(item.0, item.1).unwrap());
+
+    let res = (src_indices, dst_indices, vertex_id_to_index);
 
     Ok(res)
 }

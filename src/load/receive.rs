@@ -1,8 +1,6 @@
 use crate::graphs::Graph;
 use bytes::Bytes;
-use log::debug;
-use serde_json::{json, Value};
-use std::collections::HashMap;
+use serde_json::{Value};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
 
@@ -15,6 +13,7 @@ pub fn receive_edges(
             .map_err(|e| format!("UTF8 error when parsing body: {:?}", e))?;
         let mut froms: Vec<Vec<u8>> = Vec::with_capacity(1000000);
         let mut tos: Vec<Vec<u8>> = Vec::with_capacity(1000000);
+        let mut graph = graph_clone.write().unwrap();
         for line in body.lines() {
             let v: Value = match serde_json::from_str(line) {
                 Err(err) => {
@@ -53,28 +52,32 @@ pub fn receive_edges(
                     ));
                 }
             }
+
+            let _ = graph.insert_edge(froms.pop().unwrap(), tos.pop().unwrap()).unwrap();
+
         }
-        let mut edges: Vec<(Vec<u8>, Vec<u8>)> = Vec::with_capacity(froms.len());
+        // let mut edges: Vec<(Vec<u8>, Vec<u8>)> = Vec::with_capacity(froms.len());
         // First translate keys to indexes by reading
         // the graph object:
         assert!(froms.len() == tos.len());
-        for i in 0..froms.len() {
-            let from_key = &froms[i];
-            let to_key = &tos[i];
-            edges.push((
-                from_key.clone(),
-                to_key.clone(),
-            ));
-        }
-        {
-            // Now actually insert edges by writing the graph
-            // object:
-            let mut graph = graph_clone.write().unwrap();
-            for e in edges {
-                // don't need to worry about this error for now
-                let _ = graph.insert_edge( e.0, e.1);
-            }
-        }
+        // let mut graph = graph_clone.write().unwrap();
+        // for i in 0..froms.len() {
+        //     let from_key = &froms[i];
+        //     let to_key = &tos[i];
+        //     edges.push((
+        //         from_key.clone(),
+        //         to_key.clone(),
+        //     ));
+        // }
+        // {
+        //     // Now actually insert edges by writing the graph
+        //     // object:
+        //     let mut graph = graph_clone.write().unwrap();
+        //     for e in edges {
+        //         // don't need to worry about this error for now
+        //         let _ = graph.insert_edge( e.0, e.1);
+        //     }
+        // }
     }
     Ok(())
 }

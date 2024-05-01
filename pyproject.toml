@@ -12,8 +12,8 @@ classifiers = [
 ]
 dependencies = [
     "numpy",
-    "torch",
-    "torch-geometric",
+    # "torch",
+    # "torch-geometric",
     "python-arango"
 ]
 
