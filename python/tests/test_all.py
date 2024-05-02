@@ -16,13 +16,13 @@ def test_phenol_abide_hetero(
         username=connection_information["username"],
         password=connection_information["password"],
     )
-    assert type(result) == tuple
-    node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = result
+    assert isinstance(result, tuple)
+    node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = result  # noqa
 
-    assert type(node_dict) == dict
-    assert type(adj_dict) == dict
-    assert type(src_indices) == numpy.ndarray
-    assert type(dst_indices) == numpy.ndarray
-    assert type(vertex_ids_to_indices) == dict
+    assert isinstance(node_dict, dict)
+    assert isinstance(adj_dict, dict)
+    assert isinstance(src_indices, numpy.ndarray)
+    assert isinstance(dst_indices, numpy.ndarray)
+    assert isinstance(vertex_ids_to_indices, dict)
     assert len(node_dict) == len(vertex_ids_to_indices)
     assert len(src_indices) == len(dst_indices)

@@ -94,7 +94,7 @@ pub fn receive_edges(
                     // current_col_name.clone().unwrap(),
                     from_key.clone(),
                     to_key.clone(),
-                     edge_data,
+                    edge_data,
                 );
             }
         }

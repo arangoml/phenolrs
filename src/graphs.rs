@@ -1,9 +1,9 @@
+use anyhow::{anyhow, Result};
 use serde_json::{Map, Value};
+use std::any::Any;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::{Arc, RwLock};
-use std::any::Any;
-use anyhow::{anyhow, Result};
 
 #[derive(Eq, Hash, PartialEq, Clone, Copy, Ord, PartialOrd, Debug)]
 pub struct VertexHash(u64);
@@ -62,7 +62,6 @@ pub struct Graph {
     // pub cols_to_keys_to_inds: HashMap<String, HashMap<String, usize>>,
     // pub coo_by_from_edge_to: HashMap<(String, String, String), Vec<Vec<usize>>>,
     // pub cols_to_features: HashMap<String, HashMap<String, Vec<Vec<f64>>>>,
-
     pub load_node_dict: bool,
     pub load_adj_dict: bool,
     pub load_coo: bool,
@@ -82,9 +81,13 @@ pub struct Graph {
     pub vertex_id_to_index: HashMap<String, usize>,
 }
 
-
 impl Graph {
-    pub fn new(/*store_keys: bool, _bits_for_hash: u8,*/ id: u64, load_node_dict: bool, load_adj_dict: bool, load_coo: bool) -> Arc<RwLock<Graph>> {
+    pub fn new(
+        /*store_keys: bool, _bits_for_hash: u8,*/ id: u64,
+        load_node_dict: bool,
+        load_adj_dict: bool,
+        load_coo: bool,
+    ) -> Arc<RwLock<Graph>> {
         Arc::new(RwLock::new(Graph {
             graph_id: id,
             load_node_dict: load_node_dict,
@@ -123,7 +126,9 @@ impl Graph {
         // field_names: &[String],
     ) -> Result<()> {
         if self.load_node_dict == false {
-            return Err(anyhow!("Cannot insert vertex into graph that does not have load_node_dict set to true"));
+            return Err(anyhow!(
+                "Cannot insert vertex into graph that does not have load_node_dict set to true"
+            ));
         }
 
         // Simply insert the vertex into the node_map
@@ -137,7 +142,6 @@ impl Graph {
         self.node_map.insert(vertex_id, properties);
 
         Ok(())
-        
     }
 
     pub fn insert_edge(
@@ -147,11 +151,10 @@ impl Graph {
         to_id: Vec<u8>,
         json: Option<Value>,
     ) -> Result<()> {
-
         if self.load_adj_dict == false && self.load_coo == false {
             return Err(anyhow!("Cannot insert edge into graph that does not have load_adj_dict or load_coo set to true"));
         }
-        
+
         let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
         let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();
 

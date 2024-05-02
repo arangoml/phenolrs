@@ -1,14 +1,12 @@
 // use numpy::ToPyArray;
 use pyo3::types::PyDict;
 use pyo3::{PyResult, Python};
-use std::collections::HashMap;
 use serde_json::{Map, Value};
+use std::collections::HashMap;
 
 #[cfg(not(test))]
 use pyo3::prelude::*;
 // use pyo3::types::IntoPyDict;
-
-
 
 // #[cfg(not(test))] // not(test) is needed to let us use `cargo test`
 // pub fn construct_col_to_features(
@@ -51,10 +49,7 @@ use pyo3::prelude::*;
 // }
 
 #[cfg(not(test))]
-pub fn construct_dict(
-    input: HashMap<String, usize>,
-    py: Python,
-) -> PyResult<&PyDict> {
+pub fn construct_dict(input: HashMap<String, usize>, py: Python) -> PyResult<&PyDict> {
     let pydict = PyDict::new(py);
 
     input
@@ -63,7 +58,6 @@ pub fn construct_dict(
 
     Ok(pydict)
 }
-
 
 #[cfg(not(test))]
 pub fn construct_dict_of_dict(
@@ -107,7 +101,9 @@ pub fn construct_dict_of_dict_of_dict(
                     Value::Bool(b) => b.to_object(py),
                     _ => py.None(),
                 };
-                inner_inner_dict.set_item(inner_property_key, py_value).unwrap();
+                inner_inner_dict
+                    .set_item(inner_property_key, py_value)
+                    .unwrap();
             }
             inner_dict.set_item(property_key, inner_inner_dict).unwrap();
         }

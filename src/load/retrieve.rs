@@ -23,7 +23,12 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
     let load_adj_dict = req.configuration.load_adj_dict;
     let load_coo = req.configuration.load_coo;
 
-    let graph = Graph::new(/*true, 64, */ 0, load_node_dict, load_adj_dict, load_coo);
+    let graph = Graph::new(
+        /*true, 64, */ 0,
+        load_node_dict,
+        load_adj_dict,
+        load_coo,
+    );
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
     // Fetch from ArangoDB in a background thread:
@@ -130,7 +135,7 @@ pub async fn fetch_graph_from_arangodb(
         println!("User has not requested vertices")
     }
 
-    // if load_adj_dict or load_coo 
+    // if load_adj_dict or load_coo
     if load_adj_dict || load_coo {
         let edge_coll_list = req
             .edge_collections
@@ -145,7 +150,16 @@ pub async fn fetch_graph_from_arangodb(
             edge_map.values().map(|v| v.len()).sum::<usize>()
         );
 
-        load_edges(&req, &graph_arc, &db_config, begin, &edge_map, load_adj_dict, load_coo).await?;
+        load_edges(
+            &req,
+            &graph_arc,
+            &db_config,
+            begin,
+            &edge_map,
+            load_adj_dict,
+            load_coo,
+        )
+        .await?;
     } else {
         println!("User has not requested edges")
     }
@@ -179,7 +193,9 @@ async fn load_edges(
         let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
         senders.push(sender);
         let graph_clone = graph_arc.clone();
-        let consumer = std::thread::spawn(move || receive::receive_edges(receiver, graph_clone, load_adj_dict, load_coo));
+        let consumer = std::thread::spawn(move || {
+            receive::receive_edges(receiver, graph_clone, load_adj_dict, load_coo)
+        });
         consumers.push(consumer);
     }
     get_all_shard_data(req, db_config, edge_map, senders).await?;
