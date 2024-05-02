@@ -1,4 +1,5 @@
 import numpy
+
 from phenolrs.graph_loader import GraphLoader
 
 
@@ -8,9 +9,7 @@ def test_phenol_abide_hetero(
     result = GraphLoader.load(
         connection_information["dbName"],
         {
-            "vertexCollections": {
-                "Subjects": {}
-            },
+            "vertexCollections": {"Subjects": {}},
             "edgeCollections": {"medical_affinity_graph": {}},
         },
         [connection_information["url"]],
