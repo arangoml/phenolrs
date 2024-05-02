@@ -18,6 +18,9 @@ class GraphLoader:
         tls_cert: typing.Any | None = None,
         parallelism: int | None = None,
         batch_size: int | None = None,
+        load_node_dict: bool = True,
+        load_adj_dict: bool = True,
+        load_coo: bool = True,
     ) -> dict[typing.Tuple[str, str, str], npt.NDArray[np.float64]]:
 
         if "vertexCollections" not in metagraph:
@@ -31,6 +34,11 @@ class GraphLoader:
 
         if len(metagraph["edgeCollections"]) == 0:
             raise PhenolError("edgeCollections must map to non-empty dictionary")
+
+        if not load_node_dict and not load_adj_dict and not load_coo:
+            raise PhenolError(
+                "At least one of load_node_dict, load_adj_dict, or load_coo must be True"
+            )
 
         db_config_options: dict[str, typing.Any] = {
             "endpoints": hosts,
@@ -66,6 +74,11 @@ class GraphLoader:
                 "database": database,
                 "vertex_collections": vertex_collections,
                 "edge_collections": edge_collections,
-                "configuration": {"database_config": db_config_options},
+                "configuration": {
+                    "database_config": db_config_options,
+                    "load_node_dict": load_node_dict,
+                    "load_adj_dict": load_adj_dict,
+                    "load_coo": load_coo,
+                },
             }
         )

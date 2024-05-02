@@ -46,10 +46,22 @@ impl FromPyObject<'_> for DataLoadConfiguration {
         let batch_size: Option<u64> = input_dict
             .get_item("batch_size")?
             .map_or(Ok(Some(400000)), |v| v.extract())?;
+        let load_node_dict: bool = input_dict
+            .get_item("load_node_dict")?
+            .map_or(Ok(true), |v| v.extract())?;
+        let load_adj_dict: bool = input_dict
+            .get_item("load_adj_dict")?
+            .map_or(Ok(true), |v| v.extract())?;
+        let load_coo: bool = input_dict
+            .get_item("load_coo")?
+            .map_or(Ok(true), |v| v.extract())?;
         Ok(DataLoadConfiguration {
             database_config: db_config,
             parallelism,
             batch_size,
+            load_node_dict,
+            load_adj_dict,
+            load_coo,
         })
     }
 }

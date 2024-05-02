@@ -8,6 +8,7 @@ use crate::client::build_client;
 use crate::client::config::ClientConfig;
 use crate::graphs::Graph;
 use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
+use crate::load;
 use bytes::Bytes;
 use log::info;
 use reqwest::StatusCode;
@@ -18,7 +19,11 @@ use std::thread::JoinHandle;
 use std::time::SystemTime;
 
 pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
-    let graph = Graph::new(/*true, 64, */ 0);
+    let load_node_dict = req.configuration.load_node_dict;
+    let load_adj_dict = req.configuration.load_adj_dict;
+    let load_coo = req.configuration.load_coo;
+
+    let graph = Graph::new(/*true, 64, */ 0, load_node_dict, load_adj_dict, load_coo);
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
     // Fetch from ArangoDB in a background thread:
@@ -56,6 +61,10 @@ pub async fn fetch_graph_from_arangodb(
     graph_arc: Arc<RwLock<Graph>>,
 ) -> Result<Arc<RwLock<Graph>>, String> {
     let db_config = &req.configuration.database_config;
+    let load_node_dict = req.configuration.load_node_dict;
+    let load_adj_dict = req.configuration.load_adj_dict;
+    let load_coo = req.configuration.load_coo;
+
     if db_config.endpoints.is_empty() {
         return Err("no endpoints given".to_string());
     }
@@ -86,46 +95,61 @@ pub async fn fetch_graph_from_arangodb(
 
     // Compute which shard we must get from which dbserver, we do vertices
     // and edges right away to be able to error out early:
-    let vertex_coll_list = req
-        .vertex_collections
-        .iter()
-        .map(|ci| -> String { ci.name.clone() })
-        .collect::<Vec<String>>();
-    let vertex_map = compute_shard_map(&shard_dist, &vertex_coll_list)?;
-    let vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>> =
-        Arc::new(RwLock::new(HashMap::new()));
-    {
-        let mut guard = vertex_coll_field_map.write().unwrap();
-        for vc in req.vertex_collections.iter() {
-            guard.insert(vc.name.clone(), vc.fields.clone());
+    if load_node_dict {
+        let vertex_coll_list = req
+            .vertex_collections
+            .iter()
+            .map(|ci| -> String { ci.name.clone() })
+            .collect::<Vec<String>>();
+        let vertex_map = compute_shard_map(&shard_dist, &vertex_coll_list)?;
+        let vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
+        {
+            let mut guard = vertex_coll_field_map.write().unwrap();
+            for vc in req.vertex_collections.iter() {
+                guard.insert(vc.name.clone(), vc.fields.clone());
+            }
         }
+
+        info!(
+            "{:?} Need to fetch data from {} vertex shards...",
+            std::time::SystemTime::now().duration_since(begin).unwrap(),
+            vertex_map.values().map(|v| v.len()).sum::<usize>(),
+        );
+
+        load_vertices(
+            &req,
+            &graph_arc,
+            &db_config,
+            begin,
+            &vertex_map,
+            vertex_coll_field_map,
+        )
+        .await?;
+    } else {
+        println!("User has not requested vertices")
     }
-    let edge_coll_list = req
-        .edge_collections
-        .iter()
-        .map(|ci| -> String { ci.name.clone() })
-        .collect::<Vec<String>>();
-    let edge_map = compute_shard_map(&shard_dist, &edge_coll_list)?;
 
-    info!(
-        "{:?} Need to fetch data from {} vertex shards and {} edge shards...",
-        std::time::SystemTime::now().duration_since(begin).unwrap(),
-        vertex_map.values().map(|v| v.len()).sum::<usize>(),
-        edge_map.values().map(|v| v.len()).sum::<usize>()
-    );
+    // if load_adj_dict or load_coo 
+    if load_adj_dict || load_coo {
+        let edge_coll_list = req
+            .edge_collections
+            .iter()
+            .map(|ci| -> String { ci.name.clone() })
+            .collect::<Vec<String>>();
+        let edge_map = compute_shard_map(&shard_dist, &edge_coll_list)?;
 
-    load_vertices(
-        &req,
-        &graph_arc,
-        &db_config,
-        begin,
-        &vertex_map,
-        vertex_coll_field_map,
-    )
-    .await?;
-    load_edges(&req, &graph_arc, &db_config, begin, &edge_map).await?;
+        info!(
+            "{:?} Need to fetch data from {} edge shards...",
+            std::time::SystemTime::now().duration_since(begin).unwrap(),
+            edge_map.values().map(|v| v.len()).sum::<usize>()
+        );
 
-    // And now the edges:
+        load_edges(&req, &graph_arc, &db_config, begin, &edge_map, load_adj_dict, load_coo).await?;
+    } else {
+        println!("User has not requested edges")
+    }
+
     {
         info!(
             "{:?} Graph loaded.",
@@ -142,6 +166,8 @@ async fn load_edges(
     db_config: &&DatabaseConfiguration,
     begin: SystemTime,
     edge_map: &ShardMap,
+    load_adj_dict: bool,
+    load_coo: bool,
 ) -> Result<(), String> {
     let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
@@ -153,7 +179,7 @@ async fn load_edges(
         let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
         senders.push(sender);
         let graph_clone = graph_arc.clone();
-        let consumer = std::thread::spawn(move || receive::receive_edges(receiver, graph_clone));
+        let consumer = std::thread::spawn(move || receive::receive_edges(receiver, graph_clone, load_adj_dict, load_coo));
         consumers.push(consumer);
     }
     get_all_shard_data(req, db_config, edge_map, senders).await?;

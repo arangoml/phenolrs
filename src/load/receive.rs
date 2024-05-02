@@ -9,6 +9,8 @@ use std::sync::{Arc, RwLock};
 pub fn receive_edges(
     receiver: Receiver<Bytes>,
     graph_clone: Arc<RwLock<Graph>>,
+    load_adj_dict: bool,
+    load_coo: bool,
 ) -> Result<(), String> {
     while let Ok(resp) = receiver.recv() {
         let body = std::str::from_utf8(resp.as_ref())
@@ -68,7 +70,9 @@ pub fn receive_edges(
             //     }
             // };
 
-            edge_json.push(v);
+            if load_adj_dict {
+                edge_json.push(v);
+            }
         }
         // let mut edges: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = Vec::with_capacity(froms.len());
 
@@ -81,11 +85,16 @@ pub fn receive_edges(
                 let from_key = &froms[i];
                 let to_key = &tos[i];
 
+                let edge_data = match load_adj_dict {
+                    true => Some(edge_json[i].clone()),
+                    false => None,
+                };
+
                 let _ = graph.insert_edge(
                     // current_col_name.clone().unwrap(),
                     from_key.clone(),
                     to_key.clone(),
-                    Some(edge_json[i].clone())
+                     edge_data,
                 );
             }
         }

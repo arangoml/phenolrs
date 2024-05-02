@@ -63,6 +63,10 @@ pub struct Graph {
     // pub coo_by_from_edge_to: HashMap<(String, String, String), Vec<Vec<usize>>>,
     // pub cols_to_features: HashMap<String, HashMap<String, Vec<Vec<f64>>>>,
 
+    pub load_node_dict: bool,
+    pub load_adj_dict: bool,
+    pub load_coo: bool,
+
     // node_map is a dictionary of node IDs to their json data
     // e.g {'user/1': {'name': 'Alice', 'age': 25}, 'user/2': {'name': 'Bob', 'age': 30}, ...}
     pub node_map: HashMap<String, Map<String, Value>>,
@@ -80,9 +84,12 @@ pub struct Graph {
 
 
 impl Graph {
-    pub fn new(/*store_keys: bool, _bits_for_hash: u8,*/ id: u64) -> Arc<RwLock<Graph>> {
+    pub fn new(/*store_keys: bool, _bits_for_hash: u8,*/ id: u64, load_node_dict: bool, load_adj_dict: bool, load_coo: bool) -> Arc<RwLock<Graph>> {
         Arc::new(RwLock::new(Graph {
             graph_id: id,
+            load_node_dict: load_node_dict,
+            load_adj_dict: load_adj_dict,
+            load_coo: load_coo,
             // hash_to_index: HashMap::new(),
             // exceptions: HashMap::new(),
             // index_to_key: vec![],
@@ -115,6 +122,10 @@ impl Graph {
         // collection_name: Vec<u8>,
         // field_names: &[String],
     ) -> Result<()> {
+        if self.load_node_dict == false {
+            return Err(anyhow!("Cannot insert vertex into graph that does not have load_node_dict set to true"));
+        }
+
         // Simply insert the vertex into the node_map
         let vertex_id = String::from_utf8(key.clone()).unwrap();
 
@@ -136,6 +147,10 @@ impl Graph {
         to_id: Vec<u8>,
         json: Option<Value>,
     ) -> Result<()> {
+
+        if self.load_adj_dict == false && self.load_coo == false {
+            return Err(anyhow!("Cannot insert edge into graph that does not have load_adj_dict or load_coo set to true"));
+        }
         
         let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
         let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();
@@ -156,38 +171,41 @@ impl Graph {
         // Step 4:
         // Add the edge to the adjacency list representation
 
-        // Step 1
-        let from_id_index = match self.vertex_id_to_index.get(&from_id_str) {
-            Some(index) => *index,
-            None => {
-                let index: usize = self.vertex_id_to_index.len();
-                self.vertex_id_to_index.insert(from_id_str.clone(), index);
-                index
-            }
-        };
+        if self.load_coo {
+            // Step 1
+            let from_id_index = match self.vertex_id_to_index.get(&from_id_str) {
+                Some(index) => *index,
+                None => {
+                    let index: usize = self.vertex_id_to_index.len();
+                    self.vertex_id_to_index.insert(from_id_str.clone(), index);
+                    index
+                }
+            };
 
-        // Step 2
-        let to_id_index = match self.vertex_id_to_index.get(&to_id_str) {
-            Some(index) => *index,
-            None => {
-                let index = self.vertex_id_to_index.len();
-                self.vertex_id_to_index.insert(to_id_str.clone(), index);
-                index
-            }
-        };
+            // Step 2
+            let to_id_index = match self.vertex_id_to_index.get(&to_id_str) {
+                Some(index) => *index,
+                None => {
+                    let index = self.vertex_id_to_index.len();
+                    self.vertex_id_to_index.insert(to_id_str.clone(), index);
+                    index
+                }
+            };
 
-        // Step 3
-        self.coo.0.push(from_id_index);
-        self.coo.1.push(to_id_index);
+            // Step 3
+            self.coo.0.push(from_id_index);
+            self.coo.1.push(to_id_index);
+        }
 
-        // Step 4
-        let from_map = self.adj_map.entry(from_id_str).or_insert(HashMap::new());
-        let properties = match json {
-            Some(Value::Object(map)) => map,
-            _ => Map::new(),
-        };
-        from_map.insert(to_id_str, properties);
-       
+        if self.load_adj_dict {
+            // Step 4
+            let from_map = self.adj_map.entry(from_id_str).or_insert(HashMap::new());
+            let properties = match json {
+                Some(Value::Object(map)) => map,
+                _ => Map::new(),
+            };
+            from_map.insert(to_id_str, properties);
+        }
 
         Ok(())
     }

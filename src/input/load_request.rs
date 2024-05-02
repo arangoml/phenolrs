@@ -12,6 +12,9 @@ pub struct DataLoadRequest {
 
 pub struct DataLoadConfiguration {
     pub database_config: DatabaseConfiguration,
+    pub load_node_dict: bool,
+    pub load_adj_dict: bool,
+    pub load_coo: bool,
     pub parallelism: Option<u32>,
     pub batch_size: Option<u64>,
 }
@@ -22,6 +25,9 @@ impl DataLoadConfiguration {
             database_config: DatabaseConfiguration::default(),
             parallelism: Some(5),
             batch_size: Some(400000),
+            load_node_dict: true,
+            load_adj_dict: true,
+            load_coo: true,
         }
     }
 }
