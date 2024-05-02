@@ -21,14 +21,17 @@ use std::time::SystemTime;
 pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
     let load_node_dict = req.configuration.load_node_dict;
     let load_adj_dict = req.configuration.load_adj_dict;
+    let load_adj_dict_as_undirected = req.configuration.load_adj_dict_as_undirected;
     let load_coo = req.configuration.load_coo;
 
     let graph = Graph::new(
         /*true, 64, */ 0,
         load_node_dict,
         load_adj_dict,
+        load_adj_dict_as_undirected,
         load_coo,
     );
+
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
     // Fetch from ArangoDB in a background thread:

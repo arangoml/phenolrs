@@ -14,6 +14,7 @@ pub struct DataLoadConfiguration {
     pub database_config: DatabaseConfiguration,
     pub load_node_dict: bool,
     pub load_adj_dict: bool,
+    pub load_adj_dict_as_undirected: bool,
     pub load_coo: bool,
     pub parallelism: Option<u32>,
     pub batch_size: Option<u64>,
@@ -27,6 +28,7 @@ impl DataLoadConfiguration {
             batch_size: Some(400000),
             load_node_dict: true,
             load_adj_dict: true,
+            load_adj_dict_as_undirected: false,
             load_coo: true,
         }
     }

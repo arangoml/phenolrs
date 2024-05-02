@@ -19,6 +19,7 @@ class GraphLoader:
         batch_size: int | None = None,
         load_node_dict: bool = True,
         load_adj_dict: bool = True,
+        load_adj_dict_as_undirected: bool = False,
         load_coo: bool = True,
     ) -> typing.Tuple[
         dict[str, dict[str, typing.Any]],
@@ -87,6 +88,7 @@ class GraphLoader:
                     "database_config": db_config_options,
                     "load_node_dict": load_node_dict,
                     "load_adj_dict": load_adj_dict,
+                    "load_adj_dict_as_undirected": load_adj_dict_as_undirected,
                     "load_coo": load_coo,
                 },
             }

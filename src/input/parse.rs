@@ -52,6 +52,9 @@ impl FromPyObject<'_> for DataLoadConfiguration {
         let load_adj_dict: bool = input_dict
             .get_item("load_adj_dict")?
             .map_or(Ok(true), |v| v.extract())?;
+        let load_adj_dict_as_undirected: bool = input_dict
+            .get_item("load_adj_dict_as_undirected")?
+            .map_or(Ok(false), |v| v.extract())?;
         let load_coo: bool = input_dict
             .get_item("load_coo")?
             .map_or(Ok(true), |v| v.extract())?;
@@ -61,6 +64,7 @@ impl FromPyObject<'_> for DataLoadConfiguration {
             batch_size,
             load_node_dict,
             load_adj_dict,
+            load_adj_dict_as_undirected,
             load_coo,
         })
     }
