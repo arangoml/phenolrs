@@ -18,7 +18,7 @@ use std::thread::JoinHandle;
 use std::time::SystemTime;
 
 pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
-    let graph = Graph::new(true, 64, 0);
+    let graph = Graph::new(/*true, 64, */ 0);
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
     // Fetch from ArangoDB in a background thread:

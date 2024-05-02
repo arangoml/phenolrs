@@ -15,7 +15,8 @@ pub fn receive_edges(
             .map_err(|e| format!("UTF8 error when parsing body: {:?}", e))?;
         let mut froms: Vec<Vec<u8>> = Vec::with_capacity(1000000);
         let mut tos: Vec<Vec<u8>> = Vec::with_capacity(1000000);
-        let mut current_col_name: Option<Vec<u8>> = None;
+        // let mut current_col_name: Option<Vec<u8>> = None;
+        let mut edge_json: Vec<Value> = vec![];
         for line in body.lines() {
             let v: Value = match serde_json::from_str(line) {
                 Err(err) => {
@@ -54,41 +55,49 @@ pub fn receive_edges(
                     ));
                 }
             }
-            if current_col_name.is_none() {
-                let id = &v["_id"];
-                match id {
-                    Value::String(i) => {
-                        let pos = i.find('/').unwrap();
-                        current_col_name = Some((&i[0..pos]).into());
-                    }
-                    _ => {
-                        return Err("JSON _id is not string attribute".to_string());
-                    }
-                }
-            };
+            // if current_col_name.is_none() {
+            //     let id = &v["_id"];
+            //     match id {
+            //         Value::String(i) => {
+            //             let pos = i.find('/').unwrap();
+            //             current_col_name = Some((&i[0..pos]).into());
+            //         }
+            //         _ => {
+            //             return Err("JSON _id is not string attribute".to_string());
+            //         }
+            //     }
+            // };
+
+            edge_json.push(v);
         }
-        let mut edges: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = Vec::with_capacity(froms.len());
-        // First translate keys to indexes by reading
-        // the graph object:
-        assert!(froms.len() == tos.len());
-        for i in 0..froms.len() {
-            let from_key = &froms[i];
-            let to_key = &tos[i];
-            edges.push((
-                current_col_name.clone().unwrap(),
-                from_key.clone(),
-                to_key.clone(),
-            ));
-        }
+        // let mut edges: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = Vec::with_capacity(froms.len());
+
         {
-            // Now actually insert edges by writing the graph
-            // object:
             let mut graph = graph_clone.write().unwrap();
-            for e in edges {
-                // don't need to worry about this error for now
-                let _ = graph.insert_edge(e.0, e.1, e.2, vec![]);
+            // First translate keys to indexes by reading
+            // the graph object:
+            assert!(froms.len() == tos.len());
+            for i in 0..froms.len() {
+                let from_key = &froms[i];
+                let to_key = &tos[i];
+
+                let _ = graph.insert_edge(
+                    // current_col_name.clone().unwrap(),
+                    from_key.clone(),
+                    to_key.clone(),
+                    Some(edge_json[i].clone())
+                );
             }
         }
+        // {
+        //     // Now actually insert edges by writing the graph
+        //     // object:
+        //     let mut graph = graph_clone.write().unwrap();
+        //     for e in edges {
+        //         // don't need to worry about this error for now
+        //         let _ = graph.insert_edge(e.0, e.1, e.2, vec![]);
+        //     }
+        // }
     }
     Ok(())
 }
@@ -113,7 +122,7 @@ pub fn receive_vertices(
         vertex_keys.reserve(400000);
         let mut vertex_json: Vec<Value> = vec![];
         let mut json_initialized = false;
-        let mut fields: Vec<String> = vec![];
+        // let mut fields: Vec<String> = vec![];
         for line in body.lines() {
             let v: Value = match serde_json::from_str(line) {
                 Err(err) => {
@@ -139,17 +148,17 @@ pub fn receive_vertices(
                         let pos = i.find('/');
                         match pos {
                             None => {
-                                fields = vec![];
+                                // fields = vec![];
                             }
                             Some(p) => {
                                 let collname = i[0..p].to_string();
                                 let flds = vcf_map.get(&collname);
                                 match flds {
                                     None => {
-                                        fields = vec![];
+                                        // fields = vec![];
                                     }
-                                    Some(v) => {
-                                        fields = v.clone();
+                                    Some(_) => {
+                                        // fields = v.clone();
                                         vertex_json.reserve(400000);
                                     }
                                 }
@@ -167,31 +176,30 @@ pub fn receive_vertices(
             // If we get here, we have to extract the field
             // values in `fields` from the json and store it
             // to vertex_json:
-            if !fields.is_empty() {
-                if fields.len() == 1 {
-                    vertex_json.push(v[&fields[0]].clone());
-                } else {
-                    let mut j = json!({});
-                    for f in fields.iter() {
-                        j[&f] = v[&f].clone();
-                    }
-                    vertex_json.push(j);
-                }
-            }
+            // if !fields.is_empty() {
+            //     if fields.len() == 1 {
+            //         vertex_json.push(v[&fields[0]].clone());
+            //     } else {
+            //         let mut j = json!({});
+            //         for f in fields.iter() {
+            //             j[&f] = v[&f].clone();
+            //         }
+            //         vertex_json.push(j);
+            //     }
+            // }
+
+            vertex_json.push(v);
         }
         {
             let mut graph = graph_clone.write().unwrap();
             for i in 0..vertex_keys.len() {
                 let k = &vertex_keys[i];
-                graph.insert_vertex(
+                // print the vertex_json
+                let _ = graph.insert_vertex(
                     k.clone(),
-                    if vertex_json.is_empty() {
-                        None
-                    } else {
-                        Some(vertex_json[i].clone())
-                    },
-                    current_vertex_col.clone().unwrap(),
-                    &fields,
+                    Some(vertex_json[i].clone()),
+                    // current_vertex_col.clone().unwrap(),
+                    // &fields,
                 );
             }
         }
