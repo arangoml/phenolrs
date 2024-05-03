@@ -129,9 +129,7 @@ impl Graph {
         // field_names: &[String],
     ) -> Result<()> {
         if self.load_node_dict == false {
-            return Err(anyhow!(
-                "Cannot insert vertex into graph that does not have load_node_dict set to true"
-            ));
+            return Ok(());
         }
 
         // Simply insert the vertex into the node_map
@@ -155,7 +153,7 @@ impl Graph {
         json: Option<Value>,
     ) -> Result<()> {
         if self.load_adj_dict == false && self.load_coo == false {
-            return Err(anyhow!("Cannot insert edge into graph that does not have load_adj_dict or load_coo set to true"));
+            return Ok(());
         }
 
         let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();

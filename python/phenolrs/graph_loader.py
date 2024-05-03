@@ -45,10 +45,10 @@ class GraphLoader:
                 "edgeCollections must map to non-empty dictionary"
             )  # noqa
 
-        if not load_node_dict and not load_adj_dict and not load_coo:
-            raise PhenolError(
-                "At least one of load_node_dict, load_adj_dict, or load_coo must be True"  # noqa
-            )
+        # if not load_node_dict and not load_adj_dict and not load_coo:
+        #     raise PhenolError(
+        #         "At least one of load_node_dict, load_adj_dict, or load_coo must be True"  # noqa
+        #     )
 
         db_config_options: dict[str, typing.Any] = {
             "endpoints": hosts,
