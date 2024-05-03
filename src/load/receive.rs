@@ -3,16 +3,16 @@ use bytes::Bytes;
 use log::debug;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
+use tokio::sync::mpsc::Receiver;
 
 pub fn receive_edges(
-    receiver: Receiver<Bytes>,
+    mut receiver: Receiver<Bytes>,
     graph_clone: Arc<RwLock<Graph>>,
     load_adj_dict: bool,
     load_coo: bool,
 ) -> Result<(), String> {
-    while let Ok(resp) = receiver.recv() {
+    while let Some(resp) = receiver.blocking_recv() {
         let body = std::str::from_utf8(resp.as_ref())
             .map_err(|e| format!("UTF8 error when parsing body: {:?}", e))?;
         let mut froms: Vec<Vec<u8>> = Vec::with_capacity(1000000);
@@ -112,13 +112,13 @@ pub fn receive_edges(
 }
 
 pub fn receive_vertices(
-    receiver: Receiver<Bytes>,
+    mut receiver: Receiver<Bytes>,
     graph_clone: Arc<RwLock<Graph>>,
     vertex_coll_field_map_clone: Arc<RwLock<HashMap<String, Vec<String>>>>,
 ) -> Result<(), String> {
     let vcf_map = vertex_coll_field_map_clone.read().unwrap();
     let begin = std::time::SystemTime::now();
-    while let Ok(resp) = receiver.recv() {
+    while let Some(resp) = receiver.blocking_recv() {
         let body = std::str::from_utf8(resp.as_ref())
             .map_err(|e| format!("UTF8 error when parsing body: {:?}", e))?;
         debug!(

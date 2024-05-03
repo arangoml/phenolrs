@@ -8,7 +8,6 @@ use crate::client::build_client;
 use crate::client::config::ClientConfig;
 use crate::graphs::Graph;
 use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
-use crate::load;
 use bytes::Bytes;
 use log::info;
 use reqwest::StatusCode;
@@ -134,8 +133,6 @@ pub async fn fetch_graph_from_arangodb(
             vertex_coll_field_map,
         )
         .await?;
-    } else {
-        println!("User has not requested vertices")
     }
 
     // if load_adj_dict or load_coo
@@ -163,8 +160,6 @@ pub async fn fetch_graph_from_arangodb(
             load_coo,
         )
         .await?;
-    } else {
-        println!("User has not requested edges")
     }
 
     {
@@ -186,14 +181,14 @@ async fn load_edges(
     load_adj_dict: bool,
     load_coo: bool,
 ) -> Result<(), String> {
-    let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
+    let mut senders: Vec<tokio::sync::mpsc::Sender<Bytes>> = vec![];
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
     for _i in 0..req
         .configuration
         .parallelism
         .expect("Why is parallelism missing")
     {
-        let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
+        let (sender, receiver) = tokio::sync::mpsc::channel::<Bytes>(10);
         senders.push(sender);
         let graph_clone = graph_arc.clone();
         let consumer = std::thread::spawn(move || {
@@ -221,14 +216,14 @@ async fn load_vertices(
     vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>>,
 ) -> Result<(), String> {
     // We use multiple threads to receive the data in batches:
-    let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
+    let mut senders: Vec<tokio::sync::mpsc::Sender<Bytes>> = vec![];
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
     for _i in 0..req
         .configuration
         .parallelism
         .expect("Why is parallelism missing")
     {
-        let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
+        let (sender, receiver) = tokio::sync::mpsc::channel::<Bytes>(10);
         senders.push(sender);
         let graph_clone = graph_arc.clone();
         let vertex_coll_field_map_clone = vertex_coll_field_map.clone();

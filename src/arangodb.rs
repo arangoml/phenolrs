@@ -140,7 +140,7 @@ pub async fn get_all_shard_data(
     req: &DataLoadRequest,
     connection_config: &DatabaseConfiguration,
     shard_map: &ShardMap,
-    result_channels: Vec<std::sync::mpsc::Sender<Bytes>>,
+    result_channels: Vec<tokio::sync::mpsc::Sender<Bytes>>,
 ) -> Result<(), String> {
     let begin = SystemTime::now();
 
@@ -322,6 +322,7 @@ pub async fn get_all_shard_data(
                         .map_err(|e| format!("Error in body: {:?}", e))?;
                     result_channel_clone
                         .send(body)
+                        .await
                         .expect("Could not send to channel!");
                 }
             });
