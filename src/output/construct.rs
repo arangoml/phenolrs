@@ -52,9 +52,9 @@ use pyo3::prelude::*;
 pub fn construct_dict(input: HashMap<String, usize>, py: Python) -> PyResult<&PyDict> {
     let pydict = PyDict::new(py);
 
-    input
-        .iter()
-        .for_each(|item| pydict.set_item(item.0, item.1).unwrap());
+    for (key, value) in input {
+        pydict.set_item(key, value)?;
+    }
 
     Ok(pydict)
 }
@@ -65,20 +65,14 @@ pub fn construct_dict_of_dict(
     py: Python,
 ) -> PyResult<&PyDict> {
     let pydict = PyDict::new(py);
-    for (key, properties) in input {
+
+    for (key, properties) in input.iter() {
         let inner_dict = PyDict::new(py);
         for (property_key, property_value) in properties {
-            // Convert serde_json::Value to PyObject. This example assumes simple JSON structures.
-            // Complex types like arrays or nested objects may require recursive conversion or additional handling.
-            let py_value = match property_value {
-                Value::String(s) => s.to_object(py),
-                Value::Number(num) => num.to_string().to_object(py), // Convert to string to avoid precision issues
-                Value::Bool(b) => b.to_object(py),
-                _ => py.None(), // Simplify handling for null, arrays, and objects
-            };
-            inner_dict.set_item(property_key, py_value).unwrap();
+            let py_value = convert_to_py_object(property_value, py)?;
+            inner_dict.set_item(property_key, py_value)?;
         }
-        pydict.set_item(key, inner_dict).unwrap();
+        pydict.set_item(key, inner_dict)?;
     }
 
     Ok(pydict)
@@ -90,25 +84,30 @@ pub fn construct_dict_of_dict_of_dict(
     py: Python,
 ) -> PyResult<&PyDict> {
     let pydict = PyDict::new(py);
-    for (key, properties) in input {
+
+    for (key, properties) in input.iter() {
         let inner_dict = PyDict::new(py);
-        for (property_key, property_value) in properties {
+        for (property_key, property_value) in properties.iter() {
             let inner_inner_dict = PyDict::new(py);
             for (inner_property_key, inner_property_value) in property_value {
-                let py_value = match inner_property_value {
-                    Value::String(s) => s.to_object(py),
-                    Value::Number(num) => num.to_string().to_object(py),
-                    Value::Bool(b) => b.to_object(py),
-                    _ => py.None(),
-                };
-                inner_inner_dict
-                    .set_item(inner_property_key, py_value)
-                    .unwrap();
+                let py_value = convert_to_py_object(inner_property_value, py)?;
+                inner_inner_dict.set_item(inner_property_key, py_value)?;
             }
-            inner_dict.set_item(property_key, inner_inner_dict).unwrap();
+            inner_dict.set_item(property_key, inner_inner_dict)?;
         }
-        pydict.set_item(key, inner_dict).unwrap();
+        pydict.set_item(key, inner_dict)?;
     }
 
     Ok(pydict)
+}
+
+#[cfg(not(test))]
+fn convert_to_py_object(value: &Value, py: Python) -> PyResult<PyObject> {
+    match value {
+        Value::String(s) => Ok(s.to_object(py)),
+        Value::Number(num) => Ok(num.to_string().to_object(py)), // Convert to string to avoid precision issues
+        Value::Bool(b) => Ok(b.to_object(py)),
+        Value::Null => Ok(py.None()),
+        _ => Ok(py.None()), // Simplify handling for arrays and objects
+    }
 }
