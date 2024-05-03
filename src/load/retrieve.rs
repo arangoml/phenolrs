@@ -32,17 +32,13 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
     );
 
     let graph_clone = graph.clone(); // for background thread
-    println!("Starting computation");
-    // Fetch from ArangoDB in a background thread:
+                                     // Fetch from ArangoDB in a background thread:
     let handle = std::thread::spawn(move || {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap()
-            .block_on(async {
-                println!("Loading!");
-                fetch_graph_from_arangodb(req, graph_clone).await
-            })
+            .block_on(async { fetch_graph_from_arangodb(req, graph_clone).await })
     });
     handle.join().map_err(|_s| "Computation failed")??;
     let inner_rw_lock =
@@ -75,9 +71,9 @@ pub async fn fetch_graph_from_arangodb(
     if db_config.endpoints.is_empty() {
         return Err("no endpoints given".to_string());
     }
-    let begin = std::time::SystemTime::now();
 
-    println!(
+    let begin = std::time::SystemTime::now();
+    info!(
         "{:?} Fetching graph from ArangoDB...",
         std::time::SystemTime::now().duration_since(begin).unwrap()
     );
@@ -103,6 +99,8 @@ pub async fn fetch_graph_from_arangodb(
     // Compute which shard we must get from which dbserver, we do vertices
     // and edges right away to be able to error out early:
     if load_node_dict {
+        let start = std::time::SystemTime::now();
+
         let vertex_coll_list = req
             .vertex_collections
             .iter()
@@ -135,7 +133,6 @@ pub async fn fetch_graph_from_arangodb(
         .await?;
     }
 
-    // if load_adj_dict or load_coo
     if load_adj_dict || load_coo {
         let edge_coll_list = req
             .edge_collections

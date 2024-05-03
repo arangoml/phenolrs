@@ -35,10 +35,14 @@ fn graph_to_json_format(
     &PyArray1<usize>,
     &PyDict,
 )> {
+    let start = std::time::Instant::now();
+
     let graph = load::retrieve::get_arangodb_graph(request).unwrap();
 
+    println!("  1. Build Graph: {:?}", start.elapsed());
+
     // start timer
-    // let start = std::time::Instant::now();
+    let start = std::time::Instant::now();
 
     let node_dict = construct_dict_of_dict(graph.node_map, py)?;
     let adj_dict = construct_dict_of_dict_of_dict(graph.adj_map, py)?;
@@ -48,9 +52,7 @@ fn graph_to_json_format(
     let dst_indices = PyArray1::from_vec(py, coo.1);
     let vertex_id_to_index = construct_dict(graph.vertex_id_to_index, py)?;
 
-    // let end = start.elapsed();
-
-    // println!("Time elapsed: {:?}", end);
+    println!("  2. Construct Python Objects: {:?}", start.elapsed());
 
     let res = (
         node_dict,
