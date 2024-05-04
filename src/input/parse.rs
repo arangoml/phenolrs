@@ -1,5 +1,6 @@
 use super::load_request::{
     CollectionDescription, DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration,
+    DumpConfiguration, LoadConfiguration,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyDict;
@@ -37,35 +38,19 @@ impl FromPyObject<'_> for DataLoadRequest {
 impl FromPyObject<'_> for DataLoadConfiguration {
     fn extract(ob: &PyAny) -> PyResult<Self> {
         let input_dict: &PyDict = ob.downcast()?;
-        let db_config: DatabaseConfiguration = input_dict
+        let database_config: DatabaseConfiguration = input_dict
             .get_item("database_config")?
             .map_or(Ok(DatabaseConfiguration::default()), |c| c.extract())?;
-        let parallelism: Option<u32> = input_dict
-            .get_item("parallelism")?
-            .map_or(Ok(Some(5)), |v| v.extract())?;
-        let batch_size: Option<u64> = input_dict
-            .get_item("batch_size")?
-            .map_or(Ok(Some(400000)), |v| v.extract())?;
-        let load_node_dict: bool = input_dict
-            .get_item("load_node_dict")?
-            .map_or(Ok(true), |v| v.extract())?;
-        let load_adj_dict: bool = input_dict
-            .get_item("load_adj_dict")?
-            .map_or(Ok(true), |v| v.extract())?;
-        let load_adj_dict_as_undirected: bool = input_dict
-            .get_item("load_adj_dict_as_undirected")?
-            .map_or(Ok(false), |v| v.extract())?;
-        let load_coo: bool = input_dict
-            .get_item("load_coo")?
-            .map_or(Ok(true), |v| v.extract())?;
+        let load_config: LoadConfiguration = input_dict
+            .get_item("load_config")?
+            .map_or(Ok(LoadConfiguration::default()), |c| c.extract())?;
+        let dump_config: DumpConfiguration = input_dict
+            .get_item("dump_config")?
+            .map_or(Ok(DumpConfiguration::default()), |c| c.extract())?;
         Ok(DataLoadConfiguration {
-            database_config: db_config,
-            parallelism,
-            batch_size,
-            load_node_dict,
-            load_adj_dict,
-            load_adj_dict_as_undirected,
-            load_coo,
+            database_config,
+            load_config,
+            dump_config,
         })
     }
 }
@@ -94,6 +79,46 @@ impl FromPyObject<'_> for DatabaseConfiguration {
             password,
             jwt_token,
             tls_cert,
+        })
+    }
+}
+
+impl FromPyObject<'_> for LoadConfiguration {
+    fn extract(ob: &'_ PyAny) -> PyResult<Self> {
+        let input_dict: &PyDict = ob.downcast()?;
+        let load_node_dict: bool = input_dict
+            .get_item("load_node_dict")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        let load_adj_dict: bool = input_dict
+            .get_item("load_adj_dict")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        let load_adj_dict_as_undirected: bool = input_dict
+            .get_item("load_adj_dict_as_undirected")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        let load_coo: bool = input_dict
+            .get_item("load_coo")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        Ok(LoadConfiguration {
+            load_node_dict: load_node_dict,
+            load_adj_dict: load_adj_dict,
+            load_adj_dict_as_undirected: load_adj_dict_as_undirected,
+            load_coo: load_coo,
+        })
+    }
+}
+
+impl FromPyObject<'_> for DumpConfiguration {
+    fn extract(ob: &'_ PyAny) -> PyResult<Self> {
+        let input_dict: &PyDict = ob.downcast()?;
+        let parallelism: Option<u32> = input_dict
+            .get_item("parallelism")?
+            .map_or_else(|| Ok(None), |c| c.extract())?;
+        let batch_size: Option<u64> = input_dict
+            .get_item("batch_size")?
+            .map_or_else(|| Ok(None), |c| c.extract())?;
+        Ok(DumpConfiguration {
+            batch_size: batch_size,
+            parallelism: parallelism,
         })
     }
 }

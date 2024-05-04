@@ -18,10 +18,10 @@ use std::thread::JoinHandle;
 use std::time::SystemTime;
 
 pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
-    let load_node_dict = req.configuration.load_node_dict;
-    let load_adj_dict = req.configuration.load_adj_dict;
-    let load_adj_dict_as_undirected = req.configuration.load_adj_dict_as_undirected;
-    let load_coo = req.configuration.load_coo;
+    let load_node_dict = req.configuration.load_config.load_node_dict;
+    let load_adj_dict = req.configuration.load_config.load_adj_dict;
+    let load_adj_dict_as_undirected = req.configuration.load_config.load_adj_dict_as_undirected;
+    let load_coo = req.configuration.load_config.load_coo;
 
     let graph = Graph::new(
         /*true, 64, */ 0,
@@ -64,9 +64,9 @@ pub async fn fetch_graph_from_arangodb(
     graph_arc: Arc<RwLock<Graph>>,
 ) -> Result<Arc<RwLock<Graph>>, String> {
     let db_config = &req.configuration.database_config;
-    let load_node_dict = req.configuration.load_node_dict;
-    let load_adj_dict = req.configuration.load_adj_dict;
-    let load_coo = req.configuration.load_coo;
+    let load_node_dict = req.configuration.load_config.load_node_dict;
+    let load_adj_dict = req.configuration.load_config.load_adj_dict;
+    let load_coo = req.configuration.load_config.load_coo;
 
     if db_config.endpoints.is_empty() {
         return Err("no endpoints given".to_string());
@@ -180,8 +180,10 @@ async fn load_edges(
 ) -> Result<(), String> {
     let mut senders: Vec<tokio::sync::mpsc::Sender<Bytes>> = vec![];
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
+
     for _i in 0..req
         .configuration
+        .dump_config
         .parallelism
         .expect("Why is parallelism missing")
     {
@@ -217,6 +219,7 @@ async fn load_vertices(
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
     for _i in 0..req
         .configuration
+        .dump_config
         .parallelism
         .expect("Why is parallelism missing")
     {

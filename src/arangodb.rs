@@ -165,9 +165,9 @@ pub async fn get_all_shard_data(
     for (server, shard_list) in shard_map.iter() {
         let url = make_url(&format!("/_api/dump/start?dbserver={}", server));
         let body = DumpStartBody {
-            batch_size: req.configuration.batch_size.unwrap(),
+            batch_size: req.configuration.dump_config.batch_size.unwrap(),
             prefetch_count: 5,
-            parallelism: req.configuration.parallelism.unwrap(),
+            parallelism: req.configuration.dump_config.parallelism.unwrap(),
             shards: shard_list.clone(),
         };
         let body_v =
@@ -242,7 +242,8 @@ pub async fn get_all_shard_data(
     let par_per_dbserver = if dbservers.is_empty() {
         0
     } else {
-        (req.configuration.parallelism.unwrap() as usize + dbservers.len() - 1) / dbservers.len()
+        (req.configuration.dump_config.parallelism.unwrap() as usize + dbservers.len() - 1)
+            / dbservers.len()
     };
 
     let mut task_set = JoinSet::new();

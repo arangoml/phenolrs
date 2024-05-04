@@ -12,24 +12,16 @@ pub struct DataLoadRequest {
 
 pub struct DataLoadConfiguration {
     pub database_config: DatabaseConfiguration,
-    pub load_node_dict: bool,
-    pub load_adj_dict: bool,
-    pub load_adj_dict_as_undirected: bool,
-    pub load_coo: bool,
-    pub parallelism: Option<u32>,
-    pub batch_size: Option<u64>,
+    pub load_config: LoadConfiguration,
+    pub dump_config: DumpConfiguration,
 }
 
 impl DataLoadConfiguration {
     pub fn default() -> DataLoadConfiguration {
         DataLoadConfiguration {
             database_config: DatabaseConfiguration::default(),
-            parallelism: Some(5),
-            batch_size: Some(400000),
-            load_node_dict: true,
-            load_adj_dict: true,
-            load_adj_dict_as_undirected: false,
-            load_coo: true,
+            load_config: LoadConfiguration::default(),
+            dump_config: DumpConfiguration::default(),
         }
     }
 }
@@ -52,6 +44,40 @@ impl DatabaseConfiguration {
             password: Some("".into()),
             jwt_token: None,
             tls_cert: None,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct LoadConfiguration {
+    pub load_node_dict: bool,
+    pub load_adj_dict: bool,
+    pub load_adj_dict_as_undirected: bool,
+    pub load_coo: bool,
+}
+
+impl LoadConfiguration {
+    pub fn default() -> LoadConfiguration {
+        LoadConfiguration {
+            load_node_dict: true,
+            load_adj_dict: true,
+            load_adj_dict_as_undirected: false,
+            load_coo: true,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct DumpConfiguration {
+    pub parallelism: Option<u32>,
+    pub batch_size: Option<u64>,
+}
+
+impl DumpConfiguration {
+    pub fn default() -> DumpConfiguration {
+        DumpConfiguration {
+            parallelism: Some(5),
+            batch_size: Some(400000),
         }
     }
 }

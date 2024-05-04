@@ -15,8 +15,8 @@ class GraphLoader:
         username: str | None = None,
         password: str | None = None,
         tls_cert: typing.Any | None = None,
-        parallelism: int | None = None,
-        batch_size: int | None = None,
+        parallelism: int = 5,
+        batch_size: int = 400000,
         load_node_dict: bool = True,
         load_adj_dict: bool = True,
         load_adj_dict_as_undirected: bool = False,
@@ -63,11 +63,17 @@ class GraphLoader:
         if tls_cert:
             db_config_options["tls_cert"] = tls_cert
 
-        config: dict[str, typing.Any] = {"database_config": db_config_options}
-        if parallelism:
-            config["parallelism"] = parallelism
-        if batch_size:
-            config["batch_size"] = batch_size
+        dump_config = {
+            "parallelism": parallelism,
+            "batch_size": batch_size,
+        }
+
+        load_config = {
+            "load_node_dict": load_node_dict,
+            "load_adj_dict": load_adj_dict,
+            "load_adj_dict_as_undirected": load_adj_dict_as_undirected,
+            "load_coo": load_coo,
+        }
 
         vertex_collections = [
             {"name": v_col_name, "fields": []}
@@ -86,10 +92,8 @@ class GraphLoader:
                 "edge_collections": edge_collections,
                 "configuration": {
                     "database_config": db_config_options,
-                    "load_node_dict": load_node_dict,
-                    "load_adj_dict": load_adj_dict,
-                    "load_adj_dict_as_undirected": load_adj_dict_as_undirected,
-                    "load_coo": load_coo,
+                    "dump_config": dump_config,
+                    "load_config": load_config,
                 },
             }
         )
