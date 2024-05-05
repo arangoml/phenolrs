@@ -1,5 +1,5 @@
 // use numpy::ToPyArray;
-use pyo3::types::PyDict;
+use pyo3::types::{PyDict, PyList};
 use pyo3::{PyResult, Python};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -69,7 +69,7 @@ pub fn construct_dict_of_dict(
     for (key, properties) in input.iter() {
         let inner_dict = PyDict::new(py);
         for (property_key, property_value) in properties {
-            let py_value = convert_to_py_object(property_value, py)?;
+            let py_value = construct_py_object(property_value, py)?;
             inner_dict.set_item(property_key, py_value)?;
         }
         pydict.set_item(key, inner_dict)?;
@@ -90,7 +90,7 @@ pub fn construct_dict_of_dict_of_dict(
         for (property_key, property_value) in properties.iter() {
             let inner_inner_dict = PyDict::new(py);
             for (inner_property_key, inner_property_value) in property_value {
-                let py_value = convert_to_py_object(inner_property_value, py)?;
+                let py_value = construct_py_object(inner_property_value, py)?;
                 inner_inner_dict.set_item(inner_property_key, py_value)?;
             }
             inner_dict.set_item(property_key, inner_inner_dict)?;
@@ -102,12 +102,33 @@ pub fn construct_dict_of_dict_of_dict(
 }
 
 #[cfg(not(test))]
-fn convert_to_py_object(value: &Value, py: Python) -> PyResult<PyObject> {
+fn construct_py_object(value: &Value, py: Python) -> PyResult<PyObject> {
     match value {
-        Value::String(s) => Ok(s.to_object(py)),
-        Value::Number(num) => Ok(num.to_string().to_object(py)), // Convert to string to avoid precision issues
-        Value::Bool(b) => Ok(b.to_object(py)),
         Value::Null => Ok(py.None()),
-        _ => Ok(py.None()), // Simplify handling for arrays and objects
+        Value::String(s) => Ok(s.to_object(py)),
+        Value::Bool(b) => Ok(b.to_object(py)),
+        Value::Number(num) => {
+            if let Some(i) = num.as_i64() {
+                Ok(i.to_object(py))
+            } else if let Some(u) = num.as_u64() {
+                Ok(u.to_object(py))
+            } else {
+                Ok(num.as_f64().unwrap().to_object(py))
+            }
+        }
+        Value::Array(arr) => {
+            let py_list = PyList::empty(py);
+            for item in arr {
+                py_list.append(construct_py_object(item, py)?)?;
+            }
+            Ok(py_list.to_object(py))
+        }
+        Value::Object(obj) => {
+            let py_dict = PyDict::new(py);
+            for (key, value) in obj {
+                py_dict.set_item(key, construct_py_object(value, py)?)?;
+            }
+            Ok(py_dict.to_object(py))
+        }
     }
 }
