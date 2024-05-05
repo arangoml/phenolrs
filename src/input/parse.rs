@@ -92,8 +92,8 @@ impl FromPyObject<'_> for LoadConfiguration {
         let load_adj_dict: bool = input_dict
             .get_item("load_adj_dict")?
             .map_or_else(|| Ok(true), |c| c.extract())?;
-        let load_adj_dict_as_undirected: bool = input_dict
-            .get_item("load_adj_dict_as_undirected")?
+        let load_adj_dict_as_directed: bool = input_dict
+            .get_item("load_adj_dict_as_directed")?
             .map_or_else(|| Ok(true), |c| c.extract())?;
         let load_coo: bool = input_dict
             .get_item("load_coo")?
@@ -101,7 +101,7 @@ impl FromPyObject<'_> for LoadConfiguration {
         Ok(LoadConfiguration {
             load_node_dict: load_node_dict,
             load_adj_dict: load_adj_dict,
-            load_adj_dict_as_undirected: load_adj_dict_as_undirected,
+            load_adj_dict_as_directed: load_adj_dict_as_directed,
             load_coo: load_coo,
         })
     }

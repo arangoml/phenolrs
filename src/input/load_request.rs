@@ -52,7 +52,7 @@ impl DatabaseConfiguration {
 pub struct LoadConfiguration {
     pub load_node_dict: bool,
     pub load_adj_dict: bool,
-    pub load_adj_dict_as_undirected: bool,
+    pub load_adj_dict_as_directed: bool,
     pub load_coo: bool,
 }
 
@@ -61,7 +61,7 @@ impl LoadConfiguration {
         LoadConfiguration {
             load_node_dict: true,
             load_adj_dict: true,
-            load_adj_dict_as_undirected: false,
+            load_adj_dict_as_directed: true,
             load_coo: true,
         }
     }

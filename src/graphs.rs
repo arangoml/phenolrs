@@ -64,7 +64,7 @@ pub struct Graph {
     // pub cols_to_features: HashMap<String, HashMap<String, Vec<Vec<f64>>>>,
     pub load_node_dict: bool,
     pub load_adj_dict: bool,
-    pub load_adj_dict_as_undirected: bool,
+    pub load_adj_dict_as_directed: bool,
     pub load_coo: bool,
 
     // node_map is a dictionary of node IDs to their json data
@@ -87,14 +87,14 @@ impl Graph {
         /*store_keys: bool, _bits_for_hash: u8,*/ id: u64,
         load_node_dict: bool,
         load_adj_dict: bool,
-        load_adj_dict_as_undirected: bool,
+        load_adj_dict_as_directed: bool,
         load_coo: bool,
     ) -> Arc<RwLock<Graph>> {
         Arc::new(RwLock::new(Graph {
             graph_id: id,
             load_node_dict: load_node_dict,
             load_adj_dict: load_adj_dict,
-            load_adj_dict_as_undirected: load_adj_dict_as_undirected,
+            load_adj_dict_as_directed: load_adj_dict_as_directed,
             load_coo: load_coo,
             // hash_to_index: HashMap::new(),
             // exceptions: HashMap::new(),
@@ -219,7 +219,7 @@ impl Graph {
             let from_map = self.adj_map.get_mut(&from_id_str).unwrap();
             from_map.insert(to_id_str.clone(), properties.clone());
 
-            if self.load_adj_dict_as_undirected {
+            if !self.load_adj_dict_as_directed {
                 let to_map = self.adj_map.get_mut(&to_id_str).unwrap();
                 to_map.insert(from_id_str.clone(), properties.clone());
             }
