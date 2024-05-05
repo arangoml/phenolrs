@@ -76,8 +76,8 @@ pub struct DumpConfiguration {
 impl DumpConfiguration {
     pub fn default() -> DumpConfiguration {
         DumpConfiguration {
-            parallelism: Some(5),
-            batch_size: Some(400000),
+            parallelism: Some(10),
+            batch_size: Some(1000000),
         }
     }
 }
