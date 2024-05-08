@@ -1,7 +1,6 @@
 import typing
 
 import numpy as np
-import numpy.typing as npt
 import torch
 from torch_geometric.data import Data, HeteroData
 
