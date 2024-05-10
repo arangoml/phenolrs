@@ -50,7 +50,7 @@ class NumpyLoader:
         # "USER": {"x": {"features": None}}
         # Should be converted to:
         # "USER": {"x": "features"}
-        entries: dict
+        entries: dict[str, typing.Any]
         for v_col_name, entries in metagraph["vertexCollections"].items():
             for source_name, value in entries.items():
                 if isinstance(value, dict):
