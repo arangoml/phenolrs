@@ -43,18 +43,21 @@ class PygLoader:
         v_col_spec_name = list(metagraph["vertexCollections"].keys())[0]
         v_col_spec = list(metagraph["vertexCollections"].values())[0]
 
-        features_by_col, coo_map, col_to_key_inds, vertex_cols_source_to_output = (
-            NumpyLoader.load_graph_to_numpy(
-                database,
-                metagraph,
-                hosts,
-                user_jwt,
-                username,
-                password,
-                tls_cert,
-                parallelism,
-                batch_size,
-            )
+        (
+            features_by_col,
+            coo_map,
+            col_to_key_inds,
+            vertex_cols_source_to_output,
+        ) = NumpyLoader.load_graph_to_numpy(
+            database,
+            metagraph,
+            hosts,
+            user_jwt,
+            username,
+            password,
+            tls_cert,
+            parallelism,
+            batch_size,
         )
 
         data = Data()
@@ -106,18 +109,21 @@ class PygLoader:
         if len(metagraph["edgeCollections"]) == 0:
             raise PhenolError("edgeCollections must map to non-empty dictionary")
 
-        features_by_col, coo_map, col_to_key_inds, vertex_cols_source_to_output = (
-            NumpyLoader.load_graph_to_numpy(
-                database,
-                metagraph,
-                hosts,
-                user_jwt,
-                username,
-                password,
-                tls_cert,
-                parallelism,
-                batch_size,
-            )
+        (
+            features_by_col,
+            coo_map,
+            col_to_key_inds,
+            vertex_cols_source_to_output,
+        ) = NumpyLoader.load_graph_to_numpy(
+            database,
+            metagraph,
+            hosts,
+            user_jwt,
+            username,
+            password,
+            tls_cert,
+            parallelism,
+            batch_size,
         )
         data = HeteroData()
         for col in features_by_col.keys():
