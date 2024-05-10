@@ -46,6 +46,25 @@ class NumpyLoader:
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
 
+        # Address the possibility of having something like this:
+        # "USER": {"x": {"features": None}}
+        # Should be converted to:
+        # "USER": {"x": "features"}
+        entries: dict
+        for v_col_name, entries in metagraph["vertexCollections"].items():
+            for source_name, value in entries.items():
+                if isinstance(value, dict):
+                    if len(value) != 1:
+                        m = "Only one feature field should be specified per attribute"
+                        raise PhenolError(f"{m}. Found {value}")
+
+                    value_key = list(value.keys())[0]
+                    if value[value_key] is not None:
+                        m = f"Invalid value for feature {source_name}: {value_key}. Found {value[value_key]}"  # noqa: E501
+                        raise PhenolError(m)
+
+                    metagraph["vertexCollections"][v_col_name][source_name] = value_key
+
         vertex_collections = [
             {"name": v_col_name, "fields": list(entries.values())}
             for v_col_name, entries in metagraph["vertexCollections"].items()
