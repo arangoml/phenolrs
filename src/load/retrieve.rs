@@ -100,18 +100,11 @@ pub async fn fetch_graph_from_arangodb(
             guard.insert(vc.name.clone(), vc.fields.clone());
         }
     }
-    let edge_coll_list = req
-        .edge_collections
-        .iter()
-        .map(|ci| -> String { ci.name.clone() })
-        .collect::<Vec<String>>();
-    let edge_map = compute_shard_map(&shard_dist, &edge_coll_list)?;
 
     info!(
-        "{:?} Need to fetch data from {} vertex shards and {} edge shards...",
+        "{:?} Need to fetch data from {} vertex shards...",
         std::time::SystemTime::now().duration_since(begin).unwrap(),
         vertex_map.values().map(|v| v.len()).sum::<usize>(),
-        edge_map.values().map(|v| v.len()).sum::<usize>()
     );
 
     load_vertices(
@@ -123,7 +116,23 @@ pub async fn fetch_graph_from_arangodb(
         vertex_coll_field_map,
     )
     .await?;
-    load_edges(&req, &graph_arc, &db_config, begin, &edge_map).await?;
+
+    if req.edge_collections.len() > 0 {
+        let edge_coll_list = req
+            .edge_collections
+            .iter()
+            .map(|ci| -> String { ci.name.clone() })
+            .collect::<Vec<String>>();
+        let edge_map = compute_shard_map(&shard_dist, &edge_coll_list)?;
+
+        info!(
+            "{:?} Need to fetch data from {} edge shards...",
+            std::time::SystemTime::now().duration_since(begin).unwrap(),
+            edge_map.values().map(|v| v.len()).sum::<usize>()
+        );
+
+        load_edges(&req, &graph_arc, &db_config, begin, &edge_map).await?;
+    }
 
     // And now the edges:
     {
