@@ -55,8 +55,8 @@ class NumpyLoader:
             for source_name, value in entries.items():
                 if isinstance(value, dict):
                     if len(value) != 1:
-                        m = "Only one feature field should be specified per attribute"
-                        raise PhenolError(f"{m}. Found {value}")
+                        m = f"Only one feature field should be specified per attribute. Found {value}"  # noqa: E501
+                        raise PhenolError(m)
 
                     value_key = list(value.keys())[0]
                     if value[value_key] is not None:
