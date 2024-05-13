@@ -1,5 +1,6 @@
 use super::load_request::{
-    CollectionDescription, DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration,
+    DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration, EdgeCollectionDescription,
+    VertexCollectionDescription,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyDict;
@@ -15,12 +16,12 @@ impl FromPyObject<'_> for DataLoadRequest {
         let configuration: DataLoadConfiguration = input_dict
             .get_item("configuration")?
             .map_or(Ok(DataLoadConfiguration::default()), |c| c.extract())?;
-        let vertex_collections: Vec<CollectionDescription> =
+        let vertex_collections: Vec<VertexCollectionDescription> =
             input_dict.get_item("vertex_collections")?.map_or_else(
                 || Err(PyValueError::new_err("vertex_collections not provided")),
                 |s| s.extract(),
             )?;
-        let edge_collections: Vec<CollectionDescription> =
+        let edge_collections: Vec<EdgeCollectionDescription> =
             input_dict.get_item("edge_collections")?.map_or_else(
                 || Err(PyValueError::new_err("edge_collections not provided")),
                 |s| s.extract(),
@@ -82,17 +83,38 @@ impl FromPyObject<'_> for DatabaseConfiguration {
     }
 }
 
-impl FromPyObject<'_> for CollectionDescription {
+impl FromPyObject<'_> for VertexCollectionDescription {
     fn extract(ob: &'_ PyAny) -> PyResult<Self> {
         let input_dict: &PyDict = ob.downcast()?;
         let name: &str = input_dict.get_item("name")?.map_or_else(
-            || Err(PyValueError::new_err("Collection name not set")),
+            || Err(PyValueError::new_err("Vertex Collection name not set")),
             |s| s.extract(),
         )?;
         let fields: Vec<&str> = input_dict
             .get_item("fields")?
             .map_or_else(|| Ok(vec![]), |s| s.extract())?;
-        Ok(CollectionDescription {
+        let highest_pyg_index: isize = input_dict
+            .get_item("highest_pyg_index")?
+            .map_or_else(|| Ok(0), |s| s.extract())?;
+        Ok(VertexCollectionDescription {
+            name: name.into(),
+            fields: fields.iter().map(|s| String::from(*s)).collect(),
+            highest_pyg_index: highest_pyg_index,
+        })
+    }
+}
+
+impl FromPyObject<'_> for EdgeCollectionDescription {
+    fn extract(ob: &'_ PyAny) -> PyResult<Self> {
+        let input_dict: &PyDict = ob.downcast()?;
+        let name: &str = input_dict.get_item("name")?.map_or_else(
+            || Err(PyValueError::new_err("Edge Collection name not set")),
+            |s| s.extract(),
+        )?;
+        let fields: Vec<&str> = input_dict
+            .get_item("fields")?
+            .map_or_else(|| Ok(vec![]), |s| s.extract())?;
+        Ok(EdgeCollectionDescription {
             name: name.into(),
             fields: fields.iter().map(|s| String::from(*s)).collect(),
         })

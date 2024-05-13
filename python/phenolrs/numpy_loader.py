@@ -2,11 +2,29 @@ import typing
 
 import numpy as np
 import numpy.typing as npt
+from arango import ArangoClient
+from arango.database import StandardDatabase
 
 from phenolrs import PhenolError, graph_to_pyg_format
 
 
 class NumpyLoader:
+    @staticmethod
+    def _get_highest_pyg_index(
+        db: StandardDatabase, col_name: str, pyg_index_field: str
+    ) -> int:
+        aql = """
+            FOR doc IN @@col
+                SORT doc.@pyg_index_field DESC
+                LIMIT 1
+                RETURN doc.@pyg_index_field
+        """
+        bind_vars = {"@col": col_name, "pyg_index_field": pyg_index_field}
+        cursor = db.aql.execute(aql, bind_vars=bind_vars)
+        res = cursor.next()
+
+        return res if res is not None else -1
+
     @staticmethod
     def load_graph_to_numpy(
         database: str,
@@ -18,6 +36,7 @@ class NumpyLoader:
         tls_cert: typing.Any | None = None,
         parallelism: int | None = None,
         batch_size: int | None = None,
+        pyg_index_field: str = "_pyg_ind",
     ) -> typing.Tuple[
         dict[str, dict[str, npt.NDArray[np.float64]]],
         dict[typing.Tuple[str, str, str], npt.NDArray[np.float64]],
@@ -46,6 +65,14 @@ class NumpyLoader:
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
 
+        db = ArangoClient(hosts=hosts, verify_override=tls_cert).db(
+            database,
+            username=username,
+            password=password,
+            user_token=user_jwt,
+            verify=True,
+        )
+
         # Address the possibility of having something like this:
         # "USER": {"x": {"features": None}}
         # Should be converted to:
@@ -65,16 +92,21 @@ class NumpyLoader:
 
                     metagraph["vertexCollections"][v_col_name][source_name] = value_key
 
-        vertex_collections = [
-            {"name": v_col_name, "fields": list(entries.values())}
-            for v_col_name, entries in metagraph["vertexCollections"].items()
-        ]
-        vertex_cols_source_to_output = {
-            v_col_name: {
+        vertex_collections = []
+        vertex_cols_source_to_output = {}
+        for v_col_name, entries in metagraph["vertexCollections"].items():
+            vertex_collections.append(
+                {
+                    "name": v_col_name,
+                    "fields": list(set(entries.values()) | {pyg_index_field}),
+                    "highest_pyg_index": NumpyLoader._get_highest_pyg_index(
+                        db, v_col_name, pyg_index_field
+                    ),
+                }
+            )
+            vertex_cols_source_to_output[v_col_name] = {
                 source_name: output_name for output_name, source_name in entries.items()
             }
-            for v_col_name, entries in metagraph["vertexCollections"].items()
-        }
 
         edge_collections = []
         if "edgeCollections" in metagraph:

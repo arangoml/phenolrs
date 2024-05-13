@@ -18,7 +18,12 @@ use std::thread::JoinHandle;
 use std::time::SystemTime;
 
 pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
-    let graph = Graph::new(true, 64, 0);
+    let mut vertex_coll_pyg_ind_map: HashMap<String, isize> = HashMap::new();
+    for vc in req.vertex_collections.iter() {
+        vertex_coll_pyg_ind_map.insert(vc.name.clone(), vc.highest_pyg_index);
+    }
+
+    let graph = Graph::new(true, 64, 0, vertex_coll_pyg_ind_map);
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
     // Fetch from ArangoDB in a background thread:

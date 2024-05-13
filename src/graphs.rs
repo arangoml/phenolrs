@@ -67,10 +67,17 @@ pub struct Graph {
     pub cols_to_keys_to_inds: HashMap<String, HashMap<String, usize>>,
     pub coo_by_from_edge_to: HashMap<(String, String, String), Vec<Vec<usize>>>,
     pub cols_to_features: HashMap<String, HashMap<String, Vec<Vec<f64>>>>,
+
+    pub vertex_coll_pyg_ind_map: HashMap<String, isize>,
 }
 
 impl Graph {
-    pub fn new(store_keys: bool, _bits_for_hash: u8, id: u64) -> Arc<RwLock<Graph>> {
+    pub fn new(
+        store_keys: bool,
+        _bits_for_hash: u8,
+        id: u64,
+        vertex_coll_pyg_ind_map: HashMap<String, isize>,
+    ) -> Arc<RwLock<Graph>> {
         Arc::new(RwLock::new(Graph {
             graph_id: id,
             hash_to_index: HashMap::new(),
@@ -91,6 +98,7 @@ impl Graph {
             cols_to_features: HashMap::new(),
             cols_to_keys_to_inds: HashMap::new(),
             coo_by_from_edge_to: HashMap::new(),
+            vertex_coll_pyg_ind_map: vertex_coll_pyg_ind_map,
         }))
     }
 
@@ -103,7 +111,7 @@ impl Graph {
     ) {
         let col_name = String::from_utf8(collection_name).unwrap();
 
-        let feature_res = match json {
+        let feature_res = match json.clone() {
             None => {
                 // We only add things here lazily as soon as some non-empty
                 // data has been detected to save memory:
@@ -158,7 +166,42 @@ impl Graph {
                     .insert(col_name.clone(), HashMap::new());
             }
             let col_inds = self.cols_to_keys_to_inds.get_mut(&col_name).unwrap();
-            let cur_ind = col_inds.len();
+
+            // If json has "_pyg_ind" key, use it as cur_ind
+            // else, set cur_ind to highest_pyg_ind + 1
+            let highest_pyg_ind = self.vertex_coll_pyg_ind_map.get(&col_name).unwrap();
+            let cur_ind = match json {
+                Some(j) => {
+                    let data = j.as_object().unwrap();
+                    match data.get("_pyg_ind") {
+                        Some(pyg_ind) => match pyg_ind {
+                            Value::Null => {
+                                let new_highest_pyg_ind = *highest_pyg_ind + 1;
+                                self.vertex_coll_pyg_ind_map
+                                    .insert(col_name.clone(), new_highest_pyg_ind);
+                                new_highest_pyg_ind as usize
+                            }
+                            _ => {
+                                let pyg_ind = pyg_ind.as_u64().unwrap();
+                                pyg_ind as usize
+                            }
+                        },
+                        None => {
+                            let new_highest_pyg_ind = *highest_pyg_ind + 1;
+                            self.vertex_coll_pyg_ind_map
+                                .insert(col_name.clone(), new_highest_pyg_ind);
+                            new_highest_pyg_ind as usize
+                        }
+                    }
+                }
+                None => {
+                    let new_highest_pyg_ind = *highest_pyg_ind + 1;
+                    self.vertex_coll_pyg_ind_map
+                        .insert(col_name.clone(), new_highest_pyg_ind);
+                    new_highest_pyg_ind as usize
+                }
+            };
+
             col_inds.insert(String::from_utf8(key.clone()).unwrap(), cur_ind);
 
             if !self.cols_to_features.contains_key(&col_name) {

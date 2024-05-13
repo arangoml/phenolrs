@@ -1,12 +1,18 @@
-pub struct CollectionDescription {
+pub struct VertexCollectionDescription {
+    pub name: String,
+    pub fields: Vec<String>,
+    pub highest_pyg_index: isize,
+}
+
+pub struct EdgeCollectionDescription {
     pub name: String,
     pub fields: Vec<String>,
 }
 
 pub struct DataLoadRequest {
     pub database: String,
-    pub vertex_collections: Vec<CollectionDescription>,
-    pub edge_collections: Vec<CollectionDescription>,
+    pub vertex_collections: Vec<VertexCollectionDescription>,
+    pub edge_collections: Vec<EdgeCollectionDescription>,
     pub configuration: DataLoadConfiguration,
 }
 

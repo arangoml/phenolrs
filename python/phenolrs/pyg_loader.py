@@ -20,6 +20,7 @@ class PygLoader:
         tls_cert: typing.Any | None = None,
         parallelism: int | None = None,
         batch_size: int | None = None,
+        pyg_index_field: str = "_pyg_ind",
     ) -> tuple[Data, dict[str, dict[str, int]]]:
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
@@ -58,13 +59,14 @@ class PygLoader:
             tls_cert,
             parallelism,
             batch_size,
+            pyg_index_field,
         )
 
         data = Data()
         # add the features
         if v_col_spec_name not in features_by_col:
             raise PhenolError(f"Unable to load data for collection {v_col_spec_name}")
-        for feature in v_col_spec.keys():
+        for feature in v_col_spec.keys() - {pyg_index_field}:
             feature_source_key = v_col_spec[feature]
             if feature_source_key not in features_by_col[v_col_spec_name]:
                 raise PhenolError(
@@ -98,6 +100,7 @@ class PygLoader:
         tls_cert: typing.Any | None = None,
         parallelism: int | None = None,
         batch_size: int | None = None,
+        pyg_index_field: str = "_pyg_ind",
     ) -> tuple[HeteroData, dict[str, dict[str, int]]]:
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
@@ -124,11 +127,12 @@ class PygLoader:
             tls_cert,
             parallelism,
             batch_size,
+            pyg_index_field,
         )
         data = HeteroData()
         for col in features_by_col.keys():
             col_mapping = vertex_cols_source_to_output[col]
-            for feature in features_by_col[col].keys():
+            for feature in features_by_col[col].keys() - {pyg_index_field}:
                 target_name = col_mapping[feature]
                 result = torch.from_numpy(
                     features_by_col[col][feature].astype(np.float64)
