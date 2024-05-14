@@ -1,5 +1,5 @@
-pub mod info;
 pub mod dump;
+pub mod info;
 
 use serde::{Deserialize, Serialize};
 
