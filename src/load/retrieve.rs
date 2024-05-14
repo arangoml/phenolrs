@@ -1,7 +1,7 @@
 use super::receive;
 use crate::arangodb::{
     compute_shard_map, get_all_shard_data, handle_arangodb_response_with_parsed_body,
-    DeploymentType, ShardDistribution, ShardMap, SupportInfo,
+    DeploymentType, ShardDistribution, ShardMap, SupportInfo, VersionInformation,
 };
 use crate::client::auth::handle_auth;
 use crate::client::build_client;
@@ -13,6 +13,7 @@ use log::info;
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::error::Error;
+use std::num::ParseIntError;
 use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 use std::time::SystemTime;
@@ -74,6 +75,50 @@ pub async fn fetch_graph_from_arangodb(
         .build();
     let client = build_client(&client_config)?;
 
+    let server_version_url = db_config.endpoints[0].clone() + "/_api/version";
+    let resp = handle_auth(client.get(server_version_url), db_config)
+        .send()
+        .await;
+    let version_info =
+        handle_arangodb_response_with_parsed_body::<VersionInformation>(resp, StatusCode::OK)
+            .await?;
+
+    static MIN_SUPPORTED_MINOR_VERSIONS: &[(u8, u8)] = &[(3, 12)];
+    let version_parts: Vec<&str> = version_info.version.split('.').collect();
+    if version_parts.len() < 3 {
+        return Err(format!(
+            "Unable to parse ArangoDB Version - got {}",
+            version_info.version
+        ));
+    }
+
+    let supports_v1 = {
+        let major: u8 = version_parts
+            .first()
+            .ok_or("Unable to parse Major Version".to_string())?
+            .parse()
+            .map_err(|err: ParseIntError| err.to_string())?;
+        let minor: u8 = version_parts
+            .get(1)
+            .ok_or("Unable to parse Minor Version".to_string())?
+            .parse()
+            .map_err(|err: ParseIntError| err.to_string())?;
+        let major_supports = MIN_SUPPORTED_MINOR_VERSIONS
+            .iter()
+            .map(|x| x.0)
+            .any(|x| x == major);
+        if !major_supports {
+            false
+        } else {
+            MIN_SUPPORTED_MINOR_VERSIONS
+                .iter()
+                .find(|x| x.0 == major)
+                .ok_or("Unable to find supported version".to_string())?
+                .1
+                <= minor
+        }
+    };
+
     let server_information_url = db_config.endpoints[0].clone() + "/_admin/support-info";
     let support_info_res = handle_auth(client.get(server_information_url), db_config)
         .send()
@@ -81,6 +126,10 @@ pub async fn fetch_graph_from_arangodb(
     let support_info =
         handle_arangodb_response_with_parsed_body::<SupportInfo>(support_info_res, StatusCode::OK)
             .await?;
+
+    if !supports_v1 && support_info.deployment.deployment_type == DeploymentType::Single {
+        return Err("Single Server Unsupported < 3.12".to_string());
+    }
 
     let make_url =
         |path: &str| -> String { db_config.endpoints[0].clone() + "/_db/" + &req.database + path };

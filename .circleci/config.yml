@@ -14,12 +14,13 @@ workflows:
       - lint-rust
       - build
       - test-rust
-      - test-python-cluster:
+      - test-python:
           requires:
             - build
-      - test-python-single:
-          requires:
-            - build
+          matrix:
+            parameters:
+              db-mode: ["single", "cluster"]
+              db-version: ["3.11", "3.12"]
   release_package:
     jobs:
       - publish:
@@ -106,7 +107,12 @@ jobs:
       - run:
           name: Cargo Test
           command: cargo test --no-default-features
-  test-python-cluster:
+  test-python:
+    parameters:
+      db-mode:
+        type: string
+      db-version:
+        type: string
     executor: generate-executor
     steps:
       - checkout
@@ -142,51 +148,8 @@ jobs:
           name: Start Database
           command: ./docker/start_db.sh
           environment:
-            STARTER_MODE: cluster
-            DOCKER_IMAGE: docker.io/arangodb/arangodb:3.11.7
-      - run:
-          name: Run tests
-          command: |
-            conda activate phenolrs
-            pytest --url http://172.28.0.1:8529 python/tests
-  test-python-single:
-    executor: generate-executor
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ~/project/target
-      - run:
-          name: Set up python 3.10
-          command: |
-            mkdir -p ~/miniconda3
-            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
-            bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
-            ~/miniconda3/bin/conda init bash
-            source ~/.bashrc
-            conda create -n phenolrs python=3.10 -y
-            conda activate phenolrs
-      - run:
-          name: Install Phenol deps
-          command: |
-            conda activate phenolrs
-            pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.1.0+cpu && \
-            pip install -f https://data.pyg.org/whl/torch-2.1.0+cpu.html \
-                           torch-scatter==2.1.2 \
-                           torch-sparse==0.6.18 \
-                           torch-geometric==2.4.0 \
-                           pyg_lib==0.3.1 && \
-            pip install -r test-requirements.txt
-      - run:
-          name: Install Phenol
-          command: |
-            conda activate phenolrs
-            pip install phenolrs --find-links ~/project/target/wheels
-      - run:
-          name: Start Database
-          command: ./docker/start_db.sh
-          environment:
-            STARTER_MODE: single
-            DOCKER_IMAGE: docker.io/arangodb/arangodb:3.11.7
+            STARTER_MODE: << parameters.db-mode >>
+            DOCKER_IMAGE: docker.io/arangodb/arangodb:<< parameters.db-version >>
       - run:
           name: Run tests
           command: |

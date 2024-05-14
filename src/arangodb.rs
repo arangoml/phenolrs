@@ -31,6 +31,13 @@ pub struct ShardDistribution {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct VersionInformation {
+    server: String,
+    license: String,
+    pub version: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArangoDBError {
     error: bool,
@@ -39,7 +46,7 @@ pub struct ArangoDBError {
     code: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum DeploymentType {
     Cluster,
