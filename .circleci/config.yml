@@ -190,7 +190,7 @@ jobs:
       - run:
           name: Run tests
           command: |
-            conda activate phenols
+            conda activate phenolrs
             pytest --url http://172.28.0.1:8529 python/tests
   publish:
     executor: generate-executor
