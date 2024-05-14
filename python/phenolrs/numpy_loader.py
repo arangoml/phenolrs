@@ -83,7 +83,7 @@ class NumpyLoader:
                 for e_col_name, entries in metagraph["edgeCollections"].items()
             ]
 
-        features_by_col, coo_map, col_to_key_inds = graph_to_pyg_format(
+        features_by_col, coo_map, col_to_adb_id_to_ind = graph_to_pyg_format(
             {
                 "database": database,
                 "vertex_collections": vertex_collections,
@@ -92,4 +92,9 @@ class NumpyLoader:
             }
         )
 
-        return features_by_col, coo_map, col_to_key_inds, vertex_cols_source_to_output
+        return (
+            features_by_col,
+            coo_map,
+            col_to_adb_id_to_ind,
+            vertex_cols_source_to_output,
+        )
