@@ -39,6 +39,24 @@ pub struct ArangoDBError {
     code: i32,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DeploymentType {
+    Cluster,
+    Single,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeploymentInfo {
+    #[serde(alias = "type")]
+    pub deployment_type: DeploymentType,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SupportInfo {
+    pub deployment: DeploymentInfo,
+}
+
 // This function handles an HTTP response from ArangoDB, including
 // connection errors, bad status codes and body parsing. The template
 // type is the type of the expected body in the good case.
@@ -77,48 +95,65 @@ where
 
 pub type ShardMap = HashMap<String, Vec<String>>;
 
-pub fn compute_shard_map(sd: &ShardDistribution, coll_list: &[String]) -> Result<ShardMap, String> {
-    let mut result: ShardMap = HashMap::new();
-    for c in coll_list.iter() {
-        // Handle the case of a smart edge collection. If c is
-        // one, then we also find a collection called `_to_`+c.
-        // In this case, we must not get those shards, because their
-        // data is already contained in `_from_`+c, just sharded
-        // differently.
-        let mut ignore: HashSet<String> = HashSet::new();
-        let smart_name = "_to_".to_owned() + c;
-        match sd.results.get(&smart_name) {
-            None => (),
-            Some(coll_dist) => {
-                // Keys of coll_dist are the shards, value has leader:
-                for shard in (coll_dist.plan).keys() {
-                    ignore.insert(shard.clone());
-                }
-            }
+pub fn compute_shard_map(
+    sd_opt: &Option<ShardDistribution>,
+    coll_list: &[String],
+    deployment_type: &DeploymentType,
+    endpoints: &[String],
+) -> Result<ShardMap, String> {
+    match deployment_type {
+        DeploymentType::Single => {
+            let mut result: ShardMap = HashMap::new();
+            result.insert(endpoints[0].clone(), coll_list.to_vec());
+            Ok(result)
         }
-        match sd.results.get(c) {
-            None => {
-                return Err(format!("collection {} not found in shard distribution", c));
-            }
-            Some(coll_dist) => {
-                // Keys of coll_dist are the shards, value has leader:
-                for (shard, location) in &(coll_dist.plan) {
-                    if ignore.get(shard).is_none() {
-                        let leader = &(location.leader);
-                        match result.get_mut(leader) {
-                            None => {
-                                result.insert(leader.clone(), vec![shard.clone()]);
-                            }
-                            Some(list) => {
-                                list.push(shard.clone());
+        DeploymentType::Cluster => {
+            let mut result: ShardMap = HashMap::new();
+            let sd = sd_opt
+                .as_ref()
+                .ok_or("Could not retrieve ShardDistribution".to_string())?;
+            for c in coll_list.iter() {
+                // Handle the case of a smart edge collection. If c is
+                // one, then we also find a collection called `_to_`+c.
+                // In this case, we must not get those shards, because their
+                // data is already contained in `_from_`+c, just sharded
+                // differently.
+                let mut ignore: HashSet<String> = HashSet::new();
+                let smart_name = "_to_".to_owned() + c;
+                match sd.results.get(&smart_name) {
+                    None => (),
+                    Some(coll_dist) => {
+                        // Keys of coll_dist are the shards, value has leader:
+                        for shard in (coll_dist.plan).keys() {
+                            ignore.insert(shard.clone());
+                        }
+                    }
+                }
+                match sd.results.get(c) {
+                    None => {
+                        return Err(format!("collection {} not found in shard distribution", c));
+                    }
+                    Some(coll_dist) => {
+                        // Keys of coll_dist are the shards, value has leader:
+                        for (shard, location) in &(coll_dist.plan) {
+                            if ignore.get(shard).is_none() {
+                                let leader = &(location.leader);
+                                match result.get_mut(leader) {
+                                    None => {
+                                        result.insert(leader.clone(), vec![shard.clone()]);
+                                    }
+                                    Some(list) => {
+                                        list.push(shard.clone());
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
+            Ok(result)
         }
     }
-    Ok(result)
 }
 
 #[derive(Debug, Clone)]

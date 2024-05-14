@@ -1,7 +1,7 @@
 use super::receive;
 use crate::arangodb::{
     compute_shard_map, get_all_shard_data, handle_arangodb_response_with_parsed_body,
-    ShardDistribution, ShardMap,
+    DeploymentType, ShardDistribution, ShardMap, SupportInfo,
 };
 use crate::client::auth::handle_auth;
 use crate::client::build_client;
@@ -74,15 +74,32 @@ pub async fn fetch_graph_from_arangodb(
         .build();
     let client = build_client(&client_config)?;
 
+    let server_information_url = db_config.endpoints[0].clone() + "/_admin/support-info";
+    let support_info_res = handle_auth(client.get(server_information_url), db_config)
+        .send()
+        .await;
+    let support_info =
+        handle_arangodb_response_with_parsed_body::<SupportInfo>(support_info_res, StatusCode::OK)
+            .await?;
+
     let make_url =
         |path: &str| -> String { db_config.endpoints[0].clone() + "/_db/" + &req.database + path };
 
     // First ask for the shard distribution:
     let url = make_url("/_admin/cluster/shardDistribution");
     let resp = handle_auth(client.get(url), db_config).send().await;
-    let shard_dist =
-        handle_arangodb_response_with_parsed_body::<ShardDistribution>(resp, StatusCode::OK)
+    let shard_dist = match support_info.deployment.deployment_type {
+        DeploymentType::Single => None,
+        DeploymentType::Cluster => {
+            let shard_dist = handle_arangodb_response_with_parsed_body::<ShardDistribution>(
+                resp,
+                StatusCode::OK,
+            )
             .await?;
+            Some(shard_dist)
+        }
+    };
+    let deployment_type = support_info.deployment.deployment_type;
 
     // Compute which shard we must get from which dbserver, we do vertices
     // and edges right away to be able to error out early:
@@ -91,7 +108,12 @@ pub async fn fetch_graph_from_arangodb(
         .iter()
         .map(|ci| -> String { ci.name.clone() })
         .collect::<Vec<String>>();
-    let vertex_map = compute_shard_map(&shard_dist, &vertex_coll_list)?;
+    let vertex_map = compute_shard_map(
+        &shard_dist,
+        &vertex_coll_list,
+        &deployment_type,
+        &db_config.endpoints,
+    )?;
     let vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>> =
         Arc::new(RwLock::new(HashMap::new()));
     {
@@ -117,13 +139,18 @@ pub async fn fetch_graph_from_arangodb(
     )
     .await?;
 
-    if req.edge_collections.len() > 0 {
+    if !req.edge_collections.is_empty() {
         let edge_coll_list = req
             .edge_collections
             .iter()
             .map(|ci| -> String { ci.name.clone() })
             .collect::<Vec<String>>();
-        let edge_map = compute_shard_map(&shard_dist, &edge_coll_list)?;
+        let edge_map = compute_shard_map(
+            &shard_dist,
+            &edge_coll_list,
+            &deployment_type,
+            &db_config.endpoints,
+        )?;
 
         info!(
             "{:?} Need to fetch data from {} edge shards...",
