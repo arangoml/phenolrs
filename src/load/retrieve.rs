@@ -1,13 +1,10 @@
 use super::receive;
-use crate::arangodb::{
-    compute_shard_map, get_all_shard_data, handle_arangodb_response_with_parsed_body,
-    DeploymentType, ShardDistribution, ShardMap, SupportInfo, VersionInformation,
-};
+use crate::arangodb::handle_arangodb_response_with_parsed_body;
 use crate::client::auth::handle_auth;
 use crate::client::build_client;
 use crate::client::config::ClientConfig;
 use crate::graphs::Graph;
-use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
+use crate::input::load_request::{DatabaseConfiguration, DataLoadRequest};
 use bytes::Bytes;
 use log::info;
 use reqwest::StatusCode;
@@ -17,6 +14,8 @@ use std::num::ParseIntError;
 use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 use std::time::SystemTime;
+use crate::arangodb::dump::{compute_shard_map, get_all_shard_data, ShardDistribution, ShardMap};
+use crate::arangodb::info::{DeploymentType, SupportInfo, VersionInformation};
 
 pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
     let graph = Graph::new(true, 64, 0);

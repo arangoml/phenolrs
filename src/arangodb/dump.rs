@@ -1,14 +1,15 @@
-use crate::client;
-use crate::client::auth::handle_auth;
-use crate::client::config::ClientConfig;
-use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
-use bytes::Bytes;
-use log::debug;
-use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use bytes::Bytes;
 use std::time::SystemTime;
+use reqwest::StatusCode;
+use log::debug;
 use tokio::task::JoinSet;
+use crate::{arangodb, client};
+use crate::arangodb::info::DeploymentType;
+use crate::client::auth::handle_auth;
+use crate::client::config::ClientConfig;
+use crate::input::load_request::{DatabaseConfiguration, DataLoadRequest};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ShardLocation {
@@ -28,76 +29,6 @@ pub struct ShardDistribution {
     error: bool,
     code: i32,
     results: HashMap<String, CollectionDistribution>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct VersionInformation {
-    server: String,
-    license: String,
-    pub version: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ArangoDBError {
-    error: bool,
-    error_num: i32,
-    error_message: String,
-    code: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum DeploymentType {
-    Cluster,
-    Single,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DeploymentInfo {
-    #[serde(alias = "type")]
-    pub deployment_type: DeploymentType,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SupportInfo {
-    pub deployment: DeploymentInfo,
-}
-
-// This function handles an HTTP response from ArangoDB, including
-// connection errors, bad status codes and body parsing. The template
-// type is the type of the expected body in the good case.
-pub async fn handle_arangodb_response_with_parsed_body<T>(
-    resp: reqwest_middleware::Result<reqwest::Response>,
-    expected_code: reqwest::StatusCode,
-) -> Result<T, String>
-where
-    T: serde::de::DeserializeOwned,
-{
-    if let Err(err) = resp {
-        return Err(err.to_string());
-    }
-    let resp = resp.unwrap();
-    let status = resp.status();
-    if status != expected_code {
-        let err = resp.json::<ArangoDBError>().await;
-        match err {
-            Err(e) => {
-                return Err(format!(
-                    "Could not parse error body, error: {}, status code: {:?}",
-                    e, status,
-                ));
-            }
-            Ok(e) => {
-                return Err(format!(
-                    "Error code: {}, message: {}, HTTP code: {}",
-                    e.error_num, e.error_message, e.code
-                ));
-            }
-        }
-    }
-    let body = resp.json::<T>().await;
-    body.map_err(|e| format!("Could not parse response body, error: {}", e))
 }
 
 pub type ShardMap = HashMap<String, Vec<String>>;
@@ -163,12 +94,6 @@ pub fn compute_shard_map(
     }
 }
 
-#[derive(Debug, Clone)]
-struct DBServerInfo {
-    dbserver: String,
-    dump_id: String,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct DumpStartBody {
@@ -218,7 +143,7 @@ pub async fn get_all_shard_data(
             .body(body_v)
             .send()
             .await;
-        let r = handle_arangodb_response(resp, |c| {
+        let r = arangodb::handle_arangodb_response(resp, |c| {
             c == StatusCode::NO_CONTENT || c == StatusCode::OK || c == StatusCode::CREATED
         })
         .await;
@@ -252,7 +177,7 @@ pub async fn get_all_shard_data(
                 .send()
                 .await;
             let r =
-                handle_arangodb_response(resp, |c| c == StatusCode::OK || c == StatusCode::CREATED)
+                arangodb::handle_arangodb_response(resp, |c| c == StatusCode::OK || c == StatusCode::CREATED)
                     .await;
             if let Err(rr) = r {
                 eprintln!(
@@ -337,7 +262,7 @@ pub async fn get_all_shard_data(
                     let resp = handle_auth(client_clone.post(url), &connection_config_clone)
                         .send()
                         .await;
-                    let resp = handle_arangodb_response(resp, |c| {
+                    let resp = arangodb::handle_arangodb_response(resp, |c| {
                         c == StatusCode::OK || c == StatusCode::NO_CONTENT
                     })
                     .await?;
@@ -386,33 +311,8 @@ pub async fn get_all_shard_data(
     // We drop the result_channel when we leave the function.
 }
 
-// This function handles an empty HTTP response from ArangoDB, including
-// connection errors and bad status codes.
-async fn handle_arangodb_response(
-    resp: reqwest_middleware::Result<reqwest::Response>,
-    code_test: fn(code: reqwest::StatusCode) -> bool,
-) -> Result<reqwest::Response, String> {
-    if let Err(err) = resp {
-        return Err(err.to_string());
-    }
-    let resp = resp.unwrap();
-    let status = resp.status();
-    if !code_test(status) {
-        let err = resp.json::<ArangoDBError>().await;
-        match err {
-            Err(e) => {
-                return Err(format!(
-                    "Could not parse error body, error: {}, status code: {:?}",
-                    e, status,
-                ));
-            }
-            Ok(e) => {
-                return Err(format!(
-                    "Error code: {}, message: {}, HTTP code: {}",
-                    e.error_num, e.error_message, e.code
-                ));
-            }
-        }
-    }
-    Ok(resp)
+#[derive(Debug, Clone)]
+struct DBServerInfo {
+    dbserver: String,
+    dump_id: String,
 }
