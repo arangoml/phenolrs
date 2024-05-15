@@ -1,8 +1,5 @@
-import arango
-import pytest
 from torch_geometric.data import HeteroData
 
-from phenolrs import PhenolError
 from phenolrs.numpy_loader import NumpyLoader
 from phenolrs.pyg_loader import PygLoader
 
@@ -10,28 +7,6 @@ from phenolrs.pyg_loader import PygLoader
 def test_phenol_abide_hetero(
     load_abide: None, connection_information: dict[str, str]
 ) -> None:
-    client = arango.ArangoClient(connection_information["url"])
-    sys_db = client.db(
-        "_system",
-        username=connection_information["username"],
-        password=connection_information["password"],
-    )
-
-    if sys_db.role() == "SINGLE" and "3.11" in sys_db.version():
-        with pytest.raises(PhenolError):
-            PygLoader.load_into_pyg_heterodata(
-                connection_information["dbName"],
-                {
-                    "vertexCollections": {
-                        "Subjects": {"x": "brain_fmri_features", "y": "label"}
-                    },
-                    "edgeCollections": {"medical_affinity_graph": {}},
-                },
-                [connection_information["url"]],
-                username=connection_information["username"],
-                password=connection_information["password"],
-            )
-        return
     result = PygLoader.load_into_pyg_heterodata(
         connection_information["dbName"],
         {
@@ -73,26 +48,6 @@ def test_phenol_abide_hetero(
 def test_phenol_abide_numpy(
     load_abide: None, connection_information: dict[str, str]
 ) -> None:
-    client = arango.ArangoClient(connection_information["url"])
-    sys_db = client.db(
-        "_system",
-        username=connection_information["username"],
-        password=connection_information["password"],
-    )
-
-    if sys_db.role() == "SINGLE" and "3.11" in sys_db.version():
-        with pytest.raises(PhenolError):
-            NumpyLoader.load_graph_to_numpy(
-                connection_information["dbName"],
-                {
-                    "vertexCollections": {"Subjects": {"x": "brain_fmri_features"}},
-                    "edgeCollections": {"medical_affinity_graph": {}},
-                },
-                [connection_information["url"]],
-                username=connection_information["username"],
-                password=connection_information["password"],
-            )
-        return
     (
         features_by_col,
         coo_map,

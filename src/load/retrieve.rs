@@ -1,4 +1,5 @@
 use super::receive;
+use crate::arangodb::aql::get_all_data_aql;
 use crate::arangodb::dump::{compute_shard_map, get_all_shard_data, ShardDistribution, ShardMap};
 use crate::arangodb::handle_arangodb_response_with_parsed_body;
 use crate::arangodb::info::{DeploymentType, SupportInfo, VersionInformation};
@@ -7,6 +8,7 @@ use crate::client::build_client;
 use crate::client::config::ClientConfig;
 use crate::graphs::Graph;
 use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
+use crate::load::load_strategy::LoadStrategy;
 use bytes::Bytes;
 use log::info;
 use reqwest::StatusCode;
@@ -126,9 +128,12 @@ pub async fn fetch_graph_from_arangodb(
         handle_arangodb_response_with_parsed_body::<SupportInfo>(support_info_res, StatusCode::OK)
             .await?;
 
-    if !supports_v1 && support_info.deployment.deployment_type == DeploymentType::Single {
-        return Err("Single Server Unsupported < 3.12".to_string());
-    }
+    let load_strategy =
+        if !supports_v1 && support_info.deployment.deployment_type == DeploymentType::Single {
+            LoadStrategy::Aql
+        } else {
+            LoadStrategy::Dump
+        };
 
     let make_url =
         |path: &str| -> String { db_config.endpoints[0].clone() + "/_db/" + &req.database + path };
@@ -184,6 +189,7 @@ pub async fn fetch_graph_from_arangodb(
         begin,
         &vertex_map,
         vertex_coll_field_map,
+        load_strategy,
     )
     .await?;
 
@@ -206,7 +212,15 @@ pub async fn fetch_graph_from_arangodb(
             edge_map.values().map(|v| v.len()).sum::<usize>()
         );
 
-        load_edges(&req, &graph_arc, &db_config, begin, &edge_map).await?;
+        load_edges(
+            &req,
+            &graph_arc,
+            &db_config,
+            begin,
+            &edge_map,
+            &load_strategy,
+        )
+        .await?;
     }
 
     // And now the edges:
@@ -226,7 +240,9 @@ async fn load_edges(
     db_config: &&DatabaseConfiguration,
     begin: SystemTime,
     edge_map: &ShardMap,
+    load_strategy: &LoadStrategy,
 ) -> Result<(), String> {
+    info!("loading edges");
     let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
     for _i in 0..req
@@ -237,10 +253,20 @@ async fn load_edges(
         let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
         senders.push(sender);
         let graph_clone = graph_arc.clone();
-        let consumer = std::thread::spawn(move || receive::receive_edges(receiver, graph_clone));
+        let load_strategy_clone = *load_strategy;
+        let consumer = std::thread::spawn(move || {
+            receive::receive_edges(receiver, graph_clone, load_strategy_clone)
+        });
         consumers.push(consumer);
     }
-    get_all_shard_data(req, db_config, edge_map, senders).await?;
+    match load_strategy {
+        LoadStrategy::Dump => {
+            get_all_shard_data(req, db_config, edge_map, senders).await?;
+        }
+        LoadStrategy::Aql => {
+            get_all_data_aql(req, db_config, &req.edge_collections, senders, true).await?;
+        }
+    }
     info!(
         "{:?} Got all data, processing...",
         std::time::SystemTime::now().duration_since(begin).unwrap()
@@ -258,7 +284,9 @@ async fn load_vertices(
     begin: SystemTime,
     vertex_map: &ShardMap,
     vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>>,
+    load_strategy: LoadStrategy,
 ) -> Result<(), String> {
+    info!("loading vertices");
     // We use multiple threads to receive the data in batches:
     let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
@@ -271,12 +299,25 @@ async fn load_vertices(
         senders.push(sender);
         let graph_clone = graph_arc.clone();
         let vertex_coll_field_map_clone = vertex_coll_field_map.clone();
+        let load_strategy_clone = load_strategy;
         let consumer = std::thread::spawn(move || {
-            receive::receive_vertices(receiver, graph_clone, vertex_coll_field_map_clone)
+            receive::receive_vertices(
+                receiver,
+                graph_clone,
+                vertex_coll_field_map_clone,
+                load_strategy_clone,
+            )
         });
         consumers.push(consumer);
     }
-    get_all_shard_data(req, db_config, vertex_map, senders).await?;
+    match load_strategy {
+        LoadStrategy::Dump => {
+            get_all_shard_data(req, db_config, vertex_map, senders).await?;
+        }
+        LoadStrategy::Aql => {
+            get_all_data_aql(req, db_config, &req.vertex_collections, senders, false).await?;
+        }
+    }
     info!(
         "{:?} Got all data, processing...",
         std::time::SystemTime::now().duration_since(begin).unwrap()

@@ -20,7 +20,7 @@ workflows:
           matrix:
             parameters:
               db-mode: ["single", "cluster"]
-              db-version: ["3.11", "3.12"]
+              db-version: ["3.10", "3.11", "3.12"]
   release_package:
     jobs:
       - publish:
