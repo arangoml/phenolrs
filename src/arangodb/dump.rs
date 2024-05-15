@@ -1,15 +1,15 @@
-use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
-use bytes::Bytes;
-use std::time::SystemTime;
-use reqwest::StatusCode;
-use log::debug;
-use tokio::task::JoinSet;
-use crate::{arangodb, client};
 use crate::arangodb::info::DeploymentType;
 use crate::client::auth::handle_auth;
 use crate::client::config::ClientConfig;
-use crate::input::load_request::{DatabaseConfiguration, DataLoadRequest};
+use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
+use crate::{arangodb, client};
+use bytes::Bytes;
+use log::debug;
+use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::time::SystemTime;
+use tokio::task::JoinSet;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ShardLocation {
@@ -176,9 +176,10 @@ pub async fn get_all_shard_data(
             let resp = handle_auth(client_clone_for_cleanup.delete(url), connection_config)
                 .send()
                 .await;
-            let r =
-                arangodb::handle_arangodb_response(resp, |c| c == StatusCode::OK || c == StatusCode::CREATED)
-                    .await;
+            let r = arangodb::handle_arangodb_response(resp, |c| {
+                c == StatusCode::OK || c == StatusCode::CREATED
+            })
+            .await;
             if let Err(rr) = r {
                 eprintln!(
                     "An error in cancelling a dump context occurred, dbserver: {}, error: {}",
