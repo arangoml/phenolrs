@@ -17,6 +17,10 @@ workflows:
       - test-python:
           requires:
             - build
+          matrix:
+            parameters:
+              db-mode: ["single", "cluster"]
+              db-version: ["3.11", "3.12"]
   release_package:
     jobs:
       - publish:
@@ -104,6 +108,11 @@ jobs:
           name: Cargo Test
           command: cargo test --no-default-features
   test-python:
+    parameters:
+      db-mode:
+        type: string
+      db-version:
+        type: string
     executor: generate-executor
     steps:
       - checkout
@@ -139,8 +148,8 @@ jobs:
           name: Start Database
           command: ./docker/start_db.sh
           environment:
-            STARTER_MODE: cluster
-            DOCKER_IMAGE: docker.io/arangodb/arangodb:3.11.7
+            STARTER_MODE: << parameters.db-mode >>
+            DOCKER_IMAGE: docker.io/arangodb/arangodb:<< parameters.db-version >>
       - run:
           name: Run tests
           command: |

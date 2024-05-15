@@ -1,7 +1,8 @@
-use crate::client;
+use crate::arangodb::info::DeploymentType;
 use crate::client::auth::handle_auth;
 use crate::client::config::ClientConfig;
 use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
+use crate::{arangodb, client};
 use bytes::Bytes;
 use log::debug;
 use reqwest::StatusCode;
@@ -30,101 +31,67 @@ pub struct ShardDistribution {
     results: HashMap<String, CollectionDistribution>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ArangoDBError {
-    error: bool,
-    error_num: i32,
-    error_message: String,
-    code: i32,
-}
-
-// This function handles an HTTP response from ArangoDB, including
-// connection errors, bad status codes and body parsing. The template
-// type is the type of the expected body in the good case.
-pub async fn handle_arangodb_response_with_parsed_body<T>(
-    resp: reqwest_middleware::Result<reqwest::Response>,
-    expected_code: reqwest::StatusCode,
-) -> Result<T, String>
-where
-    T: serde::de::DeserializeOwned,
-{
-    if let Err(err) = resp {
-        return Err(err.to_string());
-    }
-    let resp = resp.unwrap();
-    let status = resp.status();
-    if status != expected_code {
-        let err = resp.json::<ArangoDBError>().await;
-        match err {
-            Err(e) => {
-                return Err(format!(
-                    "Could not parse error body, error: {}, status code: {:?}",
-                    e, status,
-                ));
-            }
-            Ok(e) => {
-                return Err(format!(
-                    "Error code: {}, message: {}, HTTP code: {}",
-                    e.error_num, e.error_message, e.code
-                ));
-            }
-        }
-    }
-    let body = resp.json::<T>().await;
-    body.map_err(|e| format!("Could not parse response body, error: {}", e))
-}
-
 pub type ShardMap = HashMap<String, Vec<String>>;
 
-pub fn compute_shard_map(sd: &ShardDistribution, coll_list: &[String]) -> Result<ShardMap, String> {
-    let mut result: ShardMap = HashMap::new();
-    for c in coll_list.iter() {
-        // Handle the case of a smart edge collection. If c is
-        // one, then we also find a collection called `_to_`+c.
-        // In this case, we must not get those shards, because their
-        // data is already contained in `_from_`+c, just sharded
-        // differently.
-        let mut ignore: HashSet<String> = HashSet::new();
-        let smart_name = "_to_".to_owned() + c;
-        match sd.results.get(&smart_name) {
-            None => (),
-            Some(coll_dist) => {
-                // Keys of coll_dist are the shards, value has leader:
-                for shard in (coll_dist.plan).keys() {
-                    ignore.insert(shard.clone());
-                }
-            }
+pub fn compute_shard_map(
+    sd_opt: &Option<ShardDistribution>,
+    coll_list: &[String],
+    deployment_type: &DeploymentType,
+    endpoints: &[String],
+) -> Result<ShardMap, String> {
+    match deployment_type {
+        DeploymentType::Single => {
+            let mut result: ShardMap = HashMap::new();
+            result.insert(endpoints[0].clone(), coll_list.to_vec());
+            Ok(result)
         }
-        match sd.results.get(c) {
-            None => {
-                return Err(format!("collection {} not found in shard distribution", c));
-            }
-            Some(coll_dist) => {
-                // Keys of coll_dist are the shards, value has leader:
-                for (shard, location) in &(coll_dist.plan) {
-                    if ignore.get(shard).is_none() {
-                        let leader = &(location.leader);
-                        match result.get_mut(leader) {
-                            None => {
-                                result.insert(leader.clone(), vec![shard.clone()]);
-                            }
-                            Some(list) => {
-                                list.push(shard.clone());
+        DeploymentType::Cluster => {
+            let mut result: ShardMap = HashMap::new();
+            let sd = sd_opt
+                .as_ref()
+                .ok_or("Could not retrieve ShardDistribution".to_string())?;
+            for c in coll_list.iter() {
+                // Handle the case of a smart edge collection. If c is
+                // one, then we also find a collection called `_to_`+c.
+                // In this case, we must not get those shards, because their
+                // data is already contained in `_from_`+c, just sharded
+                // differently.
+                let mut ignore: HashSet<String> = HashSet::new();
+                let smart_name = "_to_".to_owned() + c;
+                match sd.results.get(&smart_name) {
+                    None => (),
+                    Some(coll_dist) => {
+                        // Keys of coll_dist are the shards, value has leader:
+                        for shard in (coll_dist.plan).keys() {
+                            ignore.insert(shard.clone());
+                        }
+                    }
+                }
+                match sd.results.get(c) {
+                    None => {
+                        return Err(format!("collection {} not found in shard distribution", c));
+                    }
+                    Some(coll_dist) => {
+                        // Keys of coll_dist are the shards, value has leader:
+                        for (shard, location) in &(coll_dist.plan) {
+                            if ignore.get(shard).is_none() {
+                                let leader = &(location.leader);
+                                match result.get_mut(leader) {
+                                    None => {
+                                        result.insert(leader.clone(), vec![shard.clone()]);
+                                    }
+                                    Some(list) => {
+                                        list.push(shard.clone());
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
+            Ok(result)
         }
     }
-    Ok(result)
-}
-
-#[derive(Debug, Clone)]
-struct DBServerInfo {
-    dbserver: String,
-    dump_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -176,7 +143,7 @@ pub async fn get_all_shard_data(
             .body(body_v)
             .send()
             .await;
-        let r = handle_arangodb_response(resp, |c| {
+        let r = arangodb::handle_arangodb_response(resp, |c| {
             c == StatusCode::NO_CONTENT || c == StatusCode::OK || c == StatusCode::CREATED
         })
         .await;
@@ -209,9 +176,10 @@ pub async fn get_all_shard_data(
             let resp = handle_auth(client_clone_for_cleanup.delete(url), connection_config)
                 .send()
                 .await;
-            let r =
-                handle_arangodb_response(resp, |c| c == StatusCode::OK || c == StatusCode::CREATED)
-                    .await;
+            let r = arangodb::handle_arangodb_response(resp, |c| {
+                c == StatusCode::OK || c == StatusCode::CREATED
+            })
+            .await;
             if let Err(rr) = r {
                 eprintln!(
                     "An error in cancelling a dump context occurred, dbserver: {}, error: {}",
@@ -295,7 +263,7 @@ pub async fn get_all_shard_data(
                     let resp = handle_auth(client_clone.post(url), &connection_config_clone)
                         .send()
                         .await;
-                    let resp = handle_arangodb_response(resp, |c| {
+                    let resp = arangodb::handle_arangodb_response(resp, |c| {
                         c == StatusCode::OK || c == StatusCode::NO_CONTENT
                     })
                     .await?;
@@ -344,33 +312,8 @@ pub async fn get_all_shard_data(
     // We drop the result_channel when we leave the function.
 }
 
-// This function handles an empty HTTP response from ArangoDB, including
-// connection errors and bad status codes.
-async fn handle_arangodb_response(
-    resp: reqwest_middleware::Result<reqwest::Response>,
-    code_test: fn(code: reqwest::StatusCode) -> bool,
-) -> Result<reqwest::Response, String> {
-    if let Err(err) = resp {
-        return Err(err.to_string());
-    }
-    let resp = resp.unwrap();
-    let status = resp.status();
-    if !code_test(status) {
-        let err = resp.json::<ArangoDBError>().await;
-        match err {
-            Err(e) => {
-                return Err(format!(
-                    "Could not parse error body, error: {}, status code: {:?}",
-                    e, status,
-                ));
-            }
-            Ok(e) => {
-                return Err(format!(
-                    "Error code: {}, message: {}, HTTP code: {}",
-                    e.error_num, e.error_message, e.code
-                ));
-            }
-        }
-    }
-    Ok(resp)
+#[derive(Debug, Clone)]
+struct DBServerInfo {
+    dbserver: String,
+    dump_id: String,
 }
