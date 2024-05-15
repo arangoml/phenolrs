@@ -110,7 +110,7 @@ pub async fn get_all_data_aql(
             .bytes()
             .await
             .map_err(|e| format!("Error in body: {:?}", e))?;
-        let response_info = serde_json::from_slice::<CursorResponse>(&*bytes_res);
+        let response_info = serde_json::from_slice::<CursorResponse>(&*bytes_res.clone());
 
         if let Err(create_error) = response_info {
             eprintln!(
@@ -118,9 +118,16 @@ pub async fn get_all_data_aql(
                 create_error
             );
         } else {
-            let id = response_info.unwrap().id;
+            let cursor_resp = response_info.unwrap();
+            let id = cursor_resp.id;
 
-            result_channels[consumers_round_robin].send(bytes_res);
+            result_channels[consumers_round_robin]
+                .clone()
+                .send(bytes_res)
+                .expect("Could not send to channel");
+            if !cursor_resp.has_more {
+                continue;
+            }
 
             if let Some(id) = id {
                 cursor_ids.push(id.clone());
@@ -159,10 +166,14 @@ pub async fn get_all_data_aql(
                             .bytes()
                             .await
                             .map_err(|e| format!("Error in body: {:?}", e))?;
-                        let response_info = serde_json::from_slice::<CursorResponse>(&*bytes_res)
-                            .map_err(|e| format!("Error in body: {:?}", e))?;
+                        let response_info =
+                            serde_json::from_slice::<CursorResponse>(&*bytes_res.clone())
+                                .map_err(|e| format!("Error in body: {:?}", e))?;
+                        result_channel_clone
+                            .send(bytes_res)
+                            .expect("Could not send to channel!");
                         if !response_info.has_more {
-                            debug!(
+                            println!(
                                 "{:?} Cursor exhausted, got final response... {} {:?}",
                                 end.duration_since(start).unwrap(),
                                 id,
@@ -170,9 +181,6 @@ pub async fn get_all_data_aql(
                             );
                             return Ok::<(), String>(());
                         }
-                        result_channel_clone
-                            .send(bytes_res)
-                            .expect("Could not send to channel!");
                     }
                 });
             }
@@ -212,7 +220,13 @@ pub async fn get_all_data_aql(
     }
 
     while let Some(res) = task_set.join_next().await {
-        let r = res.unwrap();
+        let r = match res {
+            Ok(_) => Ok(()),
+            Err(msg) => {
+                println!("Got error result: {}", msg);
+                Err(msg)
+            }
+        };
         match r {
             Ok(_x) => {
                 debug!("Got OK result!");

@@ -1,4 +1,4 @@
-mod aql;
+pub mod aql;
 pub mod dump;
 pub mod info;
 
