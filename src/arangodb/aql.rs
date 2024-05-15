@@ -1,18 +1,12 @@
-use crate::arangodb::dump::ShardMap;
-use crate::arangodb::{
-    handle_arangodb_response_with_parsed_body,
-    handle_arangodb_response_with_parsed_body_normal_response,
-};
 use crate::client::auth::handle_auth;
 use crate::client::config::ClientConfig;
 use crate::input::load_request::{CollectionDescription, DataLoadRequest, DatabaseConfiguration};
 use crate::{arangodb, client};
 use bytes::Bytes;
 use log::debug;
-use reqwest::{Response, StatusCode};
+use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::format;
 use std::time::SystemTime;
 use tokio::task::JoinSet;
 
@@ -63,7 +57,7 @@ struct CursorResponse {
 pub async fn get_all_data_aql(
     req: &DataLoadRequest,
     connection_config: &DatabaseConfiguration,
-    collections: &Vec<CollectionDescription>,
+    collections: &[CollectionDescription],
     result_channels: Vec<std::sync::mpsc::Sender<Bytes>>,
     is_edge: bool,
 ) -> Result<(), String> {
@@ -110,7 +104,7 @@ pub async fn get_all_data_aql(
             .bytes()
             .await
             .map_err(|e| format!("Error in body: {:?}", e))?;
-        let response_info = serde_json::from_slice::<CursorResponse>(&*bytes_res.clone());
+        let response_info = serde_json::from_slice::<CursorResponse>(&bytes_res.clone());
 
         if let Err(create_error) = response_info {
             eprintln!(
@@ -167,13 +161,13 @@ pub async fn get_all_data_aql(
                             .await
                             .map_err(|e| format!("Error in body: {:?}", e))?;
                         let response_info =
-                            serde_json::from_slice::<CursorResponse>(&*bytes_res.clone())
+                            serde_json::from_slice::<CursorResponse>(&bytes_res.clone())
                                 .map_err(|e| format!("Error in body: {:?}", e))?;
                         result_channel_clone
                             .send(bytes_res)
                             .expect("Could not send to channel!");
                         if !response_info.has_more {
-                            println!(
+                            debug!(
                                 "{:?} Cursor exhausted, got final response... {} {:?}",
                                 end.duration_since(start).unwrap(),
                                 id,

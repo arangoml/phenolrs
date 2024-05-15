@@ -130,7 +130,7 @@ pub async fn fetch_graph_from_arangodb(
 
     let load_strategy =
         if !supports_v1 && support_info.deployment.deployment_type == DeploymentType::Single {
-            LoadStrategy::AQL
+            LoadStrategy::Aql
         } else {
             LoadStrategy::Dump
         };
@@ -189,7 +189,7 @@ pub async fn fetch_graph_from_arangodb(
         begin,
         &vertex_map,
         vertex_coll_field_map,
-        load_strategy.clone(),
+        load_strategy,
     )
     .await?;
 
@@ -253,7 +253,7 @@ async fn load_edges(
         let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
         senders.push(sender);
         let graph_clone = graph_arc.clone();
-        let load_strategy_clone = load_strategy.clone();
+        let load_strategy_clone = *load_strategy;
         let consumer = std::thread::spawn(move || {
             receive::receive_edges(receiver, graph_clone, load_strategy_clone)
         });
@@ -263,7 +263,7 @@ async fn load_edges(
         LoadStrategy::Dump => {
             get_all_shard_data(req, db_config, edge_map, senders).await?;
         }
-        LoadStrategy::AQL => {
+        LoadStrategy::Aql => {
             get_all_data_aql(req, db_config, &req.edge_collections, senders, true).await?;
         }
     }
@@ -299,7 +299,7 @@ async fn load_vertices(
         senders.push(sender);
         let graph_clone = graph_arc.clone();
         let vertex_coll_field_map_clone = vertex_coll_field_map.clone();
-        let load_strategy_clone = load_strategy.clone();
+        let load_strategy_clone = load_strategy;
         let consumer = std::thread::spawn(move || {
             receive::receive_vertices(
                 receiver,
@@ -314,7 +314,7 @@ async fn load_vertices(
         LoadStrategy::Dump => {
             get_all_shard_data(req, db_config, vertex_map, senders).await?;
         }
-        LoadStrategy::AQL => {
+        LoadStrategy::Aql => {
             get_all_data_aql(req, db_config, &req.vertex_collections, senders, false).await?;
         }
     }
