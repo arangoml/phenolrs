@@ -1,8 +1,5 @@
-import arango
-import pytest
 from torch_geometric.data import HeteroData
 
-from phenolrs import PhenolError
 from phenolrs.numpy_loader import NumpyLoader
 from phenolrs.pyg_loader import PygLoader
 
