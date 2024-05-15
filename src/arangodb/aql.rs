@@ -50,7 +50,7 @@ impl CreateCursorBody {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CursorResponse {
-    has_more: bool,
+    has_more: Option<bool>,
     id: Option<String>,
 }
 
@@ -119,7 +119,7 @@ pub async fn get_all_data_aql(
                 .clone()
                 .send(bytes_res)
                 .expect("Could not send to channel");
-            if !cursor_resp.has_more {
+            if !cursor_resp.has_more.unwrap_or(false) {
                 continue;
             }
 
@@ -166,7 +166,7 @@ pub async fn get_all_data_aql(
                         result_channel_clone
                             .send(bytes_res)
                             .expect("Could not send to channel!");
-                        if !response_info.has_more {
+                        if !response_info.has_more.unwrap_or(false) {
                             debug!(
                                 "{:?} Cursor exhausted, got final response... {} {:?}",
                                 end.duration_since(start).unwrap(),
