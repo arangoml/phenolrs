@@ -20,6 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 tests = [
     "pytest",
+    "arango-datasets"
 ]
 dynamic = ["version"]
 

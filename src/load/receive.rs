@@ -189,10 +189,11 @@ pub fn receive_vertices(
                     Ok(val) => val,
                 };
                 let id = &v["_id"];
+                let key = &v["_key"];
                 match id {
                     Value::String(i) => {
                         let mut buf = vec![];
-                        buf.extend_from_slice(i[..].as_bytes());
+                        buf.extend_from_slice(key.as_str().unwrap().as_bytes());
                         vertex_keys.push(buf);
                         if current_vertex_col.is_none() {
                             let pos = i.find('/').unwrap();
@@ -255,10 +256,11 @@ pub fn receive_vertices(
             };
             for v in values.result.into_iter() {
                 let id = &v["_id"];
+                let key = &v["_key"];
                 match id {
                     Value::String(i) => {
                         let mut buf = vec![];
-                        buf.extend_from_slice(i[..].as_bytes());
+                        buf.extend_from_slice(key.as_str().unwrap().as_bytes());
                         vertex_keys.push(buf);
                         if current_vertex_col.is_none() {
                             let pos = i.find('/').unwrap();

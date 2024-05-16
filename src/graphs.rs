@@ -189,19 +189,20 @@ impl Graph {
         to_id: Vec<u8>,
         _data: Vec<u8>,
     ) -> Result<()> {
-        // build up the coo representation
-        let from_col: String = String::from_utf8({
+        let (from_col, from_key) = {
             let s = String::from_utf8(from_id.clone()).expect("_from to be a string");
-            let id_split = s.find('/').unwrap();
-            (&s[0..id_split]).into()
-        })
-        .unwrap();
-        let to_col: String = String::from_utf8({
+            let id_split = s.find('/').expect("Invalid format for _from");
+            let (col, key) = s.split_at(id_split);
+            (col.to_string(), key[1..].to_string())
+        };
+
+        let (to_col, to_key) = {
             let s = String::from_utf8(to_id.clone()).expect("_to to be a string");
-            let id_split = s.find('/').unwrap();
-            (&s[0..id_split]).into()
-        })
-        .unwrap();
+            let id_split = s.find('/').expect("Invalid format for _to");
+            let (col, key) = s.split_at(id_split);
+            (col.to_string(), key[1..].to_string())
+        };
+
         let key_tup = (
             String::from_utf8(col_name).unwrap(),
             from_col.clone(),
@@ -223,8 +224,8 @@ impl Graph {
             .coo_by_from_edge_to
             .get_mut(&key_tup)
             .ok_or_else(|| anyhow!("Unable to get COO from to for {:?}", &key_tup))?;
-        let from_col_id = from_col_keys.get(&String::from_utf8(from_id).unwrap());
-        let to_col_id = to_col_keys.get(&String::from_utf8(to_id).unwrap());
+        let from_col_id = from_col_keys.get(&from_key);
+        let to_col_id = to_col_keys.get(&to_key);
         if let (Some(from_id), Some(to_id)) = (from_col_id, to_col_id) {
             cur_coo[0].push(*from_id);
             cur_coo[1].push(*to_id);

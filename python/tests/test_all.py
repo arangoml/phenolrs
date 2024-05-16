@@ -20,10 +20,18 @@ def test_phenol_abide_hetero(
         password=connection_information["password"],
     )
 
-    data, col_to_adb_id_to_ind = result
+    data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
     assert isinstance(data, HeteroData)
     assert data["Subjects"]["x"].shape == (871, 2000)
-    assert len(col_to_adb_id_to_ind["Subjects"]) == 871
+    assert (
+        len(col_to_adb_key_to_ind["Subjects"])
+        == len(col_to_ind_to_adb_key["Subjects"])
+        == 871
+    )
+
+    assert data[("Subjects", "medical_affinity_graph", "Subjects")][
+        "edge_index"
+    ].shape == (2, 606770)
 
     # Metagraph variation
     result = PygLoader.load_into_pyg_heterodata(
@@ -39,10 +47,18 @@ def test_phenol_abide_hetero(
         password=connection_information["password"],
     )
 
-    data, col_to_adb_id_to_ind = result
+    data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
     assert isinstance(data, HeteroData)
     assert data["Subjects"]["x"].shape == (871, 2000)
-    assert len(col_to_adb_id_to_ind["Subjects"]) == 871
+    assert (
+        len(col_to_adb_key_to_ind["Subjects"])
+        == len(col_to_ind_to_adb_key["Subjects"])
+        == 871
+    )
+
+    assert data[("Subjects", "medical_affinity_graph", "Subjects")][
+        "edge_index"
+    ].shape == (2, 606770)
 
 
 def test_phenol_abide_numpy(
@@ -51,7 +67,8 @@ def test_phenol_abide_numpy(
     (
         features_by_col,
         coo_map,
-        col_to_adb_id_to_ind,
+        col_to_adb_key_to_ind,
+        col_to_ind_to_adb_key,
         vertex_cols_source_to_output,
     ) = NumpyLoader.load_graph_to_numpy(
         connection_information["dbName"],
@@ -69,13 +86,18 @@ def test_phenol_abide_numpy(
         2,
         606770,
     )
-    assert len(col_to_adb_id_to_ind["Subjects"]) == 871
+    assert (
+        len(col_to_adb_key_to_ind["Subjects"])
+        == len(col_to_ind_to_adb_key["Subjects"])
+        == 871
+    )
     assert vertex_cols_source_to_output == {"Subjects": {"brain_fmri_features": "x"}}
 
     (
         features_by_col,
         coo_map,
-        col_to_adb_id_to_ind,
+        col_to_adb_key_to_ind,
+        col_to_ind_to_adb_key,
         vertex_cols_source_to_output,
     ) = NumpyLoader.load_graph_to_numpy(
         connection_information["dbName"],
@@ -90,5 +112,9 @@ def test_phenol_abide_numpy(
 
     assert features_by_col["Subjects"]["brain_fmri_features"].shape == (871, 2000)
     assert len(coo_map) == 0
-    assert len(col_to_adb_id_to_ind["Subjects"]) == 871
+    assert (
+        len(col_to_adb_key_to_ind["Subjects"])
+        == len(col_to_ind_to_adb_key["Subjects"])
+        == 871
+    )
     assert vertex_cols_source_to_output == {"Subjects": {"brain_fmri_features": "x"}}

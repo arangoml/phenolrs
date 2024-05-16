@@ -22,6 +22,7 @@ class NumpyLoader:
         dict[str, dict[str, npt.NDArray[np.float64]]],
         dict[typing.Tuple[str, str, str], npt.NDArray[np.float64]],
         dict[str, dict[str, int]],
+        dict[str, dict[int, str]],
         dict[str, dict[str, str]],
     ]:
         # TODO: replace with pydantic validation
@@ -83,18 +84,21 @@ class NumpyLoader:
                 for e_col_name, entries in metagraph["edgeCollections"].items()
             ]
 
-        features_by_col, coo_map, col_to_adb_id_to_ind = graph_to_pyg_format(
-            {
-                "database": database,
-                "vertex_collections": vertex_collections,
-                "edge_collections": edge_collections,
-                "configuration": {"database_config": db_config_options},
-            }
+        features_by_col, coo_map, col_to_adb_key_to_ind, col_to_ind_to_adb_key = (
+            graph_to_pyg_format(
+                {
+                    "database": database,
+                    "vertex_collections": vertex_collections,
+                    "edge_collections": edge_collections,
+                    "configuration": {"database_config": db_config_options},
+                }
+            )
         )
 
         return (
             features_by_col,
             coo_map,
-            col_to_adb_id_to_ind,
+            col_to_adb_key_to_ind,
+            col_to_ind_to_adb_key,
             vertex_cols_source_to_output,
         )
