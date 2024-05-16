@@ -98,7 +98,7 @@ class PygLoader:
         tls_cert: typing.Any | None = None,
         parallelism: int | None = None,
         batch_size: int | None = None,
-    ) -> tuple[HeteroData, dict[str, dict[str, int]]]:
+    ) -> tuple[HeteroData, dict[str, dict[str, int]], dict[str, dict[int, str]]]:
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
         if "edgeCollections" not in metagraph:
@@ -112,7 +112,8 @@ class PygLoader:
         (
             features_by_col,
             coo_map,
-            col_to_adb_id_to_ind,
+            col_to_adb_key_to_ind,
+            col_to_ind_to_adb_key,
             vertex_cols_source_to_output,
         ) = NumpyLoader.load_graph_to_numpy(
             database,
@@ -142,4 +143,4 @@ class PygLoader:
             if result.numel() > 0:
                 data[(from_name, edge_col_name, to_name)].edge_index = result
 
-        return data, col_to_adb_id_to_ind
+        return data, col_to_adb_key_to_ind, col_to_ind_to_adb_key
