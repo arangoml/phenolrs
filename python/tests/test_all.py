@@ -29,7 +29,9 @@ def test_phenol_abide_hetero(
         == 871
     )
 
-    assert data[("Subjects", "medical_affinity_graph", "Subjects")]["edge_index"].shape == (2, 606770)
+    assert data[("Subjects", "medical_affinity_graph", "Subjects")][
+        "edge_index"
+    ].shape == (2, 606770)
 
     # Metagraph variation
     result = PygLoader.load_into_pyg_heterodata(
@@ -54,7 +56,9 @@ def test_phenol_abide_hetero(
         == 871
     )
 
-    assert data[("Subjects", "medical_affinity_graph", "Subjects")]["edge_index"].shape == (2, 606770)
+    assert data[("Subjects", "medical_affinity_graph", "Subjects")][
+        "edge_index"
+    ].shape == (2, 606770)
 
 
 def test_phenol_abide_numpy(
@@ -78,10 +82,9 @@ def test_phenol_abide_numpy(
     )
 
     assert features_by_col["Subjects"]["brain_fmri_features"].shape == (871, 2000)
-    assert coo_map[("medical_affinity_graph", "Subjects", "Subjects")]["edge_index"].shape == (
-        2,
-        606770,
-    )
+    assert coo_map[("medical_affinity_graph", "Subjects", "Subjects")][
+        "edge_index"
+    ].shape == (2, 606770)
     assert (
         len(col_to_adb_key_to_ind["Subjects"])
         == len(col_to_ind_to_adb_key["Subjects"])
