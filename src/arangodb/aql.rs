@@ -246,7 +246,7 @@ fn build_aql_query(collection_description: &CollectionDescription, is_edge: bool
     let identifiers = if is_edge {
         "_to: doc._to,\n_from: doc._from,\n"
     } else {
-        ""
+        "_key: doc._key,\n"
     };
     let query = format!(
         "
