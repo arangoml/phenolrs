@@ -46,16 +46,12 @@ pub fn construct_cols_to_keys_to_inds(
 
 #[cfg(not(test))]
 pub fn construct_cols_to_inds_to_keys(
-    input: HashMap<String, HashMap<String, usize>>,
+    input: HashMap<String, HashMap<usize, String>>,
     py: Python,
 ) -> PyResult<&PyDict> {
     let dict = PyDict::new(py);
-    input.iter().for_each(|(col_name, inner_map)| {
-        let inner_dict = PyDict::new(py);
-        inner_map.iter().for_each(|(key, value)| {
-            inner_dict.set_item(value, key).unwrap();
-        });
-        dict.set_item(col_name, inner_dict).unwrap();
-    });
+    input
+        .iter()
+        .for_each(|item| dict.set_item(item.0, item.1).unwrap());
     Ok(dict)
 }

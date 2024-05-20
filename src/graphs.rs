@@ -65,6 +65,7 @@ pub struct Graph {
     pub edges_indexed_to: bool,
 
     pub cols_to_keys_to_inds: HashMap<String, HashMap<String, usize>>,
+    pub cols_to_inds_to_keys: HashMap<String, HashMap<usize, String>>,
     pub coo_by_from_edge_to: HashMap<(String, String, String), Vec<Vec<usize>>>,
     pub cols_to_features: HashMap<String, HashMap<String, Vec<Vec<f64>>>>,
 }
@@ -90,6 +91,7 @@ impl Graph {
             edges_indexed_to: false,
             cols_to_features: HashMap::new(),
             cols_to_keys_to_inds: HashMap::new(),
+            cols_to_inds_to_keys: HashMap::new(),
             coo_by_from_edge_to: HashMap::new(),
         }))
     }
@@ -157,9 +159,22 @@ impl Graph {
                 self.cols_to_keys_to_inds
                     .insert(col_name.clone(), HashMap::new());
             }
-            let col_inds = self.cols_to_keys_to_inds.get_mut(&col_name).unwrap();
-            let cur_ind = col_inds.len();
-            col_inds.insert(String::from_utf8(key.clone()).unwrap(), cur_ind);
+
+            if !self.cols_to_inds_to_keys.contains_key(&col_name) {
+                self.cols_to_inds_to_keys
+                    .insert(col_name.clone(), HashMap::new());
+            }
+
+            let keys_to_inds: &mut HashMap<String, usize> =
+                self.cols_to_keys_to_inds.get_mut(&col_name).unwrap();
+            let inds_to_keys: &mut HashMap<usize, String> =
+                self.cols_to_inds_to_keys.get_mut(&col_name).unwrap();
+
+            let cur_ind = keys_to_inds.len();
+            let cur_key_str = String::from_utf8(key.clone()).unwrap();
+
+            keys_to_inds.insert(cur_key_str.clone(), cur_ind);
+            inds_to_keys.insert(cur_ind, cur_key_str);
 
             if !self.cols_to_features.contains_key(&col_name) {
                 self.cols_to_features
