@@ -46,7 +46,7 @@ fn graph_to_pyg_format(py: Python, request: DataLoadRequest) -> PyResult<PygComp
         construct::construct_cols_to_keys_to_inds(graph.cols_to_keys_to_inds.clone(), py)?;
 
     let cols_to_inds_to_keys =
-        construct::construct_cols_to_inds_to_keys(graph.cols_to_keys_to_inds, py)?;
+        construct::construct_cols_to_inds_to_keys(graph.cols_to_inds_to_keys, py)?;
 
     println!("Finished retrieval!");
 
