@@ -1,11 +1,18 @@
 import typing
 
 import numpy as np
-import torch
-from torch_geometric.data import Data, HeteroData
 
 from phenolrs import PhenolError
 from phenolrs.numpy_loader import NumpyLoader
+
+try:
+    import torch
+    from torch_geometric.data import Data, HeteroData
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
 
 
 class PygLoader:
@@ -20,7 +27,11 @@ class PygLoader:
         tls_cert: typing.Any | None = None,
         parallelism: int | None = None,
         batch_size: int | None = None,
-    ) -> tuple[Data, dict[str, dict[str, int]], dict[str, dict[int, str]]]:
+    ) -> tuple["Data", dict[str, dict[str, int]], dict[str, dict[int, str]]]:
+        if not TORCH_AVAILABLE:
+            m = "Missing required dependencies. Install with `pip install phenolrs[torch]`"
+            raise ImportError(m)
+
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
         if "edgeCollections" not in metagraph:
@@ -99,7 +110,11 @@ class PygLoader:
         tls_cert: typing.Any | None = None,
         parallelism: int | None = None,
         batch_size: int | None = None,
-    ) -> tuple[HeteroData, dict[str, dict[str, int]], dict[str, dict[int, str]]]:
+    ) -> tuple["HeteroData", dict[str, dict[str, int]], dict[str, dict[int, str]]]:
+        if not TORCH_AVAILABLE:
+            m = "Missing required dependencies. Install with `pip install phenolrs[torch]`"
+            raise ImportError(m)
+
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
         if "edgeCollections" not in metagraph:
