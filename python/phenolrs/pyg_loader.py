@@ -28,7 +28,7 @@ class PygLoader:
         batch_size: int | None = None,
     ) -> tuple["Data", dict[str, dict[str, int]], dict[str, dict[int, str]]]:
         if not TORCH_AVAILABLE:
-            m = "Missing required dependencies. Install with `pip install phenolrs[torch]`"
+            m = "Missing required dependencies. Install with `pip install phenolrs[torch]`"  # noqa: E501
             raise ImportError(m)
 
         if "vertexCollections" not in metagraph:
@@ -111,7 +111,7 @@ class PygLoader:
         batch_size: int | None = None,
     ) -> tuple["HeteroData", dict[str, dict[str, int]], dict[str, dict[int, str]]]:
         if not TORCH_AVAILABLE:
-            m = "Missing required dependencies. Install with `pip install phenolrs[torch]`"
+            m = "Missing required dependencies. Install with `pip install phenolrs[torch]`"  # noqa: E501
             raise ImportError(m)
 
         if "vertexCollections" not in metagraph:
