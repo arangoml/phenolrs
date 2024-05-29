@@ -14,7 +14,6 @@ except ImportError:
     TORCH_AVAILABLE = False
 
 
-
 class PygLoader:
     @staticmethod
     def load_into_pyg_data(
