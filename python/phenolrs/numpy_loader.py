@@ -1,32 +1,32 @@
-import typing
+from typing import Any, Tuple
 
 import numpy as np
 import numpy.typing as npt
 
-from phenolrs import PhenolError, graph_to_pyg_format
+from phenolrs import PhenolError, graph_to_numpy_format
 
 
 class NumpyLoader:
     @staticmethod
     def load_graph_to_numpy(
         database: str,
-        metagraph: dict[str, typing.Any],
+        metagraph: dict[str, Any],
         hosts: list[str],
         user_jwt: str | None = None,
         username: str | None = None,
         password: str | None = None,
-        tls_cert: typing.Any | None = None,
+        tls_cert: Any | None = None,
         parallelism: int | None = None,
         batch_size: int | None = None,
-    ) -> typing.Tuple[
+    ) -> Tuple[
         dict[str, dict[str, npt.NDArray[np.float64]]],
-        dict[typing.Tuple[str, str, str], npt.NDArray[np.float64]],
+        dict[Tuple[str, str, str], npt.NDArray[np.float64]],
         dict[str, dict[str, int]],
         dict[str, dict[int, str]],
         dict[str, dict[str, str]],
     ]:
         # TODO: replace with pydantic validation
-        db_config_options: dict[str, typing.Any] = {
+        db_config_options: dict[str, Any] = {
             "endpoints": hosts,
         }
         if username:
@@ -38,7 +38,7 @@ class NumpyLoader:
         if tls_cert:
             db_config_options["tls_cert"] = tls_cert
 
-        config: dict[str, typing.Any] = {"database_config": db_config_options}
+        config: dict[str, Any] = {"database_config": db_config_options}
         if parallelism:
             config["parallelism"] = parallelism
         if batch_size:
@@ -51,7 +51,7 @@ class NumpyLoader:
         # "USER": {"x": {"features": None}}
         # Should be converted to:
         # "USER": {"x": "features"}
-        entries: dict[str, typing.Any]
+        entries: dict[str, Any]
         for v_col_name, entries in metagraph["vertexCollections"].items():
             for source_name, value in entries.items():
                 if isinstance(value, dict):
@@ -85,7 +85,7 @@ class NumpyLoader:
             ]
 
         features_by_col, coo_map, col_to_adb_key_to_ind, col_to_ind_to_adb_key = (
-            graph_to_pyg_format(
+            graph_to_numpy_format(
                 {
                     "database": database,
                     "vertex_collections": vertex_collections,
