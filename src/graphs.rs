@@ -16,7 +16,8 @@ pub struct Edge {
     pub to: VertexIndex,   // index of vertex
 }
 
-pub trait Graph {
+// TODO: Revisit this
+pub trait Graph: Sized + Send + Sync {
     fn new(store_keys: bool, bits_for_hash: u8, id: u64) -> Arc<RwLock<Self>>
     where
         Self: Sized + Send + Sync;
@@ -93,7 +94,7 @@ pub struct NumpyGraph {
 }
 
 impl Graph for NumpyGraph {
-    fn new(store_keys: bool, bits_for_hash: u8, id: u64) -> Arc<RwLock<Self>> {
+    fn new(store_keys: bool, bits_for_hash: u8, id: u64) -> Arc<RwLock<NumpyGraph>> {
         Arc::new(RwLock::new(NumpyGraph {
             graph_id: id,
             hash_to_index: HashMap::new(),

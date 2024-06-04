@@ -4,6 +4,7 @@ from torch_geometric.data import HeteroData
 
 from phenolrs.numpy_loader import NumpyLoader
 from phenolrs.pyg_loader import PygLoader
+
 # from phenolrs.networkx_loader import NetworkXLoader
 
 
