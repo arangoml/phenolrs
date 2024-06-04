@@ -20,8 +20,8 @@ impl DataLoadConfiguration {
     pub fn default() -> DataLoadConfiguration {
         DataLoadConfiguration {
             database_config: DatabaseConfiguration::default(),
-            parallelism: Some(5),
-            batch_size: Some(400000),
+            parallelism: Some(10),
+            batch_size: Some(1000000),
         }
     }
 }
