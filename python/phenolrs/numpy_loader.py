@@ -29,6 +29,7 @@ class NumpyLoader:
         db_config_options: dict[str, Any] = {
             "endpoints": hosts,
         }
+
         if username:
             db_config_options["username"] = username
         if password:
@@ -37,12 +38,6 @@ class NumpyLoader:
             db_config_options["jwt_token"] = user_jwt
         if tls_cert:
             db_config_options["tls_cert"] = tls_cert
-
-        config: dict[str, Any] = {"database_config": db_config_options}
-        if parallelism:
-            config["parallelism"] = parallelism
-        if batch_size:
-            config["batch_size"] = batch_size
 
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
