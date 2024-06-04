@@ -1,4 +1,4 @@
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -16,8 +16,30 @@ pub struct Edge {
     pub to: VertexIndex,   // index of vertex
 }
 
+pub trait Graph {
+    fn new(store_keys: bool, bits_for_hash: u8, id: u64) -> Arc<RwLock<Self>>
+    where
+        Self: Sized + Send + Sync;
+
+    fn insert_vertex(
+        &mut self,
+        key: Vec<u8>,
+        json: Option<Value>,
+        collection_name: Vec<u8>,
+        field_names: &[String],
+    );
+
+    fn insert_edge(
+        &mut self,
+        col_name: Vec<u8>,
+        from_id: Vec<u8>,
+        to_id: Vec<u8>,
+        data: Vec<u8>,
+    ) -> Result<()>;
+}
+
 #[derive(Debug)]
-pub struct Graph {
+pub struct NumpyGraph {
     // Index in list of graphs:
     pub graph_id: u64,
 
@@ -70,9 +92,9 @@ pub struct Graph {
     pub cols_to_features: HashMap<String, HashMap<String, Vec<Vec<f64>>>>,
 }
 
-impl Graph {
-    pub fn new(store_keys: bool, _bits_for_hash: u8, id: u64) -> Arc<RwLock<Graph>> {
-        Arc::new(RwLock::new(Graph {
+impl Graph for NumpyGraph {
+    fn new(store_keys: bool, bits_for_hash: u8, id: u64) -> Arc<RwLock<Self>> {
+        Arc::new(RwLock::new(NumpyGraph {
             graph_id: id,
             hash_to_index: HashMap::new(),
             exceptions: HashMap::new(),
@@ -96,9 +118,9 @@ impl Graph {
         }))
     }
 
-    pub fn insert_vertex(
+    fn insert_vertex(
         &mut self,
-        key: Vec<u8>, // cannot be empty
+        key: Vec<u8>,
         json: Option<Value>,
         collection_name: Vec<u8>,
         field_names: &[String],
@@ -197,7 +219,7 @@ impl Graph {
         }
     }
 
-    pub fn insert_edge(
+    fn insert_edge(
         &mut self,
         col_name: Vec<u8>,
         from_id: Vec<u8>,

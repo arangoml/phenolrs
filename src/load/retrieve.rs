@@ -6,7 +6,7 @@ use crate::arangodb::info::{DeploymentType, SupportInfo, VersionInformation};
 use crate::client::auth::handle_auth;
 use crate::client::build_client;
 use crate::client::config::ClientConfig;
-use crate::graphs::Graph;
+use crate::graphs::{Graph, NumpyGraph};
 use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
 use crate::load::load_strategy::LoadStrategy;
 use bytes::Bytes;
@@ -19,8 +19,8 @@ use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 use std::time::SystemTime;
 
-pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
-    let graph = Graph::new(true, 64, 0);
+pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<NumpyGraph, String> {
+    let graph = NumpyGraph::new(true, 64, 0);
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
     // Fetch from ArangoDB in a background thread:
@@ -36,7 +36,7 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
     });
     handle.join().map_err(|_s| "Computation failed")??;
     let inner_rw_lock =
-        Arc::<std::sync::RwLock<Graph>>::try_unwrap(graph).map_err(|poisoned_arc| {
+        Arc::<std::sync::RwLock<NumpyGraph>>::try_unwrap(graph).map_err(|poisoned_arc| {
             if poisoned_arc.is_poisoned() {
                 "Computation failed: thread failed - poisoned arc"
             } else {
@@ -55,8 +55,8 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
 
 pub async fn fetch_graph_from_arangodb(
     req: DataLoadRequest,
-    graph_arc: Arc<RwLock<Graph>>,
-) -> Result<Arc<RwLock<Graph>>, String> {
+    graph_arc: Arc<RwLock<NumpyGraph>>,
+) -> Result<Arc<RwLock<NumpyGraph>>, String> {
     let db_config = &req.configuration.database_config;
     if db_config.endpoints.is_empty() {
         return Err("no endpoints given".to_string());
@@ -236,7 +236,7 @@ pub async fn fetch_graph_from_arangodb(
 
 async fn load_edges(
     req: &DataLoadRequest,
-    graph_arc: &Arc<RwLock<Graph>>,
+    graph_arc: &Arc<RwLock<NumpyGraph>>,
     db_config: &&DatabaseConfiguration,
     begin: SystemTime,
     edge_map: &ShardMap,
@@ -280,7 +280,7 @@ async fn load_edges(
 
 async fn load_vertices(
     req: &DataLoadRequest,
-    graph_arc: &Arc<RwLock<Graph>>,
+    graph_arc: &Arc<RwLock<NumpyGraph>>,
     db_config: &&DatabaseConfiguration,
     begin: SystemTime,
     vertex_map: &ShardMap,

@@ -1,4 +1,4 @@
-use crate::graphs::Graph;
+use crate::graphs::{Graph, NumpyGraph};
 use crate::load::load_strategy::LoadStrategy;
 use bytes::Bytes;
 use log::debug;
@@ -15,7 +15,7 @@ struct CursorResult {
 
 pub fn receive_edges(
     receiver: Receiver<Bytes>,
-    graph_clone: Arc<RwLock<Graph>>,
+    graph_clone: Arc<RwLock<NumpyGraph>>,
     load_strategy: LoadStrategy,
 ) -> Result<(), String> {
     while let Ok(resp) = receiver.recv() {
@@ -157,7 +157,7 @@ pub fn receive_edges(
 
 pub fn receive_vertices(
     receiver: Receiver<Bytes>,
-    graph_clone: Arc<RwLock<Graph>>,
+    graph_clone: Arc<RwLock<NumpyGraph>>,
     vertex_coll_field_map_clone: Arc<RwLock<HashMap<String, Vec<String>>>>,
     load_strategy: LoadStrategy,
 ) -> Result<(), String> {
