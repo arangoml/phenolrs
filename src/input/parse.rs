@@ -1,5 +1,6 @@
 use super::load_request::{
-    CollectionDescription, DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration, DumpConfiguration,
+    CollectionDescription, DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration,
+    DumpConfiguration,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyDict;
