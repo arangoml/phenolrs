@@ -38,52 +38,6 @@ pub trait Graph {
 
 #[derive(Debug)]
 pub struct NumpyGraph {
-    // Index in list of graphs:
-    pub graph_id: u64,
-
-    // key is the hash of the vertex, value is the index, high bit
-    // indicates a collision
-    pub hash_to_index: HashMap<VertexHash, VertexIndex>,
-
-    // key is the key of the vertex, value is the exceptional hash
-    pub exceptions: HashMap<Vec<u8>, VertexHash>,
-
-    // Maps indices of vertices to their names, not necessarily used:
-    pub index_to_key: Vec<Vec<u8>>,
-
-    // JSON data for vertices. If all data was empty, it is allowed that
-    // the following vector is empty:
-    pub vertex_json: Vec<Value>,
-
-    // Additional data for edges. If all data was empty, it is allowed that
-    // both of these are empty! After sealing, the offsets get one more
-    // entry to mark the end of the last one:
-    pub edge_data: Vec<u8>,
-    pub edge_data_offsets: Vec<u64>,
-
-    // Maps indices of vertices to offsets in edges by from:
-    pub edge_index_by_from: Vec<u64>,
-
-    // Edge index by from:
-    pub edges_by_from: Vec<VertexIndex>,
-
-    // Maps indices of vertices to offsets in edge index by to:
-    pub edge_index_by_to: Vec<u64>,
-
-    // Edge index by to:
-    pub edges_by_to: Vec<VertexIndex>,
-
-    // store keys?
-    pub store_keys: bool,
-
-    // sealed?
-    pub vertices_sealed: bool,
-    pub edges_sealed: bool,
-
-    // Flag, if edges are already indexed:
-    pub edges_indexed_from: bool,
-    pub edges_indexed_to: bool,
-
     pub cols_to_keys_to_inds: HashMap<String, HashMap<String, usize>>,
     pub cols_to_inds_to_keys: HashMap<String, HashMap<usize, String>>,
     pub coo_by_from_edge_to: HashMap<(String, String, String), Vec<Vec<usize>>>,
@@ -93,22 +47,6 @@ pub struct NumpyGraph {
 impl Graph for NumpyGraph {
     fn new(store_keys: bool, _bits_for_hash: u8, id: u64) -> Self {
         NumpyGraph {
-            graph_id: id,
-            hash_to_index: HashMap::new(),
-            exceptions: HashMap::new(),
-            index_to_key: vec![],
-            vertex_json: vec![],
-            edge_data: vec![],
-            edge_data_offsets: vec![],
-            edges_by_from: vec![],
-            edge_index_by_from: vec![],
-            edges_by_to: vec![],
-            edge_index_by_to: vec![],
-            store_keys,
-            vertices_sealed: false,
-            edges_sealed: false,
-            edges_indexed_from: false,
-            edges_indexed_to: false,
             cols_to_features: HashMap::new(),
             cols_to_keys_to_inds: HashMap::new(),
             cols_to_inds_to_keys: HashMap::new(),
@@ -272,22 +210,6 @@ impl Graph for NumpyGraph {
 impl NumpyGraph {
     pub fn new(store_keys: bool, _bits_for_hash: u8, id: u64) -> Arc<RwLock<NumpyGraph>> {
         Arc::new(RwLock::new(NumpyGraph {
-            graph_id: id,
-            hash_to_index: HashMap::new(),
-            exceptions: HashMap::new(),
-            index_to_key: vec![],
-            vertex_json: vec![],
-            edge_data: vec![],
-            edge_data_offsets: vec![],
-            edges_by_from: vec![],
-            edge_index_by_from: vec![],
-            edges_by_to: vec![],
-            edge_index_by_to: vec![],
-            store_keys,
-            vertices_sealed: false,
-            edges_sealed: false,
-            edges_indexed_from: false,
-            edges_indexed_to: false,
             cols_to_features: HashMap::new(),
             cols_to_keys_to_inds: HashMap::new(),
             cols_to_inds_to_keys: HashMap::new(),
