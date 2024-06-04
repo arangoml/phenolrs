@@ -247,6 +247,7 @@ async fn load_edges(
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
     for _i in 0..req
         .configuration
+        .dump_config
         .parallelism
         .expect("Why is parallelism missing")
     {
@@ -292,6 +293,7 @@ async fn load_vertices(
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
     for _i in 0..req
         .configuration
+        .dump_config
         .parallelism
         .expect("Why is parallelism missing")
     {

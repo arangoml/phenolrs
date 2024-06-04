@@ -16,8 +16,8 @@ class NumpyLoader:
         username: str | None = None,
         password: str | None = None,
         tls_cert: Any | None = None,
-        parallelism: int | None = None,
-        batch_size: int | None = None,
+        parallelism: int = 10,
+        batch_size: int = 1000000,
     ) -> Tuple[
         dict[str, dict[str, npt.NDArray[np.float64]]],
         dict[Tuple[str, str, str], npt.NDArray[np.float64]],
@@ -84,13 +84,21 @@ class NumpyLoader:
                 for e_col_name, entries in metagraph["edgeCollections"].items()
             ]
 
+        dump_config = {
+            "parallelism": parallelism,
+            "batch_size": batch_size,
+        }
+
         features_by_col, coo_map, col_to_adb_key_to_ind, col_to_ind_to_adb_key = (
             graph_to_numpy_format(
                 {
                     "database": database,
                     "vertex_collections": vertex_collections,
                     "edge_collections": edge_collections,
-                    "configuration": {"database_config": db_config_options},
+                    "configuration": {
+                        "database_config": db_config_options,
+                        "dump_config": dump_config,
+                    },
                 }
             )
         )

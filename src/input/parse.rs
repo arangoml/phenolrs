@@ -1,5 +1,5 @@
 use super::load_request::{
-    CollectionDescription, DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration,
+    CollectionDescription, DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration, DumpConfiguration,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyDict;
@@ -37,19 +37,15 @@ impl FromPyObject<'_> for DataLoadRequest {
 impl FromPyObject<'_> for DataLoadConfiguration {
     fn extract(ob: &PyAny) -> PyResult<Self> {
         let input_dict: &PyDict = ob.downcast()?;
-        let db_config: DatabaseConfiguration = input_dict
+        let database_config: DatabaseConfiguration = input_dict
             .get_item("database_config")?
             .map_or(Ok(DatabaseConfiguration::default()), |c| c.extract())?;
-        let parallelism: Option<u32> = input_dict
-            .get_item("parallelism")?
-            .map_or(Ok(Some(5)), |v| v.extract())?;
-        let batch_size: Option<u64> = input_dict
-            .get_item("batch_size")?
-            .map_or(Ok(Some(400000)), |v| v.extract())?;
+        let dump_config: DumpConfiguration = input_dict
+            .get_item("dump_config")?
+            .map_or(Ok(DumpConfiguration::default()), |c| c.extract())?;
         Ok(DataLoadConfiguration {
-            database_config: db_config,
-            parallelism,
-            batch_size,
+            database_config,
+            dump_config,
         })
     }
 }
@@ -78,6 +74,22 @@ impl FromPyObject<'_> for DatabaseConfiguration {
             password,
             jwt_token,
             tls_cert,
+        })
+    }
+}
+
+impl FromPyObject<'_> for DumpConfiguration {
+    fn extract(ob: &'_ PyAny) -> PyResult<Self> {
+        let input_dict: &PyDict = ob.downcast()?;
+        let parallelism: Option<u32> = input_dict
+            .get_item("parallelism")?
+            .map_or_else(|| Ok(None), |c| c.extract())?;
+        let batch_size: Option<u64> = input_dict
+            .get_item("batch_size")?
+            .map_or_else(|| Ok(None), |c| c.extract())?;
+        Ok(DumpConfiguration {
+            batch_size: batch_size,
+            parallelism: parallelism,
         })
     }
 }

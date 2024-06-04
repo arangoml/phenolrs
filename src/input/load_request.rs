@@ -12,16 +12,16 @@ pub struct DataLoadRequest {
 
 pub struct DataLoadConfiguration {
     pub database_config: DatabaseConfiguration,
-    pub parallelism: Option<u32>,
-    pub batch_size: Option<u64>,
+    pub dump_config: DumpConfiguration,
+    // pub graph_config: GraphConfiguration,
 }
 
 impl DataLoadConfiguration {
     pub fn default() -> DataLoadConfiguration {
         DataLoadConfiguration {
             database_config: DatabaseConfiguration::default(),
-            parallelism: Some(10),
-            batch_size: Some(1000000),
+            dump_config: DumpConfiguration::default(),
+            // graph_config: GraphConfiguration::default(),
         }
     }
 }
@@ -44,6 +44,40 @@ impl DatabaseConfiguration {
             password: Some("".into()),
             jwt_token: None,
             tls_cert: None,
+        }
+    }
+}
+
+// #[derive(Clone)]
+// pub struct GraphConfiguration {
+//     pub load_node_dict: bool,
+//     pub load_adj_dict: bool,
+//     pub load_adj_dict_as_directed: bool,
+//     pub load_coo: bool,
+// }
+
+// impl GraphConfiguration {
+//     pub fn default() -> GraphConfiguration {
+//         GraphConfiguration {
+//             load_node_dict: true,
+//             load_adj_dict: true,
+//             load_adj_dict_as_directed: true,
+//             load_coo: true,
+//         }
+//     }
+// }
+
+#[derive(Clone)]
+pub struct DumpConfiguration {
+    pub parallelism: Option<u32>,
+    pub batch_size: Option<u64>,
+}
+
+impl DumpConfiguration {
+    pub fn default() -> DumpConfiguration {
+        DumpConfiguration {
+            parallelism: Some(10),
+            batch_size: Some(1000000),
         }
     }
 }
