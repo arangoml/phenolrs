@@ -1,7 +1,10 @@
+import numpy
+
 from torch_geometric.data import HeteroData
 
 from phenolrs.numpy_loader import NumpyLoader
 from phenolrs.pyg_loader import PygLoader
+# from phenolrs.networkx_loader import NetworkXLoader
 
 
 def test_phenol_abide_hetero(
@@ -118,3 +121,28 @@ def test_phenol_abide_numpy(
         == 871
     )
     assert vertex_cols_source_to_output == {"Subjects": {"brain_fmri_features": "x"}}
+
+
+# def test_phenol_abide_hetero(
+#     load_abide: None, connection_information: dict[str, str]
+# ) -> None:
+#     res = NetworkXLoader.load_into_networkx(
+#         connection_information["dbName"],
+#         {
+#             "vertexCollections": {"Subjects": {}},
+#             "edgeCollections": {"medical_affinity_graph": {}},
+#         },
+#         [connection_information["url"]],
+#         username=connection_information["username"],
+#         password=connection_information["password"],
+#     )
+#     assert isinstance(res, tuple)
+#     node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = res
+
+#     assert isinstance(node_dict, dict)
+#     assert isinstance(adj_dict, dict)
+#     assert isinstance(src_indices, numpy.ndarray)
+#     assert isinstance(dst_indices, numpy.ndarray)
+#     assert isinstance(vertex_ids_to_indices, dict)
+#     assert len(node_dict) == len(vertex_ids_to_indices)
+#     assert len(src_indices) == len(dst_indices)
