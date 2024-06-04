@@ -19,8 +19,10 @@ use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 use std::time::SystemTime;
 
-pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<NumpyGraph, String> {
-    let graph = NumpyGraph::new(true, 64, 0);
+pub fn get_arangodb_graph<G: Graph + Send + Sync + 'static>(
+    req: DataLoadRequest,
+    graph: Arc<RwLock<G>>,
+) -> Result<G, String> {
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
     // Fetch from ArangoDB in a background thread:
@@ -35,14 +37,8 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<NumpyGraph, String> {
             })
     });
     handle.join().map_err(|_s| "Computation failed")??;
-    let inner_rw_lock =
-        Arc::<std::sync::RwLock<NumpyGraph>>::try_unwrap(graph).map_err(|poisoned_arc| {
-            if poisoned_arc.is_poisoned() {
-                "Computation failed: thread failed - poisoned arc"
-            } else {
-                "Computation failed"
-            }
-        })?;
+    let inner_rw_lock = Arc::<std::sync::RwLock<G>>::try_unwrap(graph)
+        .map_err(|_| "Computation failed: thread failed - poisoned arc".to_string())?;
     inner_rw_lock.into_inner().map_err(|poisoned_lock| {
         format!(
             "Computation failed: thread failed - poisoned lock {}",
@@ -53,10 +49,10 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<NumpyGraph, String> {
     })
 }
 
-pub async fn fetch_graph_from_arangodb(
+pub async fn fetch_graph_from_arangodb<G: Graph + Send + Sync + 'static>(
     req: DataLoadRequest,
-    graph_arc: Arc<RwLock<NumpyGraph>>,
-) -> Result<Arc<RwLock<NumpyGraph>>, String> {
+    graph_arc: Arc<RwLock<G>>,
+) -> Result<Arc<RwLock<G>>, String> {
     let db_config = &req.configuration.database_config;
     if db_config.endpoints.is_empty() {
         return Err("no endpoints given".to_string());
@@ -234,9 +230,9 @@ pub async fn fetch_graph_from_arangodb(
     Ok(graph_arc)
 }
 
-async fn load_edges(
+async fn load_edges<G: Graph + Send + Sync + 'static>(
     req: &DataLoadRequest,
-    graph_arc: &Arc<RwLock<NumpyGraph>>,
+    graph_arc: &Arc<RwLock<G>>,
     db_config: &&DatabaseConfiguration,
     begin: SystemTime,
     edge_map: &ShardMap,
@@ -278,9 +274,9 @@ async fn load_edges(
     Ok(())
 }
 
-async fn load_vertices(
+async fn load_vertices<G: Graph + Send + Sync + 'static>(
     req: &DataLoadRequest,
-    graph_arc: &Arc<RwLock<NumpyGraph>>,
+    graph_arc: &Arc<RwLock<G>>,
     db_config: &&DatabaseConfiguration,
     begin: SystemTime,
     vertex_map: &ShardMap,

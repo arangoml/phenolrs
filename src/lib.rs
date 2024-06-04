@@ -18,6 +18,11 @@ use pyo3::prelude::*;
 #[cfg(not(test))]
 use pyo3::types::PyDict;
 
+use graphs::{Graph, NumpyGraph};
+
+use std::sync::Arc;
+use std::sync::RwLock;
+
 #[cfg(not(test))]
 type PygCompatible<'a> = (&'a PyDict, &'a PyDict, &'a PyDict, &'a PyDict);
 
@@ -30,7 +35,8 @@ create_exception!(phenolrs, PhenolError, PyException);
 #[pyfunction]
 #[cfg(not(test))]
 fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCompatible> {
-    let graph = load::retrieve::get_arangodb_graph(request).map_err(PhenolError::new_err)?;
+    let graph: Arc<RwLock<NumpyGraph>> = NumpyGraph::new(true, 64, 0);
+    let graph = load::retrieve::get_arangodb_graph(request, graph).map_err(PhenolError::new_err)?;
 
     let col_to_features = construct::construct_col_to_features(
         convert_nested_features_map(graph.cols_to_features),

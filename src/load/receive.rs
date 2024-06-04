@@ -13,9 +13,9 @@ struct CursorResult {
     result: Vec<Value>,
 }
 
-pub fn receive_edges(
+pub fn receive_edges<G: Graph + Send + Sync + 'static>(
     receiver: Receiver<Bytes>,
-    graph_clone: Arc<RwLock<NumpyGraph>>,
+    graph_clone: Arc<RwLock<G>>,
     load_strategy: LoadStrategy,
 ) -> Result<(), String> {
     while let Ok(resp) = receiver.recv() {
@@ -155,9 +155,9 @@ pub fn receive_edges(
     Ok(())
 }
 
-pub fn receive_vertices(
+pub fn receive_vertices<G: Graph + Send + Sync + 'static>(
     receiver: Receiver<Bytes>,
-    graph_clone: Arc<RwLock<NumpyGraph>>,
+    graph_clone: Arc<RwLock<G>>,
     vertex_coll_field_map_clone: Arc<RwLock<HashMap<String, Vec<String>>>>,
     load_strategy: LoadStrategy,
 ) -> Result<(), String> {

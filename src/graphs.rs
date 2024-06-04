@@ -16,12 +16,10 @@ pub struct Edge {
     pub to: VertexIndex,   // index of vertex
 }
 
-// TODO: Revisit this
-pub trait Graph: Sized + Send + Sync {
-    fn new(store_keys: bool, bits_for_hash: u8, id: u64) -> Arc<RwLock<Self>>
+pub trait Graph {
+    fn new(store_keys: bool, _bits_for_hash: u8, id: u64) -> Self
     where
-        Self: Sized + Send + Sync;
-
+        Self: Sized;
     fn insert_vertex(
         &mut self,
         key: Vec<u8>,
@@ -29,14 +27,13 @@ pub trait Graph: Sized + Send + Sync {
         collection_name: Vec<u8>,
         field_names: &[String],
     );
-
     fn insert_edge(
         &mut self,
         col_name: Vec<u8>,
         from_id: Vec<u8>,
         to_id: Vec<u8>,
-        data: Vec<u8>,
-    ) -> Result<()>;
+        _data: Vec<u8>,
+    ) -> anyhow::Result<()>;
 }
 
 #[derive(Debug)]
@@ -94,8 +91,8 @@ pub struct NumpyGraph {
 }
 
 impl Graph for NumpyGraph {
-    fn new(store_keys: bool, bits_for_hash: u8, id: u64) -> Arc<RwLock<NumpyGraph>> {
-        Arc::new(RwLock::new(NumpyGraph {
+    fn new(store_keys: bool, _bits_for_hash: u8, id: u64) -> Self {
+        NumpyGraph {
             graph_id: id,
             hash_to_index: HashMap::new(),
             exceptions: HashMap::new(),
@@ -116,7 +113,7 @@ impl Graph for NumpyGraph {
             cols_to_keys_to_inds: HashMap::new(),
             cols_to_inds_to_keys: HashMap::new(),
             coo_by_from_edge_to: HashMap::new(),
-        }))
+        }
     }
 
     fn insert_vertex(
@@ -269,6 +266,33 @@ impl Graph for NumpyGraph {
             cur_coo[1].push(*to_id);
         };
         Ok(())
+    }
+}
+
+impl NumpyGraph {
+    pub fn new(store_keys: bool, _bits_for_hash: u8, id: u64) -> Arc<RwLock<NumpyGraph>> {
+        Arc::new(RwLock::new(NumpyGraph {
+            graph_id: id,
+            hash_to_index: HashMap::new(),
+            exceptions: HashMap::new(),
+            index_to_key: vec![],
+            vertex_json: vec![],
+            edge_data: vec![],
+            edge_data_offsets: vec![],
+            edges_by_from: vec![],
+            edge_index_by_from: vec![],
+            edges_by_to: vec![],
+            edge_index_by_to: vec![],
+            store_keys,
+            vertices_sealed: false,
+            edges_sealed: false,
+            edges_indexed_from: false,
+            edges_indexed_to: false,
+            cols_to_features: HashMap::new(),
+            cols_to_keys_to_inds: HashMap::new(),
+            cols_to_inds_to_keys: HashMap::new(),
+            coo_by_from_edge_to: HashMap::new(),
+        }))
     }
 }
 
