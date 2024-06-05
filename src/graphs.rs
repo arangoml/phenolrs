@@ -1,4 +1,5 @@
 use serde_json::{Map, Value};
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -17,6 +18,8 @@ pub struct Edge {
 }
 
 pub trait Graph {
+    fn as_any(&self) -> &dyn Any;
+
     fn insert_vertex(
         &mut self,
         key: Vec<u8>,
@@ -29,8 +32,18 @@ pub trait Graph {
         col_name: Vec<u8>,
         from_id: Vec<u8>,
         to_id: Vec<u8>,
-        _data: Vec<u8>,
+        json: Option<Value>,
     ) -> anyhow::Result<()>;
+}
+
+fn identify_graph<G: Graph>(graph: G) -> String {
+    if graph.as_any().is::<NumpyGraph>() {
+        return "NumpyGraph".to_string();
+    } else if graph.as_any().is::<NetworkXGraph>() {
+        return "NetworkXGraph".to_string();
+    } else {
+        return "Unknown graph type".to_string();
+    }
 }
 
 #[derive(Debug)]
@@ -41,27 +54,27 @@ pub struct NumpyGraph {
     pub cols_to_features: HashMap<String, HashMap<String, Vec<Vec<f64>>>>,
 }
 
-// #[derive(Debug)]
-// pub struct NetworkXGraph {
-//     pub load_node_dict: bool,
-//     pub load_adj_dict: bool,
-//     pub load_adj_dict_as_directed: bool,
-//     pub load_coo: bool,
+#[derive(Debug)]
+pub struct NetworkXGraph {
+    pub load_node_dict: bool,
+    pub load_adj_dict: bool,
+    pub load_adj_dict_as_directed: bool,
+    pub load_coo: bool,
 
-//     // node_map is a dictionary of node IDs to their json data
-//     // e.g {'user/1': {'name': 'Alice', 'age': 25}, 'user/2': {'name': 'Bob', 'age': 30}, ...}
-//     pub node_map: HashMap<String, Map<String, Value>>,
+    // node_map is a dictionary of node IDs to their json data
+    // e.g {'user/1': {'name': 'Alice', 'age': 25}, 'user/2': {'name': 'Bob', 'age': 30}, ...}
+    pub node_map: HashMap<String, Map<String, Value>>,
 
-//     // adj_map is a dict of dict of dict that represents the adjacency list of the graph
-//     // e.g {'user/1': {'user/2': {'weight': 0.6}, 'user/3': {'weight': 0.2}}, 'user/2': {'user/1': {'weight': 0.6}, 'user/3': {'weight': 0.2}}, ...}
-//     pub adj_map: HashMap<String, HashMap<String, Map<String, Value>>>,
+    // adj_map is a dict of dict of dict that represents the adjacency list of the graph
+    // e.g {'user/1': {'user/2': {'weight': 0.6}, 'user/3': {'weight': 0.2}}, 'user/2': {'user/1': {'weight': 0.6}, 'user/3': {'weight': 0.2}}, ...}
+    pub adj_map: HashMap<String, HashMap<String, Map<String, Value>>>,
 
-//     // e.g ([0, 1, 2], [1, 2, 3])
-//     pub coo: (Vec<usize>, Vec<usize>),
+    // e.g ([0, 1, 2], [1, 2, 3])
+    pub coo: (Vec<usize>, Vec<usize>),
 
-//     // e.g {'user/1': 0, 'user/2': 1, ...}
-//     pub vertex_id_to_index: HashMap<String, usize>,
-// }
+    // e.g {'user/1': 0, 'user/2': 1, ...}
+    pub vertex_id_to_index: HashMap<String, usize>,
+}
 
 impl NumpyGraph {
     pub fn new() -> Arc<RwLock<NumpyGraph>> {
@@ -74,27 +87,31 @@ impl NumpyGraph {
     }
 }
 
-// impl NetworkXGraph {
-//     pub fn new(
-//         load_node_dict: bool,
-//         load_adj_dict: bool,
-//         load_adj_dict_as_directed: bool,
-//         load_coo: bool,
-//     ) -> Arc<RwLock<NetworkXGraph>> {
-//         Arc::new(RwLock::new(NetworkXGraph {
-//             load_node_dict,
-//             load_adj_dict,
-//             load_adj_dict_as_directed,
-//             load_coo,
-//             node_map: HashMap::new(),
-//             adj_map: HashMap::new(),
-//             coo: (vec![], vec![]),
-//             vertex_id_to_index: HashMap::new(),
-//         }))
-//     }
-// }
+impl NetworkXGraph {
+    pub fn new(
+        load_node_dict: bool,
+        load_adj_dict: bool,
+        load_adj_dict_as_directed: bool,
+        load_coo: bool,
+    ) -> Arc<RwLock<NetworkXGraph>> {
+        Arc::new(RwLock::new(NetworkXGraph {
+            load_node_dict,
+            load_adj_dict,
+            load_adj_dict_as_directed,
+            load_coo,
+            node_map: HashMap::new(),
+            adj_map: HashMap::new(),
+            coo: (vec![], vec![]),
+            vertex_id_to_index: HashMap::new(),
+        }))
+    }
+}
 
 impl Graph for NumpyGraph {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn insert_vertex(
         &mut self,
         key: Vec<u8>,
@@ -201,7 +218,7 @@ impl Graph for NumpyGraph {
         col_name: Vec<u8>,
         from_id: Vec<u8>,
         to_id: Vec<u8>,
-        _data: Vec<u8>,
+        _json: Option<Value>,
     ) -> Result<()> {
         let (from_col, from_key) = {
             let s = String::from_utf8(from_id.clone()).expect("_from to be a string");
@@ -248,112 +265,116 @@ impl Graph for NumpyGraph {
     }
 }
 
-// impl Graph for NetworkXGraph {
-//     fn insert_vertex(
-//         &mut self,
-//         key: Vec<u8>,
-//         json: Option<Value>,
-//         collection_name: Vec<u8>,
-//         field_names: &[String],
-//     ) {
-//         if self.load_node_dict == false {
-//             return;
-//         }
+impl Graph for NetworkXGraph {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
-//         // Simply insert the vertex into the node_map
-//         let vertex_id = String::from_utf8(key.clone()).unwrap();
+    fn insert_vertex(
+        &mut self,
+        key: Vec<u8>,
+        json: Option<Value>,
+        _collection_name: Vec<u8>,
+        _field_names: &[String],
+    ) {
+        if self.load_node_dict == false {
+            return;
+        }
 
-//         let properties = match json {
-//             Some(Value::Object(map)) => map,
-//             _ => Map::new(),
-//         };
+        // Simply insert the vertex into the node_map
+        let vertex_id = String::from_utf8(key.clone()).unwrap();
 
-//         self.node_map.insert(vertex_id, properties);
-//     }
+        let properties = match json {
+            Some(Value::Object(map)) => map,
+            _ => Map::new(),
+        };
 
-//     fn insert_edge(
-//         &mut self,
-//         col_name: Vec<u8>,
-//         from_id: Vec<u8>,
-//         to_id: Vec<u8>,
-//         _data: Vec<u8>,
-//     ) -> Result<()> {
-//         if self.load_adj_dict == false && self.load_coo == false {
-//             return Ok(());
-//         }
+        self.node_map.insert(vertex_id, properties);
+    }
 
-//         let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
-//         let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();
+    fn insert_edge(
+        &mut self,
+        _col_name: Vec<u8>,
+        from_id: Vec<u8>,
+        to_id: Vec<u8>,
+        json: Option<Value>,
+    ) -> Result<()> {
+        if self.load_adj_dict == false && self.load_coo == false {
+            return Ok(());
+        }
 
-//         // Step 1:
-//         // Check if from_id_str exists in vertex_id_to_index
-//         //      If yes, get the from_id_index from vertex_id_to_index
-//         //      If not, add it to vertex_id_to_index with the current length of vertex_id_to_index.
+        let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
+        let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();
 
-//         // Step 2:
-//         // Check if to_id_str exists in vertex_id_to_index
-//         //      If yes, get the to_id_index from vertex_id_to_index
-//         //      If not, add it to vertex_id_to_index with the current length of vertex_id_to_index.
+        // Step 1:
+        // Check if from_id_str exists in vertex_id_to_index
+        //      If yes, get the from_id_index from vertex_id_to_index
+        //      If not, add it to vertex_id_to_index with the current length of vertex_id_to_index.
 
-//         // Step 3:
-//         // Add the edge to the COO representation
+        // Step 2:
+        // Check if to_id_str exists in vertex_id_to_index
+        //      If yes, get the to_id_index from vertex_id_to_index
+        //      If not, add it to vertex_id_to_index with the current length of vertex_id_to_index.
 
-//         // Step 4:
-//         // Add the edge to the adjacency list representation
+        // Step 3:
+        // Add the edge to the COO representation
 
-//         if self.load_coo {
-//             // Step 1
-//             let from_id_index = match self.vertex_id_to_index.get(&from_id_str) {
-//                 Some(index) => *index,
-//                 None => {
-//                     let index: usize = self.vertex_id_to_index.len();
-//                     self.vertex_id_to_index.insert(from_id_str.clone(), index);
-//                     index
-//                 }
-//             };
+        // Step 4:
+        // Add the edge to the adjacency list representation
 
-//             // Step 2
-//             let to_id_index = match self.vertex_id_to_index.get(&to_id_str) {
-//                 Some(index) => *index,
-//                 None => {
-//                     let index = self.vertex_id_to_index.len();
-//                     self.vertex_id_to_index.insert(to_id_str.clone(), index);
-//                     index
-//                 }
-//             };
+        if self.load_coo {
+            // Step 1
+            let from_id_index = match self.vertex_id_to_index.get(&from_id_str) {
+                Some(index) => *index,
+                None => {
+                    let index: usize = self.vertex_id_to_index.len();
+                    self.vertex_id_to_index.insert(from_id_str.clone(), index);
+                    index
+                }
+            };
 
-//             // Step 3
-//             self.coo.0.push(from_id_index);
-//             self.coo.1.push(to_id_index);
-//         }
+            // Step 2
+            let to_id_index = match self.vertex_id_to_index.get(&to_id_str) {
+                Some(index) => *index,
+                None => {
+                    let index = self.vertex_id_to_index.len();
+                    self.vertex_id_to_index.insert(to_id_str.clone(), index);
+                    index
+                }
+            };
 
-//         if self.load_adj_dict {
-//             // Step 4
-//             if !self.adj_map.contains_key(&from_id_str) {
-//                 self.adj_map.insert(from_id_str.clone(), HashMap::new());
-//             }
+            // Step 3
+            self.coo.0.push(from_id_index);
+            self.coo.1.push(to_id_index);
+        }
 
-//             if !self.adj_map.contains_key(&to_id_str) {
-//                 self.adj_map.insert(to_id_str.clone(), HashMap::new());
-//             }
+        if self.load_adj_dict {
+            // Step 4
+            if !self.adj_map.contains_key(&from_id_str) {
+                self.adj_map.insert(from_id_str.clone(), HashMap::new());
+            }
 
-//             let properties = match json {
-//                 Some(Value::Object(map)) => map,
-//                 _ => Map::new(),
-//             };
+            if !self.adj_map.contains_key(&to_id_str) {
+                self.adj_map.insert(to_id_str.clone(), HashMap::new());
+            }
 
-//             let from_map = self.adj_map.get_mut(&from_id_str).unwrap();
-//             from_map.insert(to_id_str.clone(), properties.clone());
+            let properties = match json {
+                Some(Value::Object(map)) => map,
+                _ => Map::new(),
+            };
 
-//             if !self.load_adj_dict_as_directed {
-//                 let to_map = self.adj_map.get_mut(&to_id_str).unwrap();
-//                 to_map.insert(from_id_str.clone(), properties.clone());
-//             }
-//         }
+            let from_map = self.adj_map.get_mut(&from_id_str).unwrap();
+            from_map.insert(to_id_str.clone(), properties.clone());
 
-//         Ok(())
-//     }
-// }
+            if !self.load_adj_dict_as_directed {
+                let to_map = self.adj_map.get_mut(&to_id_str).unwrap();
+                to_map.insert(from_id_str.clone(), properties.clone());
+            }
+        }
+
+        Ok(())
+    }
+}
 
 fn parse_value_to_vec(val: &Value) -> Option<Vec<f64>> {
     // first try array

@@ -220,7 +220,6 @@ pub async fn fetch_graph_from_arangodb<G: Graph + Send + Sync + 'static>(
         .await?;
     }
 
-    // And now the edges:
     {
         info!(
             "{:?} Graph loaded.",
