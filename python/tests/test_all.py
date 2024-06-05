@@ -1,4 +1,4 @@
-import numpy
+# import numpy
 from torch_geometric.data import HeteroData
 
 from phenolrs.numpy_loader import NumpyLoader
