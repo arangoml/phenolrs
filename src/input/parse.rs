@@ -88,9 +88,17 @@ impl FromPyObject<'_> for DumpConfiguration {
         let batch_size: Option<u64> = input_dict
             .get_item("batch_size")?
             .map_or_else(|| Ok(None), |c| c.extract())?;
+        let load_vertices: bool = input_dict
+            .get_item("load_vertices")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        let load_edges: bool = input_dict
+            .get_item("load_edges")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
         Ok(DumpConfiguration {
             batch_size: batch_size,
             parallelism: parallelism,
+            load_vertices: load_vertices,
+            load_edges: load_edges,
         })
     }
 }

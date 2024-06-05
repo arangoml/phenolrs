@@ -67,6 +67,8 @@ class NetworkXLoader:
         dump_config = {
             "parallelism": parallelism,
             "batch_size": batch_size,
+            "load_vertices": load_node_dict,
+            "load_edges": load_adj_dict or load_coo,
         }
 
         load_config = {

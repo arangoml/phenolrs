@@ -36,13 +36,14 @@ pub trait Graph {
     ) -> anyhow::Result<()>;
 }
 
-fn identify_graph<G: Graph>(graph: G) -> String {
+pub fn identify_graph<G: Graph>(graph_arc: &Arc<RwLock<G>>) -> &'static str {
+    let graph = graph_arc.read().unwrap();
     if graph.as_any().is::<NumpyGraph>() {
-        return "NumpyGraph".to_string();
+        "NumpyGraph"
     } else if graph.as_any().is::<NetworkXGraph>() {
-        return "NetworkXGraph".to_string();
+        "NetworkXGraph"
     } else {
-        return "Unknown graph type".to_string();
+        "Unknown"
     }
 }
 

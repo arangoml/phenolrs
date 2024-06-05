@@ -331,3 +331,6 @@ pub fn receive_vertices<G: Graph + Send + Sync + 'static>(
     }
     Ok(())
 }
+
+// receive_vertices_networkx
+// receive_edges_networkx

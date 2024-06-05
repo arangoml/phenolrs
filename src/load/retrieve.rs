@@ -6,7 +6,7 @@ use crate::arangodb::info::{DeploymentType, SupportInfo, VersionInformation};
 use crate::client::auth::handle_auth;
 use crate::client::build_client;
 use crate::client::config::ClientConfig;
-use crate::graphs::{Graph, NumpyGraph};
+use crate::graphs::{identify_graph, Graph, NumpyGraph};
 use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
 use crate::load::load_strategy::LoadStrategy;
 use bytes::Bytes;
@@ -15,6 +15,7 @@ use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::error::Error;
 use std::num::ParseIntError;
+use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 use std::time::SystemTime;
@@ -150,7 +151,56 @@ pub async fn fetch_graph_from_arangodb<G: Graph + Send + Sync + 'static>(
         }
     };
     let deployment_type = support_info.deployment.deployment_type;
+    let graph_type = identify_graph(&graph_arc);
 
+    if req.configuration.dump_config.load_vertices {
+        prepare_and_load_vertices(
+            &req,
+            &graph_arc,
+            &db_config,
+            &shard_dist,
+            &deployment_type,
+            graph_type,
+            load_strategy,
+            begin,
+        )
+        .await?;
+    }
+
+    if req.configuration.dump_config.load_edges {
+        prepare_and_load_edges(
+            &req,
+            &graph_arc,
+            &db_config,
+            &shard_dist,
+            &deployment_type,
+            graph_type,
+            load_strategy,
+            begin,
+        )
+        .await?;
+    }
+
+    {
+        info!(
+            "{:?} Graph loaded.",
+            std::time::SystemTime::now().duration_since(begin).unwrap()
+        );
+    }
+
+    Ok(graph_arc)
+}
+
+async fn prepare_and_load_vertices<G: Graph + Send + Sync + 'static>(
+    req: &DataLoadRequest,
+    graph_arc: &Arc<RwLock<G>>,
+    db_config: &DatabaseConfiguration,
+    shard_dist: &Option<ShardDistribution>,
+    deployment_type: &DeploymentType,
+    graph_type: &str,
+    load_strategy: LoadStrategy,
+    begin: SystemTime,
+) -> Result<(), String> {
     // Compute which shard we must get from which dbserver, we do vertices
     // and edges right away to be able to error out early:
     let vertex_coll_list = req
@@ -158,12 +208,14 @@ pub async fn fetch_graph_from_arangodb<G: Graph + Send + Sync + 'static>(
         .iter()
         .map(|ci| -> String { ci.name.clone() })
         .collect::<Vec<String>>();
+
     let vertex_map = compute_shard_map(
         &shard_dist,
         &vertex_coll_list,
         &deployment_type,
         &db_config.endpoints,
     )?;
+
     let vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>> =
         Arc::new(RwLock::new(HashMap::new()));
     {
@@ -179,6 +231,11 @@ pub async fn fetch_graph_from_arangodb<G: Graph + Send + Sync + 'static>(
         vertex_map.values().map(|v| v.len()).sum::<usize>(),
     );
 
+    let receiver_function = match graph_type {
+        "NumpyGraph" => receive::receive_vertices,
+        _ => panic!("Graph type not supported: {}", graph_type),
+    };
+
     load_vertices(
         &req,
         &graph_arc,
@@ -187,57 +244,77 @@ pub async fn fetch_graph_from_arangodb<G: Graph + Send + Sync + 'static>(
         &vertex_map,
         vertex_coll_field_map,
         load_strategy,
+        receiver_function,
     )
     .await?;
 
-    if !req.edge_collections.is_empty() {
-        let edge_coll_list = req
-            .edge_collections
-            .iter()
-            .map(|ci| -> String { ci.name.clone() })
-            .collect::<Vec<String>>();
-        let edge_map = compute_shard_map(
-            &shard_dist,
-            &edge_coll_list,
-            &deployment_type,
-            &db_config.endpoints,
-        )?;
-
-        info!(
-            "{:?} Need to fetch data from {} edge shards...",
-            std::time::SystemTime::now().duration_since(begin).unwrap(),
-            edge_map.values().map(|v| v.len()).sum::<usize>()
-        );
-
-        load_edges(
-            &req,
-            &graph_arc,
-            &db_config,
-            begin,
-            &edge_map,
-            &load_strategy,
-        )
-        .await?;
-    }
-
-    {
-        info!(
-            "{:?} Graph loaded.",
-            std::time::SystemTime::now().duration_since(begin).unwrap()
-        );
-    }
-    info!("hi");
-    Ok(graph_arc)
+    Ok(())
 }
 
-async fn load_edges<G: Graph + Send + Sync + 'static>(
+async fn prepare_and_load_edges<G: Graph + Send + Sync + 'static>(
+    req: &DataLoadRequest,
+    graph_arc: &Arc<RwLock<G>>,
+    db_config: &DatabaseConfiguration,
+    shard_dist: &Option<ShardDistribution>,
+    deployment_type: &DeploymentType,
+    graph_type: &str,
+    load_strategy: LoadStrategy,
+    begin: SystemTime,
+) -> Result<(), String> {
+    let edge_coll_list = req
+        .edge_collections
+        .iter()
+        .map(|ci| -> String { ci.name.clone() })
+        .collect::<Vec<String>>();
+    let edge_map = compute_shard_map(
+        &shard_dist,
+        &edge_coll_list,
+        &deployment_type,
+        &db_config.endpoints,
+    )?;
+
+    info!(
+        "{:?} Need to fetch data from {} edge shards...",
+        std::time::SystemTime::now().duration_since(begin).unwrap(),
+        edge_map.values().map(|v| v.len()).sum::<usize>()
+    );
+
+    let receiver_function = match graph_type {
+        "NumpyGraph" => receive::receive_edges,
+        _ => panic!("Graph type not supported: {}", graph_type),
+    };
+
+    load_edges(
+        &req,
+        &graph_arc,
+        &db_config,
+        begin,
+        &edge_map,
+        &load_strategy,
+        receiver_function,
+    )
+    .await?;
+
+    Ok(())
+}
+
+async fn load_edges<G, F>(
     req: &DataLoadRequest,
     graph_arc: &Arc<RwLock<G>>,
     db_config: &&DatabaseConfiguration,
     begin: SystemTime,
     edge_map: &ShardMap,
     load_strategy: &LoadStrategy,
-) -> Result<(), String> {
+    receiver_function: F,
+) -> Result<(), String>
+where
+    G: Graph + Send + Sync + 'static,
+    F: Fn(Receiver<Bytes>, Arc<RwLock<G>>, LoadStrategy) -> Result<(), String>
+        + Send
+        + Sync
+        + Clone
+        + 'static,
+{
     info!("loading edges");
     let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
@@ -251,8 +328,9 @@ async fn load_edges<G: Graph + Send + Sync + 'static>(
         senders.push(sender);
         let graph_clone = graph_arc.clone();
         let load_strategy_clone = *load_strategy;
+        let receiver_function_clone = receiver_function.clone();
         let consumer = std::thread::spawn(move || {
-            receive::receive_edges(receiver, graph_clone, load_strategy_clone)
+            receiver_function_clone(receiver, graph_clone, load_strategy_clone)
         });
         consumers.push(consumer);
     }
@@ -274,7 +352,7 @@ async fn load_edges<G: Graph + Send + Sync + 'static>(
     Ok(())
 }
 
-async fn load_vertices<G: Graph + Send + Sync + 'static>(
+async fn load_vertices<G, F>(
     req: &DataLoadRequest,
     graph_arc: &Arc<RwLock<G>>,
     db_config: &&DatabaseConfiguration,
@@ -282,7 +360,21 @@ async fn load_vertices<G: Graph + Send + Sync + 'static>(
     vertex_map: &ShardMap,
     vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>>,
     load_strategy: LoadStrategy,
-) -> Result<(), String> {
+    receiver_function: F,
+) -> Result<(), String>
+where
+    G: Graph + Send + Sync + 'static,
+    F: Fn(
+            Receiver<Bytes>,
+            Arc<RwLock<G>>,
+            Arc<RwLock<HashMap<String, Vec<String>>>>,
+            LoadStrategy,
+        ) -> Result<(), String>
+        + Send
+        + Sync
+        + Clone
+        + 'static,
+{
     info!("loading vertices");
     // We use multiple threads to receive the data in batches:
     let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
@@ -298,8 +390,9 @@ async fn load_vertices<G: Graph + Send + Sync + 'static>(
         let graph_clone = graph_arc.clone();
         let vertex_coll_field_map_clone = vertex_coll_field_map.clone();
         let load_strategy_clone = load_strategy;
+        let receiver_function_clone = receiver_function.clone();
         let consumer = std::thread::spawn(move || {
-            receive::receive_vertices(
+            receiver_function_clone(
                 receiver,
                 graph_clone,
                 vertex_coll_field_map_clone,

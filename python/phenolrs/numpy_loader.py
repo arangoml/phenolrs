@@ -82,6 +82,8 @@ class NumpyLoader:
         dump_config = {
             "parallelism": parallelism,
             "batch_size": batch_size,
+            "load_vertices": True,
+            "load_edges": len(edge_collections) > 0,
         }
 
         features_by_col, coo_map, col_to_adb_key_to_ind, col_to_ind_to_adb_key = (

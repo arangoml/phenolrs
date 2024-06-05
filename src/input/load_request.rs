@@ -71,6 +71,8 @@ impl DatabaseConfiguration {
 pub struct DumpConfiguration {
     pub parallelism: Option<u32>,
     pub batch_size: Option<u64>,
+    pub load_vertices: bool,
+    pub load_edges: bool,
 }
 
 impl DumpConfiguration {
@@ -78,6 +80,8 @@ impl DumpConfiguration {
         DumpConfiguration {
             parallelism: Some(10),
             batch_size: Some(1000000),
+            load_vertices: true,
+            load_edges: true,
         }
     }
 }
