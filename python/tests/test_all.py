@@ -122,7 +122,7 @@ def test_phenol_abide_numpy(
     assert vertex_cols_source_to_output == {"Subjects": {"brain_fmri_features": "x"}}
 
 
-def test_phenol_abide_hetero(
+def test_phenol_abide_networkx(
     load_abide: None, connection_information: dict[str, str]
 ) -> None:
     res = NetworkXLoader.load_into_networkx(
