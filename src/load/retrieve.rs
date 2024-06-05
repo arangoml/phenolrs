@@ -21,8 +21,9 @@ use std::time::SystemTime;
 
 pub fn get_arangodb_graph<G: Graph + Send + Sync + 'static>(
     req: DataLoadRequest,
-    graph: Arc<RwLock<G>>,
+    graph_factory: impl Fn() -> Arc<RwLock<G>>,
 ) -> Result<G, String> {
+    let graph = graph_factory();
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
     // Fetch from ArangoDB in a background thread:

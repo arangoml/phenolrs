@@ -6,6 +6,7 @@ mod load;
 mod output;
 
 use input::load_request::DataLoadRequest;
+use numpy::PyArray1;
 #[cfg(not(test))]
 use output::construct;
 use output::convert::{convert_coo_edge_map, convert_nested_features_map};
@@ -35,8 +36,9 @@ create_exception!(phenolrs, PhenolError, PyException);
 #[pyfunction]
 #[cfg(not(test))]
 fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCompatible> {
-    let graph: Arc<RwLock<NumpyGraph>> = NumpyGraph::new(true, 64, 0);
-    let graph = load::retrieve::get_arangodb_graph(request, graph).map_err(PhenolError::new_err)?;
+    let graph_factory = || NumpyGraph::new();
+    let graph =
+        load::retrieve::get_arangodb_graph(request, graph_factory).map_err(PhenolError::new_err)?;
 
     let col_to_features = construct::construct_col_to_features(
         convert_nested_features_map(graph.cols_to_features),
@@ -66,12 +68,47 @@ fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCo
     Ok(res)
 }
 
+// #[pyfunction]
+// #[cfg(not(test))]
+// fn graph_to_networkx_format(
+//     py: Python,
+//     request: DataLoadRequest,
+// ) -> PyResult<(
+//     &PyDict,
+//     &PyDict,
+//     &PyArray1<usize>,
+//     &PyArray1<usize>,
+//     &PyDict,
+// )> {
+//     let graph: Arc<RwLock<NetworkXGraph>> = NetworkXGraph::new(true, 64, 0);
+//     let graph = load::retrieve::get_arangodb_graph(request, graph).unwrap();
+
+//     let node_dict = construct::construct_dict_of_dict(graph.node_map, py)?;
+//     let adj_dict = construct::construct_dict_of_dict_of_dict(graph.adj_map, py)?;
+
+//     let coo = graph.coo;
+//     let src_indices = PyArray1::from_vec(py, coo.0);
+//     let dst_indices = PyArray1::from_vec(py, coo.1);
+//     let vertex_id_to_index = construct::construct_dict(graph.vertex_id_to_index, py)?;
+
+//     let res = (
+//         node_dict,
+//         adj_dict,
+//         src_indices,
+//         dst_indices,
+//         vertex_id_to_index,
+//     );
+
+//     Ok(res)
+// }
+
 /// A Python module implemented in Rust.
 #[cfg(not(test))]
 #[pymodule]
 #[cfg(not(test))]
 fn phenolrs(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(graph_to_numpy_format, m)?)?;
+    // m.add_function(wrap_pyfunction!(graph_to_networkx_format, m)?)?;
     m.add("PhenolError", py.get_type::<PhenolError>())?;
     Ok(())
 }
