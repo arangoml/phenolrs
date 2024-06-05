@@ -7,20 +7,20 @@ pub struct DataLoadRequest {
     pub database: String,
     pub vertex_collections: Vec<CollectionDescription>,
     pub edge_collections: Vec<CollectionDescription>,
-    pub configuration: DataLoadConfiguration,
+    pub configuration: Configuration,
 }
 
-pub struct DataLoadConfiguration {
+pub struct Configuration {
     pub database_config: DatabaseConfiguration,
-    pub dump_config: DumpConfiguration,
+    pub load_config: LoadConfiguration,
     // pub graph_config: GraphConfiguration,
 }
 
-impl DataLoadConfiguration {
-    pub fn default() -> DataLoadConfiguration {
-        DataLoadConfiguration {
+impl Configuration {
+    pub fn default() -> Configuration {
+        Configuration {
             database_config: DatabaseConfiguration::default(),
-            dump_config: DumpConfiguration::default(),
+            load_config: LoadConfiguration::default(),
             // graph_config: GraphConfiguration::default(),
         }
     }
@@ -68,20 +68,22 @@ impl DatabaseConfiguration {
 // }
 
 #[derive(Clone)]
-pub struct DumpConfiguration {
+pub struct LoadConfiguration {
     pub parallelism: Option<u32>,
     pub batch_size: Option<u64>,
     pub load_vertices: bool,
     pub load_edges: bool,
+    pub load_all_attributes_via_aql: bool,
 }
 
-impl DumpConfiguration {
-    pub fn default() -> DumpConfiguration {
-        DumpConfiguration {
+impl LoadConfiguration {
+    pub fn default() -> LoadConfiguration {
+        LoadConfiguration {
             parallelism: Some(10),
             batch_size: Some(1000000),
             load_vertices: true,
             load_edges: true,
+            load_all_attributes_via_aql: false,
         }
     }
 }

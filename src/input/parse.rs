@@ -1,6 +1,5 @@
 use super::load_request::{
-    CollectionDescription, DataLoadConfiguration, DataLoadRequest, DatabaseConfiguration,
-    DumpConfiguration,
+    CollectionDescription, Configuration, DataLoadRequest, DatabaseConfiguration, LoadConfiguration,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyDict;
@@ -13,9 +12,9 @@ impl FromPyObject<'_> for DataLoadRequest {
             || Err(PyValueError::new_err("Database not set")),
             |s| s.extract(),
         )?;
-        let configuration: DataLoadConfiguration = input_dict
+        let configuration: Configuration = input_dict
             .get_item("configuration")?
-            .map_or(Ok(DataLoadConfiguration::default()), |c| c.extract())?;
+            .map_or(Ok(Configuration::default()), |c| c.extract())?;
         let vertex_collections: Vec<CollectionDescription> =
             input_dict.get_item("vertex_collections")?.map_or_else(
                 || Err(PyValueError::new_err("vertex_collections not provided")),
@@ -35,18 +34,18 @@ impl FromPyObject<'_> for DataLoadRequest {
     }
 }
 
-impl FromPyObject<'_> for DataLoadConfiguration {
+impl FromPyObject<'_> for Configuration {
     fn extract(ob: &PyAny) -> PyResult<Self> {
         let input_dict: &PyDict = ob.downcast()?;
         let database_config: DatabaseConfiguration = input_dict
             .get_item("database_config")?
             .map_or(Ok(DatabaseConfiguration::default()), |c| c.extract())?;
-        let dump_config: DumpConfiguration = input_dict
-            .get_item("dump_config")?
-            .map_or(Ok(DumpConfiguration::default()), |c| c.extract())?;
-        Ok(DataLoadConfiguration {
+        let load_config: LoadConfiguration = input_dict
+            .get_item("load_config")?
+            .map_or(Ok(LoadConfiguration::default()), |c| c.extract())?;
+        Ok(Configuration {
             database_config,
-            dump_config,
+            load_config,
         })
     }
 }
@@ -79,7 +78,7 @@ impl FromPyObject<'_> for DatabaseConfiguration {
     }
 }
 
-impl FromPyObject<'_> for DumpConfiguration {
+impl FromPyObject<'_> for LoadConfiguration {
     fn extract(ob: &'_ PyAny) -> PyResult<Self> {
         let input_dict: &PyDict = ob.downcast()?;
         let parallelism: Option<u32> = input_dict
@@ -94,11 +93,15 @@ impl FromPyObject<'_> for DumpConfiguration {
         let load_edges: bool = input_dict
             .get_item("load_edges")?
             .map_or_else(|| Ok(true), |c| c.extract())?;
-        Ok(DumpConfiguration {
-            batch_size: batch_size,
-            parallelism: parallelism,
-            load_vertices: load_vertices,
-            load_edges: load_edges,
+        let load_all_attributes_via_aql: bool = input_dict
+            .get_item("load_all_attributes_via_aql")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        Ok(LoadConfiguration {
+            batch_size,
+            parallelism,
+            load_vertices,
+            load_edges,
+            load_all_attributes_via_aql,
         })
     }
 }

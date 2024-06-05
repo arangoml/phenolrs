@@ -79,11 +79,12 @@ class NumpyLoader:
                 for e_col_name, entries in metagraph["edgeCollections"].items()
             ]
 
-        dump_config = {
+        load_config = {
             "parallelism": parallelism,
             "batch_size": batch_size,
             "load_vertices": True,
             "load_edges": len(edge_collections) > 0,
+            "load_all_attributes_via_aql": False,
         }
 
         features_by_col, coo_map, col_to_adb_key_to_ind, col_to_ind_to_adb_key = (
@@ -94,7 +95,7 @@ class NumpyLoader:
                     "edge_collections": edge_collections,
                     "configuration": {
                         "database_config": db_config_options,
-                        "dump_config": dump_config,
+                        "load_config": load_config,
                     },
                 }
             )

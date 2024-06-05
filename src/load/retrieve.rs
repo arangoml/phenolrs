@@ -153,7 +153,7 @@ pub async fn fetch_graph_from_arangodb<G: Graph + Send + Sync + 'static>(
     let deployment_type = support_info.deployment.deployment_type;
     let graph_type = identify_graph(&graph_arc);
 
-    if req.configuration.dump_config.load_vertices {
+    if req.configuration.load_config.load_vertices {
         prepare_and_load_vertices(
             &req,
             &graph_arc,
@@ -167,7 +167,7 @@ pub async fn fetch_graph_from_arangodb<G: Graph + Send + Sync + 'static>(
         .await?;
     }
 
-    if req.configuration.dump_config.load_edges {
+    if req.configuration.load_config.load_edges {
         prepare_and_load_edges(
             &req,
             &graph_arc,
@@ -320,7 +320,7 @@ where
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
     for _i in 0..req
         .configuration
-        .dump_config
+        .load_config
         .parallelism
         .expect("Why is parallelism missing")
     {
@@ -381,7 +381,7 @@ where
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
     for _i in 0..req
         .configuration
-        .dump_config
+        .load_config
         .parallelism
         .expect("Why is parallelism missing")
     {

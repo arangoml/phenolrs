@@ -64,14 +64,15 @@ class NetworkXLoader:
         if tls_cert:
             db_config_options["tls_cert"] = tls_cert
 
-        dump_config = {
+        load_config = {
             "parallelism": parallelism,
             "batch_size": batch_size,
             "load_vertices": load_node_dict,
             "load_edges": load_adj_dict or load_coo,
+            "load_all_attributes_via_aql": True,
         }
 
-        load_config = {
+        graph_config = {
             "load_node_dict": load_node_dict,
             "load_adj_dict": load_adj_dict,
             "load_adj_dict_as_directed": load_adj_dict_as_directed,
@@ -96,8 +97,8 @@ class NetworkXLoader:
                     "edge_collections": edge_collections,
                     "configuration": {
                         "database_config": db_config_options,
-                        "dump_config": dump_config,
                         "load_config": load_config,
+                        "graph_config": graph_config,
                     },
                 }
             )
