@@ -5,7 +5,7 @@ mod input;
 mod load;
 mod output;
 
-use input::load_request::DataLoadRequest;
+use input::load_request::{DataLoadRequest, NetworkXGraphConfig};
 use numpy::PyArray1;
 #[cfg(not(test))]
 use output::construct;
@@ -19,7 +19,7 @@ use pyo3::prelude::*;
 #[cfg(not(test))]
 use pyo3::types::PyDict;
 
-use graphs::{Graph, NumpyGraph};
+use graphs::{Graph, NetworkXGraph, NumpyGraph};
 
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -68,39 +68,48 @@ fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCo
     Ok(res)
 }
 
-// #[pyfunction]
-// #[cfg(not(test))]
-// fn graph_to_networkx_format(
-//     py: Python,
-//     request: DataLoadRequest,
-// ) -> PyResult<(
-//     &PyDict,
-//     &PyDict,
-//     &PyArray1<usize>,
-//     &PyArray1<usize>,
-//     &PyDict,
-// )> {
-//     let graph: Arc<RwLock<NetworkXGraph>> = NetworkXGraph::new(true, 64, 0);
-//     let graph = load::retrieve::get_arangodb_graph(request, graph).unwrap();
+#[pyfunction]
+#[cfg(not(test))]
+fn graph_to_networkx_format(
+    py: Python,
+    request: DataLoadRequest,
+    graph_config: NetworkXGraphConfig,
+) -> PyResult<(
+    &PyDict,
+    &PyDict,
+    &PyArray1<usize>,
+    &PyArray1<usize>,
+    &PyDict,
+)> {
+    let graph_factory = || {
+        NetworkXGraph::new(
+            graph_config.load_node_dict,
+            graph_config.load_adj_dict,
+            graph_config.load_adj_dict_as_directed,
+            graph_config.load_coo,
+        )
+    };
 
-//     let node_dict = construct::construct_dict_of_dict(graph.node_map, py)?;
-//     let adj_dict = construct::construct_dict_of_dict_of_dict(graph.adj_map, py)?;
+    let graph = load::retrieve::get_arangodb_graph(request, graph_factory).unwrap();
 
-//     let coo = graph.coo;
-//     let src_indices = PyArray1::from_vec(py, coo.0);
-//     let dst_indices = PyArray1::from_vec(py, coo.1);
-//     let vertex_id_to_index = construct::construct_dict(graph.vertex_id_to_index, py)?;
+    let node_dict = construct::construct_dict_of_dict(graph.node_map, py)?;
+    let adj_dict = construct::construct_dict_of_dict_of_dict(graph.adj_map, py)?;
 
-//     let res = (
-//         node_dict,
-//         adj_dict,
-//         src_indices,
-//         dst_indices,
-//         vertex_id_to_index,
-//     );
+    let coo = graph.coo;
+    let src_indices = PyArray1::from_vec(py, coo.0);
+    let dst_indices = PyArray1::from_vec(py, coo.1);
+    let vertex_id_to_index = construct::construct_dict(graph.vertex_id_to_index, py)?;
 
-//     Ok(res)
-// }
+    let res = (
+        node_dict,
+        adj_dict,
+        src_indices,
+        dst_indices,
+        vertex_id_to_index,
+    );
+
+    Ok(res)
+}
 
 /// A Python module implemented in Rust.
 #[cfg(not(test))]
@@ -108,7 +117,7 @@ fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCo
 #[cfg(not(test))]
 fn phenolrs(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(graph_to_numpy_format, m)?)?;
-    // m.add_function(wrap_pyfunction!(graph_to_networkx_format, m)?)?;
+    m.add_function(wrap_pyfunction!(graph_to_networkx_format, m)?)?;
     m.add("PhenolError", py.get_type::<PhenolError>())?;
     Ok(())
 }

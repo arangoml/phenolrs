@@ -91,16 +91,16 @@ class NetworkXLoader:
 
         node_dict, adj_dict, src_indices, dst_indices, id_to_index_map = (
             graph_to_networkx_format(
-                {
+                request={
                     "database": database,
                     "vertex_collections": vertex_collections,
                     "edge_collections": edge_collections,
                     "configuration": {
                         "database_config": db_config_options,
                         "load_config": load_config,
-                        "graph_config": graph_config,
                     },
-                }
+                },
+                graph_config=graph_config,  # TODO Anthony: Move into request
             )
         )
 

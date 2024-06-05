@@ -48,24 +48,25 @@ impl DatabaseConfiguration {
     }
 }
 
-// #[derive(Clone)]
-// pub struct GraphConfiguration {
-//     pub load_node_dict: bool,
-//     pub load_adj_dict: bool,
-//     pub load_adj_dict_as_directed: bool,
-//     pub load_coo: bool,
-// }
+// TODO Anthony: Abstract this into a GraphConfiguration struct
+#[derive(Clone)]
+pub struct NetworkXGraphConfig {
+    pub load_node_dict: bool,
+    pub load_adj_dict: bool,
+    pub load_adj_dict_as_directed: bool,
+    pub load_coo: bool,
+}
 
-// impl GraphConfiguration {
-//     pub fn default() -> GraphConfiguration {
-//         GraphConfiguration {
-//             load_node_dict: true,
-//             load_adj_dict: true,
-//             load_adj_dict_as_directed: true,
-//             load_coo: true,
-//         }
-//     }
-// }
+impl NetworkXGraphConfig {
+    pub fn default() -> NetworkXGraphConfig {
+        NetworkXGraphConfig {
+            load_node_dict: true,
+            load_adj_dict: true,
+            load_adj_dict_as_directed: true,
+            load_coo: true,
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct LoadConfiguration {

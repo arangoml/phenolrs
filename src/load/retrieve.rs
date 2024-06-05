@@ -232,7 +232,8 @@ async fn prepare_and_load_vertices<G: Graph + Send + Sync + 'static>(
     );
 
     let receiver_function = match graph_type {
-        "NumpyGraph" => receive::receive_vertices,
+        "NumpyGraph" => receive::receive_vertices_numpy,
+        "NetworkXGraph" => receive::receive_vertices_networkx,
         _ => panic!("Graph type not supported: {}", graph_type),
     };
 
@@ -280,7 +281,8 @@ async fn prepare_and_load_edges<G: Graph + Send + Sync + 'static>(
     );
 
     let receiver_function = match graph_type {
-        "NumpyGraph" => receive::receive_edges,
+        "NumpyGraph" => receive::receive_edges_numpy,
+        "NetworkXGraph" => receive::receive_edges_networkx,
         _ => panic!("Graph type not supported: {}", graph_type),
     };
 

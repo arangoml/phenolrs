@@ -1,5 +1,6 @@
 use super::load_request::{
-    CollectionDescription, Configuration, DataLoadRequest, DatabaseConfiguration, LoadConfiguration,
+    CollectionDescription, Configuration, DataLoadRequest, DatabaseConfiguration,
+    LoadConfiguration, NetworkXGraphConfig,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyDict;
@@ -119,6 +120,30 @@ impl FromPyObject<'_> for CollectionDescription {
         Ok(CollectionDescription {
             name: name.into(),
             fields: fields.iter().map(|s| String::from(*s)).collect(),
+        })
+    }
+}
+
+impl FromPyObject<'_> for NetworkXGraphConfig {
+    fn extract(ob: &'_ PyAny) -> PyResult<Self> {
+        let input_dict: &PyDict = ob.downcast()?;
+        let load_node_dict: bool = input_dict
+            .get_item("load_node_dict")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        let load_adj_dict: bool = input_dict
+            .get_item("load_adj_dict")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        let load_adj_dict_as_directed: bool = input_dict
+            .get_item("load_adj_dict_as_directed")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        let load_coo: bool = input_dict
+            .get_item("load_coo")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        Ok(NetworkXGraphConfig {
+            load_node_dict,
+            load_adj_dict,
+            load_adj_dict_as_directed,
+            load_coo,
         })
     }
 }
