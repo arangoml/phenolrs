@@ -7,9 +7,13 @@ name = "adb_data_loader"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "log",
+ "pyo3",
  "reqwest 0.12.4",
  "reqwest-middleware",
+ "reqwest-retry",
  "serde",
+ "serde_json",
  "tokio",
 ]
 
