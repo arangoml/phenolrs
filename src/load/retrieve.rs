@@ -1,8 +1,8 @@
 use super::receive;
-use crate::arangodb::aql::get_all_data_aql;
-use crate::arangodb::dump::{compute_shard_map, get_all_shard_data, ShardDistribution, ShardMap};
-use crate::arangodb::handle_arangodb_response_with_parsed_body;
-use crate::arangodb::info::{DeploymentType, SupportInfo, VersionInformation};
+use crate::adb_data_loader::aql::get_all_data_aql;
+use crate::adb_data_loader::dump::{compute_shard_map, get_all_shard_data, ShardDistribution, ShardMap};
+use crate::adb_data_loader::handle_arangodb_response_with_parsed_body;
+use crate::adb_data_loader::info::{DeploymentType, SupportInfo, VersionInformation};
 use crate::client::auth::handle_auth;
 use crate::client::build_client;
 use crate::client::config::ClientConfig;

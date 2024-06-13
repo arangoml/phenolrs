@@ -1,3 +1,4 @@
+workspace = { members = ["adb_data_loader"] }
 [package]
 name = "phenolrs"
 version = "0.4.2"
@@ -14,6 +15,7 @@ lto = "fat"
 # TODO: add rustflags for target features/cpus
 
 [dependencies]
+adb_data_loader = { "path" = "./adb_data_loader" }
 numpy = "0.20.0"
 tokio = { version = "1", features = ["full"] }
 bytes = "1.5.0"
