@@ -1,4 +1,6 @@
 pub mod arangodb;
+pub mod client;
+pub mod input;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
