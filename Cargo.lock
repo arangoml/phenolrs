@@ -3,21 +3,6 @@
 version = 3
 
 [[package]]
-name = "adb_data_loader"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "log",
- "pyo3",
- "reqwest",
- "reqwest-middleware",
- "reqwest-retry",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -541,6 +526,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 
 [[package]]
+name = "lightning"
+version = "1.0.0"
+source = "git+ssh://git@github.com/arangodb/lightning.git?branch=main#628cf32e6e9eb2d1ccf7837bce4d046e853eeeeb"
+dependencies = [
+ "bytes",
+ "log",
+ "pyo3",
+ "reqwest",
+ "reqwest-middleware",
+ "reqwest-retry",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -823,9 +824,9 @@ checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 name = "phenolrs"
 version = "0.4.2"
 dependencies = [
- "adb_data_loader",
  "anyhow",
  "bytes",
+ "lightning",
  "log",
  "ndarray",
  "numpy",
