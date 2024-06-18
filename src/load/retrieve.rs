@@ -1,16 +1,16 @@
 use super::receive;
 use crate::graphs::Graph;
 use crate::load::load_strategy::LoadStrategy;
-use adb_data_loader::arangodb::aql::get_all_data_aql;
-use adb_data_loader::arangodb::dump::{
+use lightning::arangodb::aql::get_all_data_aql;
+use lightning::arangodb::dump::{
     compute_shard_map, get_all_shard_data, ShardDistribution, ShardMap,
 };
-use adb_data_loader::arangodb::handle_arangodb_response_with_parsed_body;
-use adb_data_loader::arangodb::info::{DeploymentType, SupportInfo, VersionInformation};
-use adb_data_loader::client::auth::handle_auth;
-use adb_data_loader::client::build_client;
-use adb_data_loader::client::config::ClientConfig;
-use adb_data_loader::input::load_request::{DataLoadRequest, DatabaseConfiguration};
+use lightning::arangodb::handle_arangodb_response_with_parsed_body;
+use lightning::arangodb::info::{DeploymentType, SupportInfo, VersionInformation};
+use lightning::client::auth::handle_auth;
+use lightning::client::build_client;
+use lightning::client::config::ClientConfig;
+use lightning::input::load_request::{DataLoadRequest, DatabaseConfiguration};
 use bytes::Bytes;
 use log::info;
 use reqwest::StatusCode;
