@@ -1,5 +1,3 @@
-mod graphs;
-mod load;
 mod output;
 
 use lightning::input::load_request::DataLoadRequest;
@@ -27,7 +25,7 @@ create_exception!(phenolrs, PhenolError, PyException);
 #[pyfunction]
 #[cfg(not(test))]
 fn graph_to_pyg_format(py: Python, request: DataLoadRequest) -> PyResult<PygCompatible> {
-    let graph = load::retrieve::get_arangodb_graph(request).map_err(PhenolError::new_err)?;
+    let graph = lightning::load::retrieve::get_arangodb_graph(request).map_err(PhenolError::new_err)?;
 
     let col_to_features = construct::construct_col_to_features(
         convert_nested_features_map(graph.cols_to_features),
