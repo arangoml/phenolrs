@@ -2,10 +2,10 @@ mod graphs;
 mod load;
 mod output;
 
+use adb_data_loader::input::load_request::DataLoadRequest;
 #[cfg(not(test))]
 use output::construct;
 use output::convert::{convert_coo_edge_map, convert_nested_features_map};
-use adb_data_loader::input::load_request::{DataLoadRequest};
 #[cfg(not(test))]
 use pyo3::create_exception;
 #[cfg(not(test))]
