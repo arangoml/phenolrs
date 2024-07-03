@@ -103,9 +103,9 @@ jobs:
           command: |
             docker run --rm -v $(pwd):/io \
             -v ~/.ssh:/root/.ssh \
-            phenolrs-builder:latest sh -c "
-              chmod 600 /root/.ssh/* && \
-              build --interpreter python3.10
+            phenolrs-builder:latest /bin/sh -c "
+            chmod 600 /root/.ssh/* && \
+            maturin build --interpreter python3.10
             "
       - persist_to_workspace:
           root: ~/project/target
