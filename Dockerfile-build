@@ -1,13 +1,11 @@
 FROM ghcr.io/pyo3/maturin
 
-RUN yum install -y openssl-devel openssh-clients
+RUN apt-get update && apt-get install -y openssl libssl-dev openssh-client
 
 # Add GitHub to known_hosts
 RUN mkdir -p ~/.ssh && \
     ssh-keyscan github.com >> ~/.ssh/known_hosts
 
-# Add SSH private key as a build secret
-# Use --secret flag during build to pass the SSH key
 RUN --mount=type=secret,id=ssh_key \
     mkdir -p /root/.ssh && \
     cp /run/secrets/ssh_key /root/.ssh/id_rsa && \
