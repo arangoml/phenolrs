@@ -528,12 +528,11 @@ checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 [[package]]
 name = "lightning"
 version = "1.0.0"
+source = "git+ssh://git@github.com/arangodb/lightning?branch=main#de1a46283888d0d24dedae13a4a509f246330ab4"
 dependencies = [
  "bytes",
  "log",
  "reqwest",
- "reqwest-middleware",
- "reqwest-retry",
  "serde",
  "serde_json",
  "thiserror",

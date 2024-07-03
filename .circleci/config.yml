@@ -32,6 +32,17 @@ workflows:
             branches:
               ignore: /.*/
 
+commands:
+  setup_ssh:
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "SHA256:XsmQvjXDygXfd3z0ynvv6lcOEHjO4iJBGHFtZkk753Q"
+      - run:
+          name: Add GitHub to known_hosts
+          command: |
+            mkdir -p ~/.ssh
+            ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 jobs:
   lint-python:
