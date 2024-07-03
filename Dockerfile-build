@@ -1,6 +1,6 @@
 FROM ghcr.io/pyo3/maturin
 
-RUN apt-get update && apt-get install -y openssl libssl-dev openssh-client
+RUN yum install -y openssl-devel openssh-clients
 
 # Add GitHub to known_hosts
 RUN mkdir -p ~/.ssh && \
