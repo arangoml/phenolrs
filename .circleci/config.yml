@@ -100,7 +100,11 @@ jobs:
           command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
       - run:
           name: Build 3.10 package
-          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter python3.10
+          command:
+            docker run --rm -v $(pwd):/io \
+            -v $SSH_AUTH_SOCK:/ssh-agent \
+            -e SSH_AUTH_SOCK=/ssh-agent \
+            phenolrs-builder:latest build --interpreter python3.10
       - persist_to_workspace:
           root: ~/project/target
           paths:
