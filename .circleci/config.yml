@@ -105,6 +105,7 @@ jobs:
             -v ~/.ssh:/root/.ssh \
             --entrypoint /bin/sh \
             phenolrs-builder:latest -c "
+            chmod 700 /root/.ssh && \
             chmod 600 /root/.ssh/* && \
             maturin build --interpreter python3.10
             "
