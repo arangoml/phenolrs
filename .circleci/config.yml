@@ -107,7 +107,7 @@ jobs:
             phenolrs-builder:latest -c "
             chmod 700 /root/.ssh && \
             chmod 600 /root/.ssh/* && \
-            chown root:$USER ~/.ssh/config && \
+            chown root:root ~/.ssh/config && \
             chmod 644 ~/.ssh/config && \
             ls -l /root/.ssh && \
             maturin build --interpreter python3.10
