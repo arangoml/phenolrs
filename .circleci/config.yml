@@ -81,7 +81,6 @@ jobs:
     executor: generate-executor
     steps:
       - checkout
-      - run: yum --showduplicates list openssl-devel
       - run:
           name: Build builder image
           command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
