@@ -99,11 +99,14 @@ jobs:
           name: Build builder image
           command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
       - run:
-          name: Build 3.10 package
+          name: Add SSH Key & Build 3.10 package
           command: |
             docker run --rm -v $(pwd):/io \
             -v ~/.ssh:/root/.ssh \
-            phenolrs-builder:latest build --interpreter python3.10
+            phenolrs-builder:latest sh -c "
+              chmod 600 /root/.ssh/* && \
+              build --interpreter python3.10
+            "
       - persist_to_workspace:
           root: ~/project/target
           paths:
