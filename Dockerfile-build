@@ -1,6 +1,6 @@
 FROM ghcr.io/pyo3/maturin
 
-RUN yum install -y openssl-devel openssh-clients
+RUN yum install-y openssl-devel
 
 # Add GitHub to known_hosts
 RUN mkdir -p ~/.ssh && \
