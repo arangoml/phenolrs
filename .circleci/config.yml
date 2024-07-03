@@ -103,10 +103,11 @@ jobs:
           command: |
             docker run --rm -v $(pwd):/io \
             -v ~/.ssh:/root/.ssh \
-            --entrypoint /bin/sh \
+            --entrypoint /bin/bash \
             phenolrs-builder:latest -c "
             chmod 700 /root/.ssh && \
             chmod 600 /root/.ssh/* && \
+            ls -l /root/.ssh && \
             maturin build --interpreter python3.10
             "
       - persist_to_workspace:
