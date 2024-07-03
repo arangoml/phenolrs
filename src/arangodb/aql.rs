@@ -1,7 +1,8 @@
-use crate::client::auth::handle_auth;
-use crate::client::config::ClientConfig;
-use crate::input::load_request::{CollectionDescription, DataLoadRequest, DatabaseConfiguration};
-use crate::{arangodb, client};
+use lightning::client::auth::handle_auth;
+use lightning::client::config::ClientConfig;
+use crate::input::load_request::{DataLoadRequest};
+use lightning::{client, CollectionInfo, DatabaseConfiguration, DataLoadConfiguration};
+use crate::{arangodb};
 use bytes::Bytes;
 use log::debug;
 use reqwest::StatusCode;
@@ -56,23 +57,23 @@ struct CursorResponse {
 
 pub async fn get_all_data_aql(
     req: &DataLoadRequest,
-    connection_config: &DatabaseConfiguration,
-    collections: &[CollectionDescription],
+    db_config: &DatabaseConfiguration,
+    collections: &[CollectionInfo],
     result_channels: Vec<std::sync::mpsc::Sender<Bytes>>,
     is_edge: bool,
 ) -> Result<(), String> {
     let begin = SystemTime::now();
 
-    let use_tls = connection_config.endpoints[0].starts_with("https://");
+    let use_tls = db_config.endpoints[0].starts_with("https://");
     let client_config = ClientConfig::builder()
         .n_retries(5)
         .use_tls(use_tls)
-        .tls_cert_opt(connection_config.tls_cert.clone())
+        .tls_cert_opt(db_config.tls_cert.clone())
         .build();
     let client = client::build_client(&client_config)?;
 
     let make_url = |path: &str| -> String {
-        connection_config.endpoints[0].clone() + "/_db/" + &req.database + "/_api/cursor" + path
+        db_config.endpoints[0].clone() + "/_db/" + &req.database + "/_api/cursor" + path
     };
 
     let mut cursor_ids = vec![];
@@ -89,7 +90,7 @@ pub async fn get_all_data_aql(
         let body_v = serde_json::to_vec::<CreateCursorBody>(&body)
             .expect("could not serialize DumpStartBody");
         let url = make_url("");
-        let cursor_create_resp = handle_auth(client.post(url), connection_config)
+        let cursor_create_resp = handle_auth(client.post(url), db_config)
             .body(body_v)
             .send()
             .await;
@@ -126,15 +127,15 @@ pub async fn get_all_data_aql(
             if let Some(id) = id {
                 cursor_ids.push(id.clone());
 
-                let client_clone = client::build_client(&client_config)?;
-                let endpoint_clone = connection_config.endpoints[endpoints_round_robin].clone();
-                if endpoints_round_robin >= connection_config.endpoints.len() {
+                let client_clone = client.clone();
+                let endpoint_clone = db_config.endpoints[endpoints_round_robin].clone();
+                if endpoints_round_robin >= db_config.endpoints.len() {
                     endpoints_round_robin = 0;
                 }
                 let database_clone = req.database.clone();
                 let result_channel_clone = result_channels[consumers_round_robin].clone();
 
-                let connection_config_clone = (*connection_config).clone();
+                let connection_config_clone = (*db_config).clone();
 
                 task_set.spawn(async move {
                     loop {
@@ -191,14 +192,14 @@ pub async fn get_all_data_aql(
             let delete_cursor_url = make_url(&format!("/{}", cursor_id));
             let resp = handle_auth(
                 client_for_cursor_close.delete(delete_cursor_url),
-                connection_config,
+                db_config,
             )
-            .send()
-            .await;
+                .send()
+                .await;
             let r = arangodb::handle_arangodb_response(resp, |c| {
                 c == StatusCode::ACCEPTED || c == StatusCode::NOT_FOUND
             })
-            .await;
+                .await;
             if let Err(error) = r {
                 eprintln!(
                     "An error in cancelling a cursor occurred, cursor: {}, error: {}",
@@ -236,7 +237,7 @@ pub async fn get_all_data_aql(
     Ok(())
 }
 
-fn build_aql_query(collection_description: &CollectionDescription, is_edge: bool) -> String {
+fn build_aql_query(collection_description: &CollectionInfo, is_edge: bool) -> String {
     let field_strings = collection_description
         .fields
         .iter()

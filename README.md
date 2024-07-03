@@ -33,10 +33,10 @@ import arango
 from arango_datasets import Datasets
 
 client = arango.ArangoClient("http://localhost:8529")
-sys = client.db("_system", password="test")
+sys = client.db("_system", password="")
 sys.create_database("abide")
 
-abide_db = client.db("abide", password="test")
+abide_db = client.db("abide", password="")
 dsets = Datasets(abide_db)
 dsets.load("ABIDE")
 ```

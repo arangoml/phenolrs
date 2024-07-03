@@ -3,11 +3,12 @@ use crate::arangodb::aql::get_all_data_aql;
 use crate::arangodb::dump::{compute_shard_map, get_all_shard_data, ShardDistribution, ShardMap};
 use crate::arangodb::handle_arangodb_response_with_parsed_body;
 use crate::arangodb::info::{DeploymentType, SupportInfo, VersionInformation};
-use crate::client::auth::handle_auth;
-use crate::client::build_client;
-use crate::client::config::ClientConfig;
+use lightning::client::auth::handle_auth;
+use lightning::client::build_client;
+use lightning::client::config::ClientConfig;
 use crate::graphs::Graph;
-use crate::input::load_request::{DataLoadRequest, DatabaseConfiguration};
+use crate::input::load_request::{DataLoadRequest};
+use lightning::DatabaseConfiguration;
 use crate::load::load_strategy::LoadStrategy;
 use bytes::Bytes;
 use log::info;
@@ -31,7 +32,7 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
             .unwrap()
             .block_on(async {
                 println!("Loading!");
-                fetch_graph_from_arangodb(req, graph_clone).await
+                fetch_graph_from_arangodb_local_variant(req, graph_clone).await
             })
     });
     handle.join().map_err(|_s| "Computation failed")??;
@@ -53,11 +54,11 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
     })
 }
 
-pub async fn fetch_graph_from_arangodb(
+pub async fn fetch_graph_from_arangodb_local_variant(
     req: DataLoadRequest,
     graph_arc: Arc<RwLock<Graph>>,
 ) -> Result<Arc<RwLock<Graph>>, String> {
-    let db_config = &req.configuration.database_config;
+    let db_config = &req.db_config;
     if db_config.endpoints.is_empty() {
         return Err("no endpoints given".to_string());
     }
@@ -77,7 +78,7 @@ pub async fn fetch_graph_from_arangodb(
     let client = build_client(&client_config)?;
 
     let server_version_url = db_config.endpoints[0].clone() + "/_api/version";
-    let resp = handle_auth(client.get(server_version_url), db_config)
+    let resp = handle_auth(client.get(server_version_url), &db_config)
         .send()
         .await;
     let version_info =
@@ -121,7 +122,7 @@ pub async fn fetch_graph_from_arangodb(
     };
 
     let server_information_url = db_config.endpoints[0].clone() + "/_admin/support-info";
-    let support_info_res = handle_auth(client.get(server_information_url), db_config)
+    let support_info_res = handle_auth(client.get(server_information_url), &db_config)
         .send()
         .await;
     let support_info =
@@ -140,7 +141,7 @@ pub async fn fetch_graph_from_arangodb(
 
     // First ask for the shard distribution:
     let url = make_url("/_admin/cluster/shardDistribution");
-    let resp = handle_auth(client.get(url), db_config).send().await;
+    let resp = handle_auth(client.get(url), &db_config).send().await;
     let shard_dist = match support_info.deployment.deployment_type {
         DeploymentType::Single => None,
         DeploymentType::Cluster => {
@@ -148,7 +149,7 @@ pub async fn fetch_graph_from_arangodb(
                 resp,
                 StatusCode::OK,
             )
-            .await?;
+                .await?;
             Some(shard_dist)
         }
     };
@@ -191,7 +192,7 @@ pub async fn fetch_graph_from_arangodb(
         vertex_coll_field_map,
         load_strategy,
     )
-    .await?;
+        .await?;
 
     if !req.edge_collections.is_empty() {
         let edge_coll_list = req
@@ -220,7 +221,7 @@ pub async fn fetch_graph_from_arangodb(
             &edge_map,
             &load_strategy,
         )
-        .await?;
+            .await?;
     }
 
     // And now the edges:
@@ -237,7 +238,7 @@ pub async fn fetch_graph_from_arangodb(
 async fn load_edges(
     req: &DataLoadRequest,
     graph_arc: &Arc<RwLock<Graph>>,
-    db_config: &&DatabaseConfiguration,
+    db_config: &DatabaseConfiguration,
     begin: SystemTime,
     edge_map: &ShardMap,
     load_strategy: &LoadStrategy,
@@ -246,9 +247,8 @@ async fn load_edges(
     let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
     for _i in 0..req
-        .configuration
+        .load_config
         .parallelism
-        .expect("Why is parallelism missing")
     {
         let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
         senders.push(sender);
@@ -261,7 +261,7 @@ async fn load_edges(
     }
     match load_strategy {
         LoadStrategy::Dump => {
-            get_all_shard_data(req, db_config, edge_map, senders).await?;
+            get_all_shard_data(req, edge_map, senders).await?;
         }
         LoadStrategy::Aql => {
             get_all_data_aql(req, db_config, &req.edge_collections, senders, true).await?;
@@ -280,7 +280,7 @@ async fn load_edges(
 async fn load_vertices(
     req: &DataLoadRequest,
     graph_arc: &Arc<RwLock<Graph>>,
-    db_config: &&DatabaseConfiguration,
+    db_config: &DatabaseConfiguration,
     begin: SystemTime,
     vertex_map: &ShardMap,
     vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>>,
@@ -291,9 +291,8 @@ async fn load_vertices(
     let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
     for _i in 0..req
-        .configuration
+        .load_config
         .parallelism
-        .expect("Why is parallelism missing")
     {
         let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
         senders.push(sender);
@@ -312,7 +311,7 @@ async fn load_vertices(
     }
     match load_strategy {
         LoadStrategy::Dump => {
-            get_all_shard_data(req, db_config, vertex_map, senders).await?;
+            get_all_shard_data(req, vertex_map, senders).await?;
         }
         LoadStrategy::Aql => {
             get_all_data_aql(req, db_config, &req.vertex_collections, senders, false).await?;
