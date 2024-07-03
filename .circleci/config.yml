@@ -110,6 +110,9 @@ jobs:
             chown root:root ~/.ssh/config && \
             chmod 644 ~/.ssh/config && \
             ls -l /root/.ssh && \
+            cat /root/.ssh/config && \
+            sed -i 's|/home/circleci/.ssh|/root/.ssh|g' /root/.ssh/config && \
+            cat /root/.ssh/config && \
             maturin build --interpreter python3.10
             "
       - persist_to_workspace:
