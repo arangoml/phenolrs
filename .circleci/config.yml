@@ -96,8 +96,14 @@ jobs:
       - checkout
       - setup_ssh
       - run:
+          name: Create SSH Key File
+          command: |
+            mkdir -p ~/.ssh
+            echo $SSH_PRIVATE_KEY > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+      - run:
           name: Build builder image
-          command: DOCKER_BUILDKIT=1 docker build --secret id=ssh_key,src=id_rsa -t phenolrs-builder:latest -f Dockerfile-build .
+          command: DOCKER_BUILDKIT=1 docker build --secret id=ssh_key,src=$HOME/.ssh/id_rsa -t phenolrs-builder:latest -f Dockerfile-build .
       - run:
           name: Build 3.10 package
           command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter python3.10
