@@ -1,5 +1,5 @@
 FROM ghcr.io/pyo3/maturin
 
-RUN yum install -y openssl-devel
+RUN yum apt-get update && apt-get install -y openssl libssl-dev
 
 ENTRYPOINT ["/usr/bin/maturin"]
