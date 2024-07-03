@@ -103,7 +103,8 @@ jobs:
           command: |
             docker run --rm -v $(pwd):/io \
             -v ~/.ssh:/root/.ssh \
-            phenolrs-builder:latest /bin/sh -c "
+            --entrypoint /bin/sh \
+            phenolrs-builder:latest -c "
             chmod 600 /root/.ssh/* && \
             maturin build --interpreter python3.10
             "
