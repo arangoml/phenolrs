@@ -153,7 +153,7 @@ pub async fn get_all_data_aql(
                             .send()
                             .await;
                         let resp =
-                            arangodb::handle_arangodb_response(resp, |c| c == StatusCode::OK)
+                            lightning::request::handle_arangodb_response(resp, |c| c == StatusCode::OK)
                                 .await?;
                         let end = SystemTime::now();
                         let dur = end.duration_since(start).unwrap();
@@ -196,7 +196,7 @@ pub async fn get_all_data_aql(
             )
                 .send()
                 .await;
-            let r = arangodb::handle_arangodb_response(resp, |c| {
+            let r = lightning::request::handle_arangodb_response(resp, |c| {
                 c == StatusCode::ACCEPTED || c == StatusCode::NOT_FOUND
             })
                 .await;

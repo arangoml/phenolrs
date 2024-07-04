@@ -140,7 +140,7 @@ pub async fn get_all_shard_data(
             .body(body_v)
             .send()
             .await;
-        let r = arangodb::handle_arangodb_response(resp, |c| {
+        let r = lightning::request::handle_arangodb_response(resp, |c| {
             c == StatusCode::NO_CONTENT || c == StatusCode::OK || c == StatusCode::CREATED
         })
             .await;
@@ -173,7 +173,7 @@ pub async fn get_all_shard_data(
             let resp = handle_auth(client_clone_for_cleanup.delete(url), &req.db_config.clone())
                 .send()
                 .await;
-            let r = arangodb::handle_arangodb_response(resp, |c| {
+            let r = lightning::request::handle_arangodb_response(resp, |c| {
                 c == StatusCode::OK || c == StatusCode::CREATED
             })
                 .await;
@@ -260,7 +260,7 @@ pub async fn get_all_shard_data(
                     let resp = handle_auth(client_clone.post(url), &db_config_clone)
                         .send()
                         .await;
-                    let resp = arangodb::handle_arangodb_response(resp, |c| {
+                    let resp = lightning::request::handle_arangodb_response(resp, |c| {
                         c == StatusCode::OK || c == StatusCode::NO_CONTENT
                     })
                         .await?;

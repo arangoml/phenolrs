@@ -1,7 +1,7 @@
 use super::receive;
 use crate::arangodb::aql::get_all_data_aql;
 use crate::arangodb::dump::{compute_shard_map, get_all_shard_data, ShardDistribution, ShardMap};
-use crate::arangodb::handle_arangodb_response_with_parsed_body;
+use lightning::request::handle_arangodb_response_with_parsed_body;
 use crate::arangodb::info::{DeploymentType, SupportInfo, VersionInformation};
 use lightning::client::auth::handle_auth;
 use lightning::client::build_client;
@@ -81,9 +81,13 @@ pub async fn fetch_graph_from_arangodb_local_variant(
     let resp = handle_auth(client.get(server_version_url), &db_config)
         .send()
         .await;
-    let version_info =
+    let version_info_result =
         handle_arangodb_response_with_parsed_body::<VersionInformation>(resp, StatusCode::OK)
-            .await?;
+            .await;
+    if let Err(e) = version_info_result {
+        return Err(e.to_string());
+    }
+    let version_info = version_info_result.unwrap();
 
     static MIN_SUPPORTED_MINOR_VERSIONS: &[(u8, u8)] = &[(3, 12)];
     let version_parts: Vec<&str> = version_info.version.split('.').collect();
@@ -125,9 +129,13 @@ pub async fn fetch_graph_from_arangodb_local_variant(
     let support_info_res = handle_auth(client.get(server_information_url), &db_config)
         .send()
         .await;
-    let support_info =
+    let support_info_result =
         handle_arangodb_response_with_parsed_body::<SupportInfo>(support_info_res, StatusCode::OK)
-            .await?;
+            .await;
+    if let Err(e) = support_info_result {
+        return Err(e.to_string());
+    }
+    let support_info = support_info_result.unwrap();
 
     let load_strategy =
         if !supports_v1 && support_info.deployment.deployment_type == DeploymentType::Single {
@@ -145,11 +153,14 @@ pub async fn fetch_graph_from_arangodb_local_variant(
     let shard_dist = match support_info.deployment.deployment_type {
         DeploymentType::Single => None,
         DeploymentType::Cluster => {
-            let shard_dist = handle_arangodb_response_with_parsed_body::<ShardDistribution>(
+            let shard_dist_result = handle_arangodb_response_with_parsed_body::<ShardDistribution>(
                 resp,
                 StatusCode::OK,
-            )
-                .await?;
+            ).await;
+            if let Err(e) = shard_dist_result {
+                return Err(e.to_string());
+            }
+            let shard_dist = shard_dist_result.unwrap();
             Some(shard_dist)
         }
     };
