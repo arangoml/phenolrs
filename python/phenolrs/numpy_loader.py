@@ -28,6 +28,12 @@ class NumpyLoader:
         # TODO: replace with pydantic validation
         db_config_options: dict[str, typing.Any] = {
             "endpoints": hosts,
+            "database": database,
+        }
+        load_config_options: dict[str, typing.Any] = {
+            "parallelism": 8,
+            "batch_size": 1000000,
+            "prefetch_count": 5,
         }
         if username:
             db_config_options["username"] = username
@@ -90,10 +96,13 @@ class NumpyLoader:
                     "database": database,
                     "vertex_collections": vertex_collections,
                     "edge_collections": edge_collections,
-                    "configuration": {"database_config": db_config_options},
+                    "database_config": db_config_options,
+                    "load_config": load_config_options
                 }
             )
         )
+
+
 
         return (
             features_by_col,

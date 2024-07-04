@@ -48,7 +48,7 @@ impl FromPyObject<'_> for DataLoadRequest {
             .get_item("database_config")?
             .map_or(Ok(LocalDatabaseConfiguration::default()), |c| c.extract())?;
         let load_config: LocalDataLoadConfiguration = input_dict
-            .get_item("configuration")?
+            .get_item("load_config")?
             .map_or(Ok(LocalDataLoadConfiguration::default()), |c| c.extract())?;
         let vertex_collections: Vec<LocalCollectionInfo> =
             input_dict.get_item("vertex_collections")?.map_or_else(

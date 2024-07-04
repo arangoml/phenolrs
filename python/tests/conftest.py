@@ -43,12 +43,14 @@ def load_abide(connection_information: Dict[str, Any]) -> None:
         username=connection_information["username"],
         password=connection_information["password"],
     )
-    sys_db.delete_database("abide", ignore_missing=True)
-    sys_db.create_database("abide")
-    abide_db = client.db(
-        "abide",
-        username=connection_information["username"],
-        password=connection_information["password"],
-    )
-    dsets = Datasets(abide_db)
-    dsets.load("ABIDE")
+
+    if not sys_db.has_database("abide"):
+        sys_db.delete_database("abide", ignore_missing=True)
+        sys_db.create_database("abide")
+        abide_db = client.db(
+            "abide",
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+        dsets = Datasets(abide_db)
+        dsets.load("ABIDE")
