@@ -1,4 +1,4 @@
-FROM ghcr.io/pyo3/maturin
+FROM ghcr.io/pyo3/maturin:main
 
 RUN yum install -y openssl-devel
 
