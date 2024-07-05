@@ -1,16 +1,16 @@
+use crate::arangodb;
 use crate::arangodb::info::DeploymentType;
+use crate::input::load_request::DataLoadRequest;
+use bytes::Bytes;
 use lightning::client::auth::handle_auth;
 use lightning::client::config::ClientConfig;
-use crate::input::load_request::{DataLoadRequest};
-use lightning::{client, DatabaseConfiguration, DataLoadConfiguration};
-use crate::{arangodb};
-use bytes::Bytes;
+use lightning::client::make_url;
+use lightning::{client, DataLoadConfiguration, DatabaseConfiguration};
 use log::debug;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
-use lightning::client::make_url;
 use tokio::task::JoinSet;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -127,7 +127,10 @@ pub async fn get_all_shard_data(
     let mut error_happened = false;
     let mut error: String = "".into();
     for (server, shard_list) in shard_map.iter() {
-        let url = make_url(&req.db_config, &format!("/_api/dump/start?dbserver={}", server));
+        let url = make_url(
+            &req.db_config,
+            &format!("/_api/dump/start?dbserver={}", server),
+        );
         let body = DumpStartBody {
             batch_size: req.load_config.batch_size,
             prefetch_count: 5,
@@ -143,7 +146,7 @@ pub async fn get_all_shard_data(
         let r = lightning::request::handle_arangodb_response(resp, |c| {
             c == StatusCode::NO_CONTENT || c == StatusCode::OK || c == StatusCode::CREATED
         })
-            .await;
+        .await;
         if let Err(rr) = r {
             error = rr;
             error_happened = true;
@@ -166,17 +169,20 @@ pub async fn get_all_shard_data(
     let cleanup = |dbservers: Vec<DBServerInfo>| async move {
         debug!("Doing cleanup...");
         for dbserver in dbservers.iter() {
-            let url = make_url(&req.db_config, &format!(
-                "/_api/dump/{}?dbserver={}",
-                dbserver.dump_id, dbserver.dbserver
-            ));
+            let url = make_url(
+                &req.db_config,
+                &format!(
+                    "/_api/dump/{}?dbserver={}",
+                    dbserver.dump_id, dbserver.dbserver
+                ),
+            );
             let resp = handle_auth(client_clone_for_cleanup.delete(url), &req.db_config.clone())
                 .send()
                 .await;
             let r = lightning::request::handle_arangodb_response(resp, |c| {
                 c == StatusCode::OK || c == StatusCode::CREATED
             })
-                .await;
+            .await;
             if let Err(rr) = r {
                 eprintln!(
                     "An error in cancelling a dump context occurred, dbserver: {}, error: {}",
@@ -263,7 +269,7 @@ pub async fn get_all_shard_data(
                     let resp = lightning::request::handle_arangodb_response(resp, |c| {
                         c == StatusCode::OK || c == StatusCode::NO_CONTENT
                     })
-                        .await?;
+                    .await?;
                     let end = SystemTime::now();
                     let dur = end.duration_since(start).unwrap();
                     if resp.status() == StatusCode::NO_CONTENT {

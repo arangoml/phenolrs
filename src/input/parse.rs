@@ -1,9 +1,9 @@
-use lightning::graph_loader::{CollectionInfo};
+use crate::input::load_request::DataLoadRequest;
+use lightning::graph_loader::CollectionInfo;
 use lightning::{DataLoadConfiguration, DatabaseConfiguration};
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyDict;
 use pyo3::{FromPyObject, PyAny, PyResult};
-use crate::input::load_request::DataLoadRequest;
 
 pub struct LocalDataLoadConfiguration(pub DataLoadConfiguration);
 
@@ -21,7 +21,9 @@ impl From<LocalDatabaseConfiguration> for DatabaseConfiguration {
 }
 pub struct LocalCollectionInfo(pub CollectionInfo);
 
-pub fn create_collection_info_vec(collection_info: Vec<LocalCollectionInfo>) -> Vec<CollectionInfo> {
+pub fn create_collection_info_vec(
+    collection_info: Vec<LocalCollectionInfo>,
+) -> Vec<CollectionInfo> {
     collection_info.iter().map(|c| c.0.clone()).collect()
 }
 

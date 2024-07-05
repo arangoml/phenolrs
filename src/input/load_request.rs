@@ -1,4 +1,4 @@
-use lightning::{CollectionInfo, DatabaseConfiguration, DataLoadConfiguration};
+use lightning::{CollectionInfo, DataLoadConfiguration, DatabaseConfiguration};
 
 pub struct DataLoadRequest {
     pub database: String,

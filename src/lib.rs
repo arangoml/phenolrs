@@ -4,8 +4,8 @@ mod input;
 mod load;
 mod output;
 
-use lightning::DataLoadConfiguration;
 use input::load_request::DataLoadRequest;
+use lightning::DataLoadConfiguration;
 #[cfg(not(test))]
 use output::construct;
 use output::convert::{convert_coo_edge_map, convert_nested_features_map};

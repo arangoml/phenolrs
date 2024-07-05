@@ -1,9 +1,9 @@
+use crate::arangodb;
+use crate::input::load_request::DataLoadRequest;
+use bytes::Bytes;
 use lightning::client::auth::handle_auth;
 use lightning::client::config::ClientConfig;
-use crate::input::load_request::{DataLoadRequest};
-use lightning::{client, CollectionInfo, DatabaseConfiguration, DataLoadConfiguration};
-use crate::{arangodb};
-use bytes::Bytes;
+use lightning::{client, CollectionInfo, DataLoadConfiguration, DatabaseConfiguration};
 use log::debug;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -152,9 +152,10 @@ pub async fn get_all_data_aql(
                         let resp = handle_auth(client_clone.post(url), &connection_config_clone)
                             .send()
                             .await;
-                        let resp =
-                            lightning::request::handle_arangodb_response(resp, |c| c == StatusCode::OK)
-                                .await?;
+                        let resp = lightning::request::handle_arangodb_response(resp, |c| {
+                            c == StatusCode::OK
+                        })
+                        .await?;
                         let end = SystemTime::now();
                         let dur = end.duration_since(start).unwrap();
                         let bytes_res = resp
@@ -190,16 +191,13 @@ pub async fn get_all_data_aql(
     let cleanup_cursors = |cursor_ids: Vec<String>| async move {
         for cursor_id in cursor_ids.into_iter() {
             let delete_cursor_url = make_url(&format!("/{}", cursor_id));
-            let resp = handle_auth(
-                client_for_cursor_close.delete(delete_cursor_url),
-                db_config,
-            )
+            let resp = handle_auth(client_for_cursor_close.delete(delete_cursor_url), db_config)
                 .send()
                 .await;
             let r = lightning::request::handle_arangodb_response(resp, |c| {
                 c == StatusCode::ACCEPTED || c == StatusCode::NOT_FOUND
             })
-                .await;
+            .await;
             if let Err(error) = r {
                 eprintln!(
                     "An error in cancelling a cursor occurred, cursor: {}, error: {}",

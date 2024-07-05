@@ -1,16 +1,16 @@
 use super::receive;
 use crate::arangodb::aql::get_all_data_aql;
 use crate::arangodb::dump::{compute_shard_map, get_all_shard_data, ShardDistribution, ShardMap};
-use lightning::request::handle_arangodb_response_with_parsed_body;
 use crate::arangodb::info::{DeploymentType, SupportInfo, VersionInformation};
+use crate::graphs::Graph;
+use crate::input::load_request::DataLoadRequest;
+use crate::load::load_strategy::LoadStrategy;
+use bytes::Bytes;
 use lightning::client::auth::handle_auth;
 use lightning::client::build_client;
 use lightning::client::config::ClientConfig;
-use crate::graphs::Graph;
-use crate::input::load_request::{DataLoadRequest};
+use lightning::request::handle_arangodb_response_with_parsed_body;
 use lightning::DatabaseConfiguration;
-use crate::load::load_strategy::LoadStrategy;
-use bytes::Bytes;
 use log::info;
 use reqwest::StatusCode;
 use std::collections::HashMap;
@@ -82,8 +82,7 @@ pub async fn fetch_graph_from_arangodb_local_variant(
         .send()
         .await;
     let version_info_result =
-        handle_arangodb_response_with_parsed_body::<VersionInformation>(resp, StatusCode::OK)
-            .await;
+        handle_arangodb_response_with_parsed_body::<VersionInformation>(resp, StatusCode::OK).await;
     if let Err(e) = version_info_result {
         return Err(e.to_string());
     }
@@ -156,7 +155,8 @@ pub async fn fetch_graph_from_arangodb_local_variant(
             let shard_dist_result = handle_arangodb_response_with_parsed_body::<ShardDistribution>(
                 resp,
                 StatusCode::OK,
-            ).await;
+            )
+            .await;
             if let Err(e) = shard_dist_result {
                 return Err(e.to_string());
             }
@@ -203,7 +203,7 @@ pub async fn fetch_graph_from_arangodb_local_variant(
         vertex_coll_field_map,
         load_strategy,
     )
-        .await?;
+    .await?;
 
     if !req.edge_collections.is_empty() {
         let edge_coll_list = req
@@ -232,7 +232,7 @@ pub async fn fetch_graph_from_arangodb_local_variant(
             &edge_map,
             &load_strategy,
         )
-            .await?;
+        .await?;
     }
 
     // And now the edges:
@@ -257,10 +257,7 @@ async fn load_edges(
     info!("loading edges");
     let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
-    for _i in 0..req
-        .load_config
-        .parallelism
-    {
+    for _i in 0..req.load_config.parallelism {
         let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
         senders.push(sender);
         let graph_clone = graph_arc.clone();
@@ -301,10 +298,7 @@ async fn load_vertices(
     // We use multiple threads to receive the data in batches:
     let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
     let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
-    for _i in 0..req
-        .load_config
-        .parallelism
-    {
+    for _i in 0..req.load_config.parallelism {
         let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
         senders.push(sender);
         let graph_clone = graph_arc.clone();
