@@ -102,8 +102,6 @@ class NumpyLoader:
             )
         )
 
-
-
         return (
             features_by_col,
             coo_map,
