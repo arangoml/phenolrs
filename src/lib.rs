@@ -30,9 +30,6 @@ create_exception!(phenolrs, PhenolError, PyException);
 #[pyfunction]
 #[cfg(not(test))]
 fn graph_to_pyg_format(py: Python, request: DataLoadRequest) -> PyResult<PygCompatible> {
-    println!("Oha Aha!");
-    // debug print request
-    println!("{:?}", request.db_config);
     let graph = load::retrieve::get_arangodb_graph(request).map_err(PhenolError::new_err)?;
 
     let col_to_features = construct::construct_col_to_features(
