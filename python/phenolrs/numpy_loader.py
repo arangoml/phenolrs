@@ -97,7 +97,7 @@ class NumpyLoader:
                     "vertex_collections": vertex_collections,
                     "edge_collections": edge_collections,
                     "database_config": db_config_options,
-                    "load_config": load_config_options
+                    "load_config": load_config_options,
                 }
             )
         )
