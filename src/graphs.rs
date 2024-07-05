@@ -60,6 +60,7 @@ pub struct NetworkXGraph {
     pub load_node_dict: bool,
     pub load_adj_dict: bool,
     pub load_adj_dict_as_directed: bool,
+    pub load_adj_dict_as_multigraph: bool,
     pub load_coo: bool,
 
     // node_map is a dictionary of node IDs to their json data
@@ -68,7 +69,10 @@ pub struct NetworkXGraph {
 
     // adj_map is a dict of dict of dict that represents the adjacency list of the graph
     // e.g {'user/1': {'user/2': {'weight': 0.6}, 'user/3': {'weight': 0.2}}, 'user/2': {'user/1': {'weight': 0.6}, 'user/3': {'weight': 0.2}}, ...}
+    // However, it is also possible to have multiple edges between the same pair of nodes.
+    // e.g {'user/1': {'user/2': {0: {'weight': 0.6}, 1: {'weight': 0.8}}}}
     pub adj_map: HashMap<String, HashMap<String, Map<String, Value>>>,
+    pub adj_map_multigraph: HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>,
 
     // e.g ([0, 1, 2], [1, 2, 3])
     pub coo: (Vec<usize>, Vec<usize>),
@@ -93,15 +97,18 @@ impl NetworkXGraph {
         load_node_dict: bool,
         load_adj_dict: bool,
         load_adj_dict_as_directed: bool,
+        load_adj_dict_as_multigraph: bool,
         load_coo: bool,
     ) -> Arc<RwLock<NetworkXGraph>> {
         Arc::new(RwLock::new(NetworkXGraph {
             load_node_dict,
             load_adj_dict,
             load_adj_dict_as_directed,
+            load_adj_dict_as_multigraph,
             load_coo,
             node_map: HashMap::new(),
             adj_map: HashMap::new(),
+            adj_map_multigraph: HashMap::new(),
             coo: (vec![], vec![]),
             vertex_id_to_index: HashMap::new(),
         }))
@@ -307,24 +314,7 @@ impl Graph for NetworkXGraph {
         let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
         let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();
 
-        // Step 1:
-        // Check if from_id_str exists in vertex_id_to_index
-        //      If yes, get the from_id_index from vertex_id_to_index
-        //      If not, add it to vertex_id_to_index with the current length of vertex_id_to_index.
-
-        // Step 2:
-        // Check if to_id_str exists in vertex_id_to_index
-        //      If yes, get the to_id_index from vertex_id_to_index
-        //      If not, add it to vertex_id_to_index with the current length of vertex_id_to_index.
-
-        // Step 3:
-        // Add the edge to the COO representation
-
-        // Step 4:
-        // Add the edge to the adjacency list representation
-
         if self.load_coo {
-            // Step 1
             let from_id_index = match self.vertex_id_to_index.get(&from_id_str) {
                 Some(index) => *index,
                 None => {
@@ -334,7 +324,6 @@ impl Graph for NetworkXGraph {
                 }
             };
 
-            // Step 2
             let to_id_index = match self.vertex_id_to_index.get(&to_id_str) {
                 Some(index) => *index,
                 None => {
@@ -344,32 +333,58 @@ impl Graph for NetworkXGraph {
                 }
             };
 
-            // Step 3
             self.coo.0.push(from_id_index);
             self.coo.1.push(to_id_index);
         }
 
         if self.load_adj_dict {
-            // Step 4
-            if !self.adj_map.contains_key(&from_id_str) {
-                self.adj_map.insert(from_id_str.clone(), HashMap::new());
-            }
-
-            if !self.adj_map.contains_key(&to_id_str) {
-                self.adj_map.insert(to_id_str.clone(), HashMap::new());
-            }
-
             let properties = match json {
                 Some(Value::Object(map)) => map,
                 _ => Map::new(),
             };
 
-            let from_map = self.adj_map.get_mut(&from_id_str).unwrap();
-            from_map.insert(to_id_str.clone(), properties.clone());
+            // MultiDiGraph
+            if self.load_adj_dict_as_multigraph {
+                if !self.adj_map_multigraph.contains_key(&from_id_str) {
+                    self.adj_map_multigraph
+                        .insert(from_id_str.clone(), HashMap::new());
+                }
 
-            if !self.load_adj_dict_as_directed {
-                let to_map = self.adj_map.get_mut(&to_id_str).unwrap();
-                to_map.insert(from_id_str.clone(), properties.clone());
+                if !self.adj_map_multigraph.contains_key(&to_id_str) {
+                    self.adj_map_multigraph
+                        .insert(to_id_str.clone(), HashMap::new());
+                }
+
+                let from_map = self.adj_map_multigraph.get_mut(&from_id_str).unwrap();
+                let from_to_map = from_map.entry(to_id_str.clone()).or_insert(HashMap::new());
+                let index = from_to_map.len();
+                from_to_map.insert(index, properties.clone());
+
+                // MutliGraph
+                if !self.load_adj_dict_as_directed {
+                    let to_map = self.adj_map_multigraph.get_mut(&to_id_str).unwrap();
+                    let to_from_map = to_map.entry(from_id_str.clone()).or_insert(HashMap::new());
+                    to_from_map.insert(index, properties.clone());
+                }
+
+            // DiGraph
+            } else {
+                if !self.adj_map.contains_key(&from_id_str) {
+                    self.adj_map.insert(from_id_str.clone(), HashMap::new());
+                }
+
+                if !self.adj_map.contains_key(&to_id_str) {
+                    self.adj_map.insert(to_id_str.clone(), HashMap::new());
+                }
+
+                let from_map = self.adj_map.get_mut(&from_id_str).unwrap();
+                from_map.insert(to_id_str.clone(), properties.clone());
+
+                // Graph
+                if !self.load_adj_dict_as_directed {
+                    let to_map = self.adj_map.get_mut(&to_id_str).unwrap();
+                    to_map.insert(from_id_str.clone(), properties.clone());
+                }
             }
         }
 

@@ -21,10 +21,11 @@ class NetworkXLoader:
         load_node_dict: bool = True,
         load_adj_dict: bool = True,
         load_adj_dict_as_directed: bool = True,
+        load_adj_dict_as_multigraph: bool = True,
         load_coo: bool = True,
     ) -> Tuple[
         dict[str, dict[str, Any]],
-        dict[str, dict[str, dict[str, Any]]],
+        dict[str, dict[str, dict[str, Any] | dict[int, dict[str, Any]]]],
         npt.NDArray[np.int64],
         npt.NDArray[np.int64],
         dict[str, int],
@@ -76,6 +77,7 @@ class NetworkXLoader:
             "load_node_dict": load_node_dict,
             "load_adj_dict": load_adj_dict,
             "load_adj_dict_as_directed": load_adj_dict_as_directed,
+            "load_adj_dict_as_multigraph": load_adj_dict_as_multigraph,
             "load_coo": load_coo,
         }
 

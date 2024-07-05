@@ -54,6 +54,7 @@ pub struct NetworkXGraphConfig {
     pub load_node_dict: bool,
     pub load_adj_dict: bool,
     pub load_adj_dict_as_directed: bool,
+    pub load_adj_dict_as_multigraph: bool,
     pub load_coo: bool,
 }
 
@@ -63,6 +64,7 @@ impl NetworkXGraphConfig {
             load_node_dict: true,
             load_adj_dict: true,
             load_adj_dict_as_directed: true,
+            load_adj_dict_as_multigraph: true,
             load_coo: true,
         }
     }

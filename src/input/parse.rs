@@ -136,6 +136,9 @@ impl FromPyObject<'_> for NetworkXGraphConfig {
         let load_adj_dict_as_directed: bool = input_dict
             .get_item("load_adj_dict_as_directed")?
             .map_or_else(|| Ok(true), |c| c.extract())?;
+        let load_adj_dict_as_multigraph: bool = input_dict
+            .get_item("load_adj_dict_as_multigraph")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
         let load_coo: bool = input_dict
             .get_item("load_coo")?
             .map_or_else(|| Ok(true), |c| c.extract())?;
@@ -143,6 +146,7 @@ impl FromPyObject<'_> for NetworkXGraphConfig {
             load_node_dict,
             load_adj_dict,
             load_adj_dict_as_directed,
+            load_adj_dict_as_multigraph,
             load_coo,
         })
     }

@@ -86,6 +86,7 @@ fn graph_to_networkx_format(
             graph_config.load_node_dict,
             graph_config.load_adj_dict,
             graph_config.load_adj_dict_as_directed,
+            graph_config.load_adj_dict_as_multigraph,
             graph_config.load_coo,
         )
     };
@@ -93,7 +94,11 @@ fn graph_to_networkx_format(
     let graph = load::retrieve::get_arangodb_graph(request, graph_factory).unwrap();
 
     let node_dict = construct::construct_dict_of_dict(graph.node_map, py)?;
-    let adj_dict = construct::construct_dict_of_dict_of_dict(graph.adj_map, py)?;
+    let adj_dict = if graph_config.load_adj_dict_as_multigraph {
+        construct::construct_dict_of_dict_of_dict_of_dict(graph.adj_map_multigraph, py)?
+    } else {
+        construct::construct_dict_of_dict_of_dict(graph.adj_map, py)?
+    };
 
     let coo = graph.coo;
     let src_indices = PyArray1::from_vec(py, coo.0);
