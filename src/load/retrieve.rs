@@ -1,27 +1,14 @@
-use super::receive;
-use crate::arangodb::aql::get_all_data_aql;
-use crate::arangodb::dump::{compute_shard_map, get_all_shard_data, ShardDistribution, ShardMap};
-use crate::arangodb::info::{DeploymentType, SupportInfo, VersionInformation};
 use crate::graphs::Graph;
 use crate::input::load_request::DataLoadRequest;
-use crate::load::load_strategy::LoadStrategy;
-use bytes::Bytes;
-use lightning::client::auth::handle_auth;
-use lightning::client::build_client;
-use lightning::client::config::ClientConfig;
-use lightning::request::handle_arangodb_response_with_parsed_body;
-use lightning::DatabaseConfiguration;
+use lightning::{CollectionInfo, GraphLoader};
 use log::info;
-use reqwest::StatusCode;
-use std::collections::HashMap;
 use std::error::Error;
-use std::num::ParseIntError;
 use std::sync::{Arc, RwLock};
-use std::thread::JoinHandle;
 use std::time::SystemTime;
+use serde_json::Value;
 
 pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
-    let graph = Graph::new(true, 64, 0);
+    let graph = Graph::new();
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
     // Fetch from ArangoDB in a background thread:
@@ -58,276 +45,94 @@ pub async fn fetch_graph_from_arangodb_local_variant(
     req: DataLoadRequest,
     graph_arc: Arc<RwLock<Graph>>,
 ) -> Result<Arc<RwLock<Graph>>, String> {
-    let db_config = &req.db_config;
+    let db_config = req.db_config;
+
+    // add "@collection_name" to every db config vertex collection field name
+    let mut local_vertex_collections = vec![];
+    let mut local_edge_collections = vec![];
+
+    for col in &req.vertex_collections {
+        let mut v_fields = vec![];
+        v_fields.push("@collection_name".to_string());
+        v_fields.extend(col.fields.clone());
+        let v_collection_info = CollectionInfo {
+            name: col.name.clone(),
+            fields: v_fields,
+        };
+        local_vertex_collections.push(v_collection_info);
+    }
+    for col in &req.edge_collections {
+        let mut e_fields = vec![];
+        e_fields.push("@collection_name".to_string());
+        e_fields.extend(col.fields.clone());
+        let e_collection_info = CollectionInfo {
+            name: col.name.clone(),
+            fields: e_fields,
+        };
+        local_edge_collections.push(e_collection_info);
+    }
+
+    let load_config = req.load_config;
+
     if db_config.endpoints.is_empty() {
         return Err("no endpoints given".to_string());
     }
-    let begin = std::time::SystemTime::now();
+    let begin = SystemTime::now();
 
     println!(
         "{:?} Fetching graph from ArangoDB...",
-        std::time::SystemTime::now().duration_since(begin).unwrap()
+        SystemTime::now().duration_since(begin).unwrap()
     );
 
-    let use_tls = db_config.endpoints[0].starts_with("https://");
-    let client_config = ClientConfig::builder()
-        .n_retries(5)
-        .use_tls(use_tls)
-        .tls_cert_opt(db_config.tls_cert.clone())
-        .build();
-    let client = build_client(&client_config)?;
-
-    let server_version_url = db_config.endpoints[0].clone() + "/_api/version";
-    let resp = handle_auth(client.get(server_version_url), &db_config)
-        .send()
-        .await;
-    let version_info_result =
-        handle_arangodb_response_with_parsed_body::<VersionInformation>(resp, StatusCode::OK).await;
-    if let Err(e) = version_info_result {
-        return Err(e.to_string());
+    let graph_loader;
+    let graph_loader_res =
+        GraphLoader::new_custom(db_config, load_config, local_vertex_collections, local_edge_collections)
+            .await;
+    match graph_loader_res {
+        Ok(g) => graph_loader = g,
+        Err(e) => return Err(format!("Could not create graph loader: {:?}", e)),
     }
-    let version_info = version_info_result.unwrap();
 
-    static MIN_SUPPORTED_MINOR_VERSIONS: &[(u8, u8)] = &[(3, 12)];
-    let version_parts: Vec<&str> = version_info.version.split('.').collect();
-    if version_parts.len() < 3 {
+    let graph_arc_clone = graph_arc.clone();
+    let handle_vertices = move |vertex_keys: &Vec<Vec<u8>>, vertex_json: &mut Vec<Vec<Value>>, vertex_field_names: &Vec<String>| {
+        let mut graph = graph_arc_clone.write().unwrap();
+
+        for i in 0..vertex_keys.len() {
+            let k = &vertex_keys[i];
+            let mut cols: Vec<Value> = vec![];
+            std::mem::swap(&mut cols, &mut vertex_json[i]);
+            graph.insert_vertex(k.clone(), cols, &vertex_field_names);
+        }
+
+        Ok(())
+    };
+    let vertices_result = graph_loader.do_vertices(handle_vertices).await;
+    if vertices_result.is_err() {
         return Err(format!(
-            "Unable to parse ArangoDB Version - got {}",
-            version_info.version
+            "Could not load vertices: {:?}",
+            vertices_result.err()
         ));
     }
 
-    let supports_v1 = {
-        let major: u8 = version_parts
-            .first()
-            .ok_or("Unable to parse Major Version".to_string())?
-            .parse()
-            .map_err(|err: ParseIntError| err.to_string())?;
-        let minor: u8 = version_parts
-            .get(1)
-            .ok_or("Unable to parse Minor Version".to_string())?
-            .parse()
-            .map_err(|err: ParseIntError| err.to_string())?;
-        let major_supports = MIN_SUPPORTED_MINOR_VERSIONS
-            .iter()
-            .map(|x| x.0)
-            .any(|x| x == major);
-        if !major_supports {
-            false
-        } else {
-            MIN_SUPPORTED_MINOR_VERSIONS
-                .iter()
-                .find(|x| x.0 == major)
-                .ok_or("Unable to find supported version".to_string())?
-                .1
-                <= minor
+    let graph_arc_clone = graph_arc.clone();
+    let handle_edges = move |col_names: &Vec<Vec<u8>>, from_ids: &Vec<Vec<u8>>, to_ids: &Vec<Vec<u8>>| {
+        let mut graph = graph_arc_clone.write().unwrap();
+        for i in 0..col_names.len() {
+            let _ = graph.insert_edge(col_names[i].clone(), from_ids[i].clone(), to_ids[i].clone(), vec![]);
         }
+        Ok(())
     };
 
-    let server_information_url = db_config.endpoints[0].clone() + "/_admin/support-info";
-    let support_info_res = handle_auth(client.get(server_information_url), &db_config)
-        .send()
-        .await;
-    let support_info_result =
-        handle_arangodb_response_with_parsed_body::<SupportInfo>(support_info_res, StatusCode::OK)
-            .await;
-    if let Err(e) = support_info_result {
-        return Err(e.to_string());
-    }
-    let support_info = support_info_result.unwrap();
-
-    let load_strategy =
-        if !supports_v1 && support_info.deployment.deployment_type == DeploymentType::Single {
-            LoadStrategy::Aql
-        } else {
-            LoadStrategy::Dump
-        };
-
-    let make_url =
-        |path: &str| -> String { db_config.endpoints[0].clone() + "/_db/" + &req.database + path };
-
-    // First ask for the shard distribution:
-    let url = make_url("/_admin/cluster/shardDistribution");
-    let resp = handle_auth(client.get(url), &db_config).send().await;
-    let shard_dist = match support_info.deployment.deployment_type {
-        DeploymentType::Single => None,
-        DeploymentType::Cluster => {
-            let shard_dist_result = handle_arangodb_response_with_parsed_body::<ShardDistribution>(
-                resp,
-                StatusCode::OK,
-            )
-            .await;
-            if let Err(e) = shard_dist_result {
-                return Err(e.to_string());
-            }
-            let shard_dist = shard_dist_result.unwrap();
-            Some(shard_dist)
-        }
-    };
-    let deployment_type = support_info.deployment.deployment_type;
-
-    // Compute which shard we must get from which dbserver, we do vertices
-    // and edges right away to be able to error out early:
-    let vertex_coll_list = req
-        .vertex_collections
-        .iter()
-        .map(|ci| -> String { ci.name.clone() })
-        .collect::<Vec<String>>();
-    let vertex_map = compute_shard_map(
-        &shard_dist,
-        &vertex_coll_list,
-        &deployment_type,
-        &db_config.endpoints,
-    )?;
-    let vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>> =
-        Arc::new(RwLock::new(HashMap::new()));
-    {
-        let mut guard = vertex_coll_field_map.write().unwrap();
-        for vc in req.vertex_collections.iter() {
-            guard.insert(vc.name.clone(), vc.fields.clone());
-        }
+    let edges_result = graph_loader.do_edges(handle_edges).await;
+    if edges_result.is_err() {
+        return Err(format!("Could not load edges: {:?}", edges_result.err()));
     }
 
-    info!(
-        "{:?} Need to fetch data from {} vertex shards...",
-        std::time::SystemTime::now().duration_since(begin).unwrap(),
-        vertex_map.values().map(|v| v.len()).sum::<usize>(),
-    );
-
-    load_vertices(
-        &req,
-        &graph_arc,
-        &db_config,
-        begin,
-        &vertex_map,
-        vertex_coll_field_map,
-        load_strategy,
-    )
-    .await?;
-
-    if !req.edge_collections.is_empty() {
-        let edge_coll_list = req
-            .edge_collections
-            .iter()
-            .map(|ci| -> String { ci.name.clone() })
-            .collect::<Vec<String>>();
-        let edge_map = compute_shard_map(
-            &shard_dist,
-            &edge_coll_list,
-            &deployment_type,
-            &db_config.endpoints,
-        )?;
-
-        info!(
-            "{:?} Need to fetch data from {} edge shards...",
-            std::time::SystemTime::now().duration_since(begin).unwrap(),
-            edge_map.values().map(|v| v.len()).sum::<usize>()
-        );
-
-        load_edges(
-            &req,
-            &graph_arc,
-            &db_config,
-            begin,
-            &edge_map,
-            &load_strategy,
-        )
-        .await?;
-    }
-
-    // And now the edges:
     {
         info!(
             "{:?} Graph loaded.",
-            std::time::SystemTime::now().duration_since(begin).unwrap()
+            SystemTime::now().duration_since(begin).unwrap()
         );
     }
-    info!("hi");
     Ok(graph_arc)
-}
-
-async fn load_edges(
-    req: &DataLoadRequest,
-    graph_arc: &Arc<RwLock<Graph>>,
-    db_config: &DatabaseConfiguration,
-    begin: SystemTime,
-    edge_map: &ShardMap,
-    load_strategy: &LoadStrategy,
-) -> Result<(), String> {
-    info!("loading edges");
-    let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
-    let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
-    for _i in 0..req.load_config.parallelism {
-        let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
-        senders.push(sender);
-        let graph_clone = graph_arc.clone();
-        let load_strategy_clone = *load_strategy;
-        let consumer = std::thread::spawn(move || {
-            receive::receive_edges(receiver, graph_clone, load_strategy_clone)
-        });
-        consumers.push(consumer);
-    }
-    match load_strategy {
-        LoadStrategy::Dump => {
-            get_all_shard_data(req, edge_map, senders).await?;
-        }
-        LoadStrategy::Aql => {
-            get_all_data_aql(req, db_config, &req.edge_collections, senders, true).await?;
-        }
-    }
-    info!(
-        "{:?} Got all data, processing...",
-        std::time::SystemTime::now().duration_since(begin).unwrap()
-    );
-    for c in consumers {
-        let _guck = c.join();
-    }
-    Ok(())
-}
-
-async fn load_vertices(
-    req: &DataLoadRequest,
-    graph_arc: &Arc<RwLock<Graph>>,
-    db_config: &DatabaseConfiguration,
-    begin: SystemTime,
-    vertex_map: &ShardMap,
-    vertex_coll_field_map: Arc<RwLock<HashMap<String, Vec<String>>>>,
-    load_strategy: LoadStrategy,
-) -> Result<(), String> {
-    info!("loading vertices");
-    // We use multiple threads to receive the data in batches:
-    let mut senders: Vec<std::sync::mpsc::Sender<Bytes>> = vec![];
-    let mut consumers: Vec<JoinHandle<Result<(), String>>> = vec![];
-    for _i in 0..req.load_config.parallelism {
-        let (sender, receiver) = std::sync::mpsc::channel::<Bytes>();
-        senders.push(sender);
-        let graph_clone = graph_arc.clone();
-        let vertex_coll_field_map_clone = vertex_coll_field_map.clone();
-        let load_strategy_clone = load_strategy;
-        let consumer = std::thread::spawn(move || {
-            receive::receive_vertices(
-                receiver,
-                graph_clone,
-                vertex_coll_field_map_clone,
-                load_strategy_clone,
-            )
-        });
-        consumers.push(consumer);
-    }
-    match load_strategy {
-        LoadStrategy::Dump => {
-            get_all_shard_data(req, vertex_map, senders).await?;
-        }
-        LoadStrategy::Aql => {
-            get_all_data_aql(req, db_config, &req.vertex_collections, senders, false).await?;
-        }
-    }
-    info!(
-        "{:?} Got all data, processing...",
-        std::time::SystemTime::now().duration_since(begin).unwrap()
-    );
-    for c in consumers {
-        let _guck = c.join();
-    }
-    Ok(())
 }

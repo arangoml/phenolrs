@@ -528,6 +528,7 @@ checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 [[package]]
 name = "lightning"
 version = "1.0.0"
+source = "git+ssh://git@github.com/arangodb/lightning?branch=main#19a8dc7bbb4b585732adc8457ce7d051d36b9127"
 dependencies = [
  "bytes",
  "log",
@@ -887,7 +888,7 @@ dependencies = [
  "indoc",
  "libc",
  "memoffset",
- "parking_lot 0.11.2",
+ "parking_lot 0.12.1",
  "portable-atomic",
  "pyo3-build-config",
  "pyo3-ffi",

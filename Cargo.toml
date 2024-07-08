@@ -15,7 +15,7 @@ lto = "fat"
 
 [dependencies]
 lightning = { git = "ssh://git@github.com/arangodb/lightning", branch = "main" }
-# lightning = { path = "../lightning" }
+#lightning = { path = "../lightning" }
 numpy = "0.20.0"
 tokio = { version = "1", features = ["full"] }
 bytes = "1.5.0"
