@@ -2,10 +2,10 @@ use crate::graphs::Graph;
 use crate::input::load_request::DataLoadRequest;
 use lightning::{CollectionInfo, GraphLoader};
 use log::info;
+use serde_json::Value;
 use std::error::Error;
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
-use serde_json::Value;
 
 pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
     let graph = Graph::new();
@@ -85,16 +85,22 @@ pub async fn fetch_graph_from_arangodb_local_variant(
     );
 
     let graph_loader;
-    let graph_loader_res =
-        GraphLoader::new_custom(db_config, load_config, local_vertex_collections, local_edge_collections)
-            .await;
+    let graph_loader_res = GraphLoader::new_custom(
+        db_config,
+        load_config,
+        local_vertex_collections,
+        local_edge_collections,
+    )
+    .await;
     match graph_loader_res {
         Ok(g) => graph_loader = g,
         Err(e) => return Err(format!("Could not create graph loader: {:?}", e)),
     }
 
     let graph_arc_clone = graph_arc.clone();
-    let handle_vertices = move |vertex_keys: &Vec<Vec<u8>>, vertex_json: &mut Vec<Vec<Value>>, vertex_field_names: &Vec<String>| {
+    let handle_vertices = move |vertex_keys: &Vec<Vec<u8>>,
+                                vertex_json: &mut Vec<Vec<Value>>,
+                                vertex_field_names: &Vec<String>| {
         let mut graph = graph_arc_clone.write().unwrap();
 
         for i in 0..vertex_keys.len() {
@@ -115,13 +121,19 @@ pub async fn fetch_graph_from_arangodb_local_variant(
     }
 
     let graph_arc_clone = graph_arc.clone();
-    let handle_edges = move |col_names: &Vec<Vec<u8>>, from_ids: &Vec<Vec<u8>>, to_ids: &Vec<Vec<u8>>| {
-        let mut graph = graph_arc_clone.write().unwrap();
-        for i in 0..col_names.len() {
-            let _ = graph.insert_edge(col_names[i].clone(), from_ids[i].clone(), to_ids[i].clone(), vec![]);
-        }
-        Ok(())
-    };
+    let handle_edges =
+        move |col_names: &Vec<Vec<u8>>, from_ids: &Vec<Vec<u8>>, to_ids: &Vec<Vec<u8>>| {
+            let mut graph = graph_arc_clone.write().unwrap();
+            for i in 0..col_names.len() {
+                let _ = graph.insert_edge(
+                    col_names[i].clone(),
+                    from_ids[i].clone(),
+                    to_ids[i].clone(),
+                    vec![],
+                );
+            }
+            Ok(())
+        };
 
     let edges_result = graph_loader.do_edges(handle_edges).await;
     if edges_result.is_err() {

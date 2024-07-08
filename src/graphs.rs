@@ -63,10 +63,14 @@ impl Graph {
                     .insert(col_name.clone(), HashMap::new());
             }
 
-            let keys_to_inds: &mut HashMap<String, usize> =
-                self.cols_to_keys_to_inds.get_mut(col_name.as_str()).unwrap();
-            let inds_to_keys: &mut HashMap<usize, String> =
-                self.cols_to_inds_to_keys.get_mut(col_name.as_str()).unwrap();
+            let keys_to_inds: &mut HashMap<String, usize> = self
+                .cols_to_keys_to_inds
+                .get_mut(col_name.as_str())
+                .unwrap();
+            let inds_to_keys: &mut HashMap<usize, String> = self
+                .cols_to_inds_to_keys
+                .get_mut(col_name.as_str())
+                .unwrap();
 
             let cur_ind = keys_to_inds.len();
             let cur_key_str = String::from_utf8(key.clone()).unwrap();
