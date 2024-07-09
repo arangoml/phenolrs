@@ -1,12 +1,12 @@
 use crate::graphs::Graph;
 use crate::input::load_request::DataLoadRequest;
+use lightning::errors::GraphLoaderError;
 use lightning::{CollectionInfo, GraphLoader};
 use log::info;
 use serde_json::Value;
 use std::error::Error;
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
-use lightning::errors::GraphLoaderError;
 
 pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
     let graph = Graph::new();
@@ -125,7 +125,6 @@ pub async fn fetch_graph_from_arangodb_local_variant(
         }
     }
 
-
     let graph_arc_clone = graph_arc.clone();
     let handle_edges =
         move |col_names: &Vec<Vec<u8>>, from_ids: &Vec<Vec<u8>>, to_ids: &Vec<Vec<u8>>| {
@@ -141,7 +140,10 @@ pub async fn fetch_graph_from_arangodb_local_variant(
                         vec![],
                     );
                     if insertion_result.is_err() {
-                        return Err(GraphLoaderError::from(format!("Could not insert edge: {:?}", insertion_result.err())));
+                        return Err(GraphLoaderError::from(format!(
+                            "Could not insert edge: {:?}",
+                            insertion_result.err()
+                        )));
                     }
                 }
             }
