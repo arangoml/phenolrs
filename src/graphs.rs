@@ -80,12 +80,10 @@ impl Graph {
             // always ad the id here in key.clone(). Now it is not the case anymore. So we need to
             // check if the key is already in the format of the id or not. This should be done better soon.
             // This only occurs in case we're using the AQL Load variant.
-            let cur_key_str = cur_id_str
-                .split_once('/')
-                .map_or_else(
-                    || cur_id_str.clone(),  // If no '/', use the whole string
-                    |(_, key)| key.to_string(),  // If '/' is present, use the part after '/'
-                );
+            let cur_key_str = cur_id_str.split_once('/').map_or_else(
+                || cur_id_str.clone(),      // If no '/', use the whole string
+                |(_, key)| key.to_string(), // If '/' is present, use the part after '/'
+            );
 
             keys_to_inds.insert(cur_key_str.clone(), cur_ind);
             inds_to_keys.insert(cur_ind, cur_key_str);
