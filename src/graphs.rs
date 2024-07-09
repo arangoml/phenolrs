@@ -34,6 +34,7 @@ impl Graph {
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) {
+        // Important note: Actually the API returns IDs instead of keys .................
         assert!(!columns.is_empty());
         assert_eq!(columns.len(), field_names.len());
         // columns[0] is type Value::String and must be the collection name
@@ -73,7 +74,8 @@ impl Graph {
                 .unwrap();
 
             let cur_ind = keys_to_inds.len();
-            let cur_key_str = String::from_utf8(key.clone()).unwrap();
+            let cur_id_str = String::from_utf8(key.clone()).unwrap();
+            let cur_key_str = cur_id_str.splitn(2, '/').nth(1).unwrap().to_string();
 
             keys_to_inds.insert(cur_key_str.clone(), cur_ind);
             inds_to_keys.insert(cur_ind, cur_key_str);

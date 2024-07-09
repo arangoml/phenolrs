@@ -6,6 +6,7 @@ use serde_json::Value;
 use std::error::Error;
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
+use lightning::errors::GraphLoaderError;
 
 pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
     let graph = Graph::new();
@@ -112,32 +113,47 @@ pub async fn fetch_graph_from_arangodb_local_variant(
 
         Ok(())
     };
-    let vertices_result = graph_loader.do_vertices(handle_vertices).await;
-    if vertices_result.is_err() {
-        return Err(format!(
-            "Could not load vertices: {:?}",
-            vertices_result.err()
-        ));
+
+    if req.vertex_collections.len() > 0 {
+        // only load vertices if there are any
+        let vertices_result = graph_loader.do_vertices(handle_vertices).await;
+        if vertices_result.is_err() {
+            return Err(format!(
+                "Could not load vertices: {:?}",
+                vertices_result.err()
+            ));
+        }
     }
+
 
     let graph_arc_clone = graph_arc.clone();
     let handle_edges =
         move |col_names: &Vec<Vec<u8>>, from_ids: &Vec<Vec<u8>>, to_ids: &Vec<Vec<u8>>| {
-            let mut graph = graph_arc_clone.write().unwrap();
-            for i in 0..col_names.len() {
-                let _ = graph.insert_edge(
-                    col_names[i].clone(),
-                    from_ids[i].clone(),
-                    to_ids[i].clone(),
-                    vec![],
-                );
+            {
+                // Now actually insert edges by writing the graph
+                // object:
+                let mut graph = graph_arc_clone.write().unwrap();
+                for i in 0..col_names.len() {
+                    let insertion_result = graph.insert_edge(
+                        col_names[i].clone(),
+                        from_ids[i].clone(),
+                        to_ids[i].clone(),
+                        vec![],
+                    );
+                    if insertion_result.is_err() {
+                        return Err(GraphLoaderError::from(format!("Could not insert edge: {:?}", insertion_result.err())));
+                    }
+                }
             }
             Ok(())
         };
 
-    let edges_result = graph_loader.do_edges(handle_edges).await;
-    if edges_result.is_err() {
-        return Err(format!("Could not load edges: {:?}", edges_result.err()));
+    if req.edge_collections.len() > 0 {
+        // only load edges if there are any
+        let edges_result = graph_loader.do_edges(handle_edges).await;
+        if edges_result.is_err() {
+            return Err(format!("Could not load edges: {:?}", edges_result.err()));
+        }
     }
 
     {
