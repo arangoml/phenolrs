@@ -1,4 +1,4 @@
-use crate::graphs::Graph;
+use crate::graph::Graph;
 use crate::input::load_request::DataLoadRequest;
 use lightning::errors::GraphLoaderError;
 use lightning::{CollectionInfo, GraphLoader};

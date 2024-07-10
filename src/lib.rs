@@ -1,4 +1,4 @@
-mod graphs;
+mod graph;
 mod input;
 mod load;
 mod output;
