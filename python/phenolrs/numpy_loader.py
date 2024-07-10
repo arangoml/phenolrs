@@ -31,8 +31,8 @@ class NumpyLoader:
             "database": database,
         }
         load_config_options: dict[str, typing.Any] = {
-            "parallelism": 8,
-            "batch_size": 1000000,
+            "parallelism": parallelism,
+            "batch_size": batch_size,
             "prefetch_count": 5,
         }
         if username:
