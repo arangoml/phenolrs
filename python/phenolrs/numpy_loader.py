@@ -31,8 +31,8 @@ class NumpyLoader:
             "database": database,
         }
         load_config_options: dict[str, typing.Any] = {
-            "parallelism": parallelism,
-            "batch_size": batch_size,
+            "parallelism": parallelism if parallelism is not None else 8,
+            "batch_size": batch_size if batch_size is not None else 100000,
             "prefetch_count": 5,
         }
         if username:
@@ -43,12 +43,6 @@ class NumpyLoader:
             db_config_options["jwt_token"] = user_jwt
         if tls_cert:
             db_config_options["tls_cert"] = tls_cert
-
-        config: dict[str, typing.Any] = {"database_config": db_config_options}
-        if parallelism:
-            config["parallelism"] = parallelism
-        if batch_size:
-            config["batch_size"] = batch_size
 
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
@@ -93,7 +87,6 @@ class NumpyLoader:
         features_by_col, coo_map, col_to_adb_key_to_ind, col_to_ind_to_adb_key = (
             graph_to_pyg_format(
                 {
-                    "database": database,
                     "vertex_collections": vertex_collections,
                     "edge_collections": edge_collections,
                     "database_config": db_config_options,

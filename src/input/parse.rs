@@ -42,10 +42,6 @@ impl Default for LocalDataLoadConfiguration {
 impl FromPyObject<'_> for DataLoadRequest {
     fn extract(ob: &PyAny) -> PyResult<Self> {
         let input_dict: &PyDict = ob.downcast()?;
-        let database_value: &str = input_dict.get_item("database")?.map_or_else(
-            || Err(PyValueError::new_err("Database not set")),
-            |s| s.extract(),
-        )?;
         let db_config: LocalDatabaseConfiguration = input_dict
             .get_item("database_config")?
             .map_or(Ok(LocalDatabaseConfiguration::default()), |c| c.extract())?;
@@ -63,7 +59,6 @@ impl FromPyObject<'_> for DataLoadRequest {
                 |s| s.extract(),
             )?;
         Ok(DataLoadRequest {
-            database: database_value.to_string(),
             vertex_collections: create_collection_info_vec(vertex_collections),
             edge_collections: create_collection_info_vec(edge_collections),
             load_config: load_config.into(),
