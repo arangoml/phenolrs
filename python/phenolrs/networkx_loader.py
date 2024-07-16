@@ -109,7 +109,7 @@ class NetworkXLoader:
                     "database_config": db_config_options,
                     "load_config": load_config_options,
                 },
-                graph_config=graph_config, # TODO Anthony: Move into request
+                graph_config=graph_config,  # TODO Anthony: Move into request
             )
         )
 
