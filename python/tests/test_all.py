@@ -1,7 +1,7 @@
-import numpy
+# import numpy
 from torch_geometric.data import HeteroData
 
-from phenolrs.networkx_loader import NetworkXLoader
+# from phenolrs.networkx_loader import NetworkXLoader
 from phenolrs.numpy_loader import NumpyLoader
 from phenolrs.pyg_loader import PygLoader
 
