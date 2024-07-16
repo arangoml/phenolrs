@@ -1,4 +1,4 @@
-use crate::graph::Graph;
+use crate::graph::NumpyGraph;
 use crate::input::load_request::DataLoadRequest;
 use lightning::errors::GraphLoaderError;
 use lightning::{CollectionInfo, GraphLoader};
@@ -8,8 +8,8 @@ use std::error::Error;
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
 
-pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
-    let graph = Graph::new();
+pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<NumpyGraph, String> {
+    let graph = NumpyGraph::new();
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
     // Fetch from ArangoDB in a background thread:
@@ -25,7 +25,7 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
     });
     handle.join().map_err(|_s| "Computation failed")??;
     let inner_rw_lock =
-        Arc::<std::sync::RwLock<Graph>>::try_unwrap(graph).map_err(|poisoned_arc| {
+        Arc::<std::sync::RwLock<NumpyGraph>>::try_unwrap(graph).map_err(|poisoned_arc| {
             if poisoned_arc.is_poisoned() {
                 "Computation failed: thread failed - poisoned arc"
             } else {
@@ -44,8 +44,8 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<Graph, String> {
 
 pub async fn fetch_graph_from_arangodb_local_variant(
     req: DataLoadRequest,
-    graph_arc: Arc<RwLock<Graph>>,
-) -> Result<Arc<RwLock<Graph>>, String> {
+    graph_arc: Arc<RwLock<NumpyGraph>>,
+) -> Result<Arc<RwLock<NumpyGraph>>, String> {
     let db_config = req.db_config;
 
     // add "@collection_name" to every db config vertex collection field name

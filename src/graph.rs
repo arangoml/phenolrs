@@ -11,16 +11,16 @@ pub struct VertexHash(u64);
 pub struct VertexIndex(u64);
 
 #[derive(Debug)]
-pub struct Graph {
+pub struct NumpyGraph {
     pub cols_to_keys_to_inds: HashMap<String, HashMap<String, usize>>,
     pub cols_to_inds_to_keys: HashMap<String, HashMap<usize, String>>,
     pub coo_by_from_edge_to: HashMap<(String, String, String), Vec<Vec<usize>>>,
     pub cols_to_features: HashMap<String, HashMap<String, Vec<Vec<f64>>>>,
 }
 
-impl Graph {
-    pub fn new() -> Arc<RwLock<Graph>> {
-        Arc::new(RwLock::new(Graph {
+impl NumpyGraph {
+    pub fn new() -> Arc<RwLock<NumpyGraph>> {
+        Arc::new(RwLock::new(NumpyGraph {
             cols_to_features: HashMap::new(),
             cols_to_keys_to_inds: HashMap::new(),
             cols_to_inds_to_keys: HashMap::new(),
