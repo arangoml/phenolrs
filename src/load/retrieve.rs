@@ -8,8 +8,13 @@ use std::error::Error;
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
 
-pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<NumpyGraph, String> {
-    let graph = NumpyGraph::new();
+use crate::graph::{identify_graph, Graph};
+
+pub fn get_arangodb_graph<G: Graph + Send + Sync + 'static>(
+    req: DataLoadRequest,
+    graph_factory: impl Fn() -> Arc<RwLock<G>>,
+) -> Result<G, String> {
+    let graph = graph_factory();
     let graph_clone = graph.clone(); // for background thread
     println!("Starting computation");
     // Fetch from ArangoDB in a background thread:
@@ -24,14 +29,8 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<NumpyGraph, String> {
             })
     });
     handle.join().map_err(|_s| "Computation failed")??;
-    let inner_rw_lock =
-        Arc::<std::sync::RwLock<NumpyGraph>>::try_unwrap(graph).map_err(|poisoned_arc| {
-            if poisoned_arc.is_poisoned() {
-                "Computation failed: thread failed - poisoned arc"
-            } else {
-                "Computation failed"
-            }
-        })?;
+    let inner_rw_lock = Arc::<std::sync::RwLock<G>>::try_unwrap(graph)
+        .map_err(|_| "Computation failed: thread failed - poisoned arc".to_string())?;
     inner_rw_lock.into_inner().map_err(|poisoned_lock| {
         format!(
             "Computation failed: thread failed - poisoned lock {}",
@@ -42,10 +41,10 @@ pub fn get_arangodb_graph(req: DataLoadRequest) -> Result<NumpyGraph, String> {
     })
 }
 
-pub async fn fetch_graph_from_arangodb_local_variant(
+pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 'static>(
     req: DataLoadRequest,
-    graph_arc: Arc<RwLock<NumpyGraph>>,
-) -> Result<Arc<RwLock<NumpyGraph>>, String> {
+    graph_arc: Arc<RwLock<G>>,
+) -> Result<Arc<RwLock<G>>, String> {
     let db_config = req.db_config;
 
     // add "@collection_name" to every db config vertex collection field name
