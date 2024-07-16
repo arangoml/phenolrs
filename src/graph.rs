@@ -1,4 +1,5 @@
-use serde_json::Value;
+use serde_json::{Map, Value};
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -173,5 +174,168 @@ fn parse_value_to_vec(val: &Value) -> Option<Vec<f64>> {
             }
         }
         None => val.as_f64().map(|only_val| vec![only_val]),
+    }
+}
+
+#[derive(Debug)]
+pub struct NetworkXGraph {
+    pub load_node_dict: bool,
+    pub load_adj_dict: bool,
+    pub load_adj_dict_as_directed: bool,
+    pub load_adj_dict_as_multigraph: bool,
+    pub load_coo: bool,
+
+    // node_map is a dictionary of node IDs to their json data
+    // e.g {'user/1': {'name': 'Alice', 'age': 25}, 'user/2': {'name': 'Bob', 'age': 30}, ...}
+    pub node_map: HashMap<String, Map<String, Value>>,
+
+    // adj_map is a dict of dict of dict that represents the adjacency list of the graph
+    // e.g {'user/1': {'user/2': {'weight': 0.6}, 'user/3': {'weight': 0.2}}, 'user/2': {'user/1': {'weight': 0.6}, 'user/3': {'weight': 0.2}}, ...}
+    // However, it is also possible to have multiple edges between the same pair of nodes.
+    // e.g {'user/1': {'user/2': {0: {'weight': 0.6}, 1: {'weight': 0.8}}}}
+    pub adj_map: HashMap<String, HashMap<String, Map<String, Value>>>,
+    pub adj_map_multigraph: HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>,
+
+    // e.g ([0, 1, 2], [1, 2, 3])
+    pub coo: (Vec<usize>, Vec<usize>),
+
+    // e.g {'user/1': 0, 'user/2': 1, ...}
+    pub vertex_id_to_index: HashMap<String, usize>,
+}
+
+impl NetworkXGraph {
+    pub fn new(
+        load_node_dict: bool,
+        load_adj_dict: bool,
+        load_adj_dict_as_directed: bool,
+        load_adj_dict_as_multigraph: bool,
+        load_coo: bool,
+    ) -> Arc<RwLock<NetworkXGraph>> {
+        Arc::new(RwLock::new(NetworkXGraph {
+            load_node_dict,
+            load_adj_dict,
+            load_adj_dict_as_directed,
+            load_adj_dict_as_multigraph,
+            load_coo,
+            node_map: HashMap::new(),
+            adj_map: HashMap::new(),
+            adj_map_multigraph: HashMap::new(),
+            coo: (vec![], vec![]),
+            vertex_id_to_index: HashMap::new(),
+        }))
+    }
+
+    pub fn insert_vertex(
+        &mut self,
+        key: Vec<u8>,
+        json: Option<Value>, // TODO: this needs to be passed...
+        _columns: Vec<Value>,
+        _field_names: &Vec<String>,
+    ) {
+        if self.load_node_dict == false {
+            return;
+        }
+
+        // Simply insert the vertex into the node_map
+        let vertex_id = String::from_utf8(key.clone()).unwrap();
+
+        let properties = match json {
+            Some(Value::Object(map)) => map,
+            _ => Map::new(),
+        };
+
+        self.node_map.insert(vertex_id, properties);
+    }
+
+    pub fn insert_edge(
+        &mut self,
+        _col_name: Vec<u8>,
+        from_id: Vec<u8>,
+        to_id: Vec<u8>,
+        // _data: Vec<u8>,
+        json: Option<Value>, // TODO: this needs to be passed...
+    ) -> Result<()> {
+        if self.load_adj_dict == false && self.load_coo == false {
+            return Ok(());
+        }
+
+        let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
+        let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();
+
+        if self.load_coo {
+            let from_id_index = match self.vertex_id_to_index.get(&from_id_str) {
+                Some(index) => *index,
+                None => {
+                    let index: usize = self.vertex_id_to_index.len();
+                    self.vertex_id_to_index.insert(from_id_str.clone(), index);
+                    index
+                }
+            };
+
+            let to_id_index = match self.vertex_id_to_index.get(&to_id_str) {
+                Some(index) => *index,
+                None => {
+                    let index = self.vertex_id_to_index.len();
+                    self.vertex_id_to_index.insert(to_id_str.clone(), index);
+                    index
+                }
+            };
+
+            self.coo.0.push(from_id_index);
+            self.coo.1.push(to_id_index);
+        }
+
+        if self.load_adj_dict {
+            let properties = match json {
+                Some(Value::Object(map)) => map,
+                _ => Map::new(),
+            };
+
+            // Case: MultiGraph or MultiDiGraph
+            if self.load_adj_dict_as_multigraph {
+                if !self.adj_map_multigraph.contains_key(&from_id_str) {
+                    self.adj_map_multigraph
+                        .insert(from_id_str.clone(), HashMap::new());
+                }
+
+                if !self.adj_map_multigraph.contains_key(&to_id_str) {
+                    self.adj_map_multigraph
+                        .insert(to_id_str.clone(), HashMap::new());
+                }
+
+                let from_map = self.adj_map_multigraph.get_mut(&from_id_str).unwrap();
+                let from_to_map = from_map.entry(to_id_str.clone()).or_insert(HashMap::new());
+                let index = from_to_map.len();
+                from_to_map.insert(index, properties.clone());
+
+                // Case: MultiGraph
+                if !self.load_adj_dict_as_directed {
+                    let to_map = self.adj_map_multigraph.get_mut(&to_id_str).unwrap();
+                    let to_from_map = to_map.entry(from_id_str.clone()).or_insert(HashMap::new());
+                    to_from_map.insert(index, properties.clone());
+                }
+
+            // Case: Graph or DiGraph
+            } else {
+                if !self.adj_map.contains_key(&from_id_str) {
+                    self.adj_map.insert(from_id_str.clone(), HashMap::new());
+                }
+
+                if !self.adj_map.contains_key(&to_id_str) {
+                    self.adj_map.insert(to_id_str.clone(), HashMap::new());
+                }
+
+                let from_map = self.adj_map.get_mut(&from_id_str).unwrap();
+                from_map.insert(to_id_str.clone(), properties.clone());
+
+                // Case: Graph
+                if !self.load_adj_dict_as_directed {
+                    let to_map = self.adj_map.get_mut(&to_id_str).unwrap();
+                    to_map.insert(from_id_str.clone(), properties.clone());
+                }
+            }
+        }
+
+        Ok(())
     }
 }
