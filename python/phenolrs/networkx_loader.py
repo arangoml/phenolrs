@@ -62,10 +62,6 @@ class NetworkXLoader:
                 "At least one of load_node_dict, load_adj_dict, or load_coo must be True"  # noqa
             )
 
-        db_config_options: dict[str, Any] = {
-            "endpoints": hosts,
-        }
-
         if username:
             db_config_options["username"] = username
         if password:
