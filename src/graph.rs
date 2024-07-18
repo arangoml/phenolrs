@@ -1,5 +1,4 @@
 use serde_json::{Map, Value};
-use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -12,8 +11,6 @@ pub struct VertexHash(u64);
 pub struct VertexIndex(u64);
 
 pub trait Graph {
-    fn as_any(&self) -> &dyn Any;
-
     fn insert_vertex(
         &mut self,
         id: Vec<u8>,               // cannot be empty
@@ -96,10 +93,6 @@ impl NetworkXGraph {
 }
 
 impl Graph for NumpyGraph {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn insert_vertex(
         &mut self,
         id: Vec<u8>, // cannot be empty
@@ -258,10 +251,6 @@ fn parse_value_to_vec(val: &Value) -> Option<Vec<f64>> {
 }
 
 impl Graph for NetworkXGraph {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn insert_vertex(
         &mut self,
         id: Vec<u8>, // cannot be empty
