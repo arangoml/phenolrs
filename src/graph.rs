@@ -1,4 +1,3 @@
-use core::panic;
 use serde_json::{Map, Value};
 use std::any::Any;
 use std::collections::HashMap;
@@ -17,28 +16,18 @@ pub trait Graph {
 
     fn insert_vertex(
         &mut self,
-        key: Vec<u8>, // cannot be empty
-        columns: Vec<Value>,
-        field_names: &Vec<String>,
+        id: Vec<u8>,               // cannot be empty
+        columns: Vec<Value>, // columns is either with load_all_vertex_attributes set to True or False
+        field_names: &Vec<String>, // should be empty if load_all_vertex_attributes is set to True
     );
+
     fn insert_edge(
         &mut self,
-        col_name: Vec<u8>,
         from_id: Vec<u8>,
         to_id: Vec<u8>,
-        _data: Vec<u8>,
+        columns: Vec<Value>, // columns is either with load_all_edge_attributes set to True or False (for now, False case is not supported)
+        field_names: &Vec<String>, // should be empty if load_all_edge_attributes is set to True
     ) -> anyhow::Result<()>;
-}
-
-pub fn identify_graph<G: Graph>(graph_arc: &Arc<RwLock<G>>) -> &'static str {
-    let graph = graph_arc.read().unwrap();
-    if graph.as_any().is::<NumpyGraph>() {
-        "NumpyGraph"
-    } else if graph.as_any().is::<NetworkXGraph>() {
-        "NetworkXGraph"
-    } else {
-        panic!("Unknown graph type"); // This should never happen
-    }
 }
 
 #[derive(Debug)]
@@ -51,7 +40,6 @@ pub struct NumpyGraph {
 
 #[derive(Debug)]
 pub struct NetworkXGraph {
-    pub load_node_dict: bool,
     pub load_adj_dict: bool,
     pub load_adj_dict_as_directed: bool,
     pub load_adj_dict_as_multigraph: bool,
@@ -88,14 +76,12 @@ impl NumpyGraph {
 
 impl NetworkXGraph {
     pub fn new(
-        load_node_dict: bool,
         load_adj_dict: bool,
         load_adj_dict_as_directed: bool,
         load_adj_dict_as_multigraph: bool,
         load_coo: bool,
     ) -> Arc<RwLock<NetworkXGraph>> {
         Arc::new(RwLock::new(NetworkXGraph {
-            load_node_dict,
             load_adj_dict,
             load_adj_dict_as_directed,
             load_adj_dict_as_multigraph,
@@ -116,22 +102,18 @@ impl Graph for NumpyGraph {
 
     fn insert_vertex(
         &mut self,
-        key: Vec<u8>, // cannot be empty
+        id: Vec<u8>, // cannot be empty
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) {
-        // Important note: Actually the API returns IDs instead of keys .................
         assert!(!columns.is_empty());
         assert_eq!(columns.len(), field_names.len());
-        // columns[0] is type Value::String and must be the collection name
-        let col_name = match &columns[0] {
-            Value::String(s) => s,
-            _ => panic!("Expected Value::String"),
-        };
 
+        let mut col_name = String::new();
         let mut feature_res: HashMap<String, Vec<f64>> = HashMap::new();
         for (i, feature_name) in field_names.iter().enumerate() {
             if feature_name == "@collection_name" {
+                col_name = columns[i].as_str().unwrap().to_string();
                 continue;
             }
             let feature_vec = parse_value_to_vec(&columns[i]);
@@ -160,7 +142,7 @@ impl Graph for NumpyGraph {
                 .unwrap();
 
             let cur_ind = keys_to_inds.len();
-            let cur_id_str = String::from_utf8(key.clone()).unwrap();
+            let cur_id_str = String::from_utf8(id.clone()).unwrap();
             // let cur_key_str = cur_id_str.splitn(2, '/').nth(1).unwrap().to_string();
             // This is a bit stupid right now. Before the library merge of lightning, this route here
             // always ad the id here in key.clone(). Now it is not the case anymore. So we need to
@@ -197,11 +179,27 @@ impl Graph for NumpyGraph {
 
     fn insert_edge(
         &mut self,
-        col_name: Vec<u8>,
         from_id: Vec<u8>,
         to_id: Vec<u8>,
-        _data: Vec<u8>,
+        columns: Vec<Value>,
+        field_names: &Vec<String>,
     ) -> Result<()> {
+        assert!(!columns.is_empty());
+        assert_eq!(columns.len(), field_names.len());
+
+        let mut col_name = String::new();
+        for (i, feature_name) in field_names.iter().enumerate() {
+            if feature_name == "@collection_name" {
+                // Set the col_name to the collection name
+                col_name = columns[i].as_str().unwrap().to_string();
+                break;
+            }
+        }
+
+        if col_name.is_empty() {
+            return Err(anyhow!("col_name not set"));
+        }
+
         let (from_col, from_key) = {
             let s = String::from_utf8(from_id.clone()).expect("_from to be a string");
             let id_split = s.find('/').expect("Invalid format for _from");
@@ -216,11 +214,8 @@ impl Graph for NumpyGraph {
             (col.to_string(), key[1..].to_string())
         };
 
-        let key_tup = (
-            String::from_utf8(col_name).unwrap(),
-            from_col.clone(),
-            to_col.clone(),
-        );
+        let key_tup = (col_name.clone(), from_col.clone(), to_col.clone());
+
         if !self.coo_by_from_edge_to.contains_key(&key_tup) {
             self.coo_by_from_edge_to
                 .insert(key_tup.clone(), vec![vec![], vec![]]);
@@ -267,42 +262,120 @@ impl Graph for NetworkXGraph {
         self
     }
 
-    // Signature from MLP-674:
-    // fn insert_vertex(
-    //     &mut self,
-    //     key: Vec<u8>,
-    //     json: Option<Value>, // TODO: this needs to be passed...
-    //     _columns: Vec<Value>,
-    //     _field_names: &Vec<String>,
-    // ) {...}
-
     fn insert_vertex(
         &mut self,
-        key: Vec<u8>, // cannot be empty
+        id: Vec<u8>, // cannot be empty
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) {
-        print!("inserting NetworkX vertex!");
-    }
+        assert_eq!(columns.len(), 1);
+        // TODO Anthony: Support field_names (for now, it only has @collection_name)
+        assert_eq!(field_names.len(), 1);
 
-    // Signature from MLP-674:
-    // fn insert_edge(
-    //     &mut self,
-    //     _col_name: Vec<u8>,
-    //     from_id: Vec<u8>,
-    //     to_id: Vec<u8>,
-    //     // _data: Vec<u8>,
-    //     json: Option<Value>, // TODO: this needs to be passed...
-    // ) -> Result<()> {}
+        let json = columns.get(0);
+        let vertex_id = String::from_utf8(id.clone()).unwrap();
+
+        let mut properties = match json {
+            Some(Value::Object(map)) => map.clone(),
+            _ => Map::new(),
+        };
+
+        properties.insert("_id".to_string(), Value::String(vertex_id.clone()));
+        self.node_map.insert(vertex_id, properties.clone());
+    }
 
     fn insert_edge(
         &mut self,
-        col_name: Vec<u8>,
         from_id: Vec<u8>,
         to_id: Vec<u8>,
-        _data: Vec<u8>,
+        columns: Vec<Value>,
+        field_names: &Vec<String>,
     ) -> Result<()> {
-        print!("inserting NetworkX edge!");
+        assert_eq!(columns.len(), 1);
+        // TODO Anthony: Support field_names (for now, it only has @collection_name)
+        assert_eq!(field_names.len(), 1);
+
+        let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
+        let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();
+
+        if self.load_coo {
+            let from_id_index = match self.vertex_id_to_index.get(&from_id_str) {
+                Some(index) => *index,
+                None => {
+                    let index: usize = self.vertex_id_to_index.len();
+                    self.vertex_id_to_index.insert(from_id_str.clone(), index);
+                    index
+                }
+            };
+
+            let to_id_index = match self.vertex_id_to_index.get(&to_id_str) {
+                Some(index) => *index,
+                None => {
+                    let index = self.vertex_id_to_index.len();
+                    self.vertex_id_to_index.insert(to_id_str.clone(), index);
+                    index
+                }
+            };
+
+            self.coo.0.push(from_id_index);
+            self.coo.1.push(to_id_index);
+        }
+
+        if self.load_adj_dict {
+            let json = columns.get(0);
+            let mut properties = match json {
+                Some(Value::Object(map)) => map.clone(),
+                _ => Map::new(),
+            };
+
+            properties.insert("_from".to_string(), Value::String(from_id_str.clone()));
+            properties.insert("_to".to_string(), Value::String(to_id_str.clone()));
+
+            // MultiDiGraph
+            if self.load_adj_dict_as_multigraph {
+                if !self.adj_map_multigraph.contains_key(&from_id_str) {
+                    self.adj_map_multigraph
+                        .insert(from_id_str.clone(), HashMap::new());
+                }
+
+                if !self.adj_map_multigraph.contains_key(&to_id_str) {
+                    self.adj_map_multigraph
+                        .insert(to_id_str.clone(), HashMap::new());
+                }
+
+                let from_map = self.adj_map_multigraph.get_mut(&from_id_str).unwrap();
+                let from_to_map = from_map.entry(to_id_str.clone()).or_insert(HashMap::new());
+                let index = from_to_map.len();
+                from_to_map.insert(index, properties.clone());
+
+                // MutliGraph
+                if !self.load_adj_dict_as_directed {
+                    let to_map = self.adj_map_multigraph.get_mut(&to_id_str).unwrap();
+                    let to_from_map = to_map.entry(from_id_str.clone()).or_insert(HashMap::new());
+                    to_from_map.insert(index, properties.clone());
+                }
+
+            // DiGraph
+            } else {
+                if !self.adj_map.contains_key(&from_id_str) {
+                    self.adj_map.insert(from_id_str.clone(), HashMap::new());
+                }
+
+                if !self.adj_map.contains_key(&to_id_str) {
+                    self.adj_map.insert(to_id_str.clone(), HashMap::new());
+                }
+
+                let from_map = self.adj_map.get_mut(&from_id_str).unwrap();
+                from_map.insert(to_id_str.clone(), properties.clone());
+
+                // Graph
+                if !self.load_adj_dict_as_directed {
+                    let to_map = self.adj_map.get_mut(&to_id_str).unwrap();
+                    to_map.insert(from_id_str.clone(), properties.clone());
+                }
+            }
+        }
+
         Ok(())
     }
 }
