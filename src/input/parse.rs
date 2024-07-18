@@ -79,14 +79,18 @@ impl FromPyObject<'_> for LocalDataLoadConfiguration {
         let prefetch_count: u32 = input_dict
             .get_item("prefetch_count")?
             .map_or(Ok(5), |v| v.extract())?;
-        let load_all_attributes_if_aql: bool = input_dict
-            .get_item("load_all_attributes_if_aql")?
+        let load_all_vertex_attributes: bool = input_dict
+            .get_item("load_all_vertex_attributes")?
+            .map_or(Ok(false), |v| v.extract())?;
+        let load_all_edge_attributes: bool = input_dict
+            .get_item("load_all_edge_attributes")?
             .map_or(Ok(false), |v| v.extract())?;
         Ok(LocalDataLoadConfiguration(DataLoadConfiguration {
             parallelism,
             batch_size,
             prefetch_count,
-            load_all_attributes_if_aql,
+            load_all_vertex_attributes,
+            load_all_edge_attributes,
         }))
     }
 }
@@ -143,9 +147,6 @@ impl FromPyObject<'_> for LocalCollectionInfo {
 impl FromPyObject<'_> for NetworkXGraphConfig {
     fn extract(ob: &'_ PyAny) -> PyResult<Self> {
         let input_dict: &PyDict = ob.downcast()?;
-        let load_node_dict: bool = input_dict
-            .get_item("load_node_dict")?
-            .map_or_else(|| Ok(true), |c| c.extract())?;
         let load_adj_dict: bool = input_dict
             .get_item("load_adj_dict")?
             .map_or_else(|| Ok(true), |c| c.extract())?;
@@ -159,7 +160,6 @@ impl FromPyObject<'_> for NetworkXGraphConfig {
             .get_item("load_coo")?
             .map_or_else(|| Ok(true), |c| c.extract())?;
         Ok(NetworkXGraphConfig {
-            load_node_dict,
             load_adj_dict,
             load_adj_dict_as_directed,
             load_adj_dict_as_multigraph,

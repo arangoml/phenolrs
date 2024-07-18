@@ -19,9 +19,6 @@ use pyo3::types::PyDict;
 
 use graph::{NetworkXGraph, NumpyGraph};
 
-use std::sync::Arc;
-use std::sync::RwLock;
-
 #[cfg(not(test))]
 type PygCompatible<'a> = (&'a PyDict, &'a PyDict, &'a PyDict, &'a PyDict);
 
@@ -81,7 +78,6 @@ fn graph_to_networkx_format(
 )> {
     let graph_factory = || {
         NetworkXGraph::new(
-            graph_config.load_node_dict,
             graph_config.load_adj_dict,
             graph_config.load_adj_dict_as_directed,
             graph_config.load_adj_dict_as_multigraph,

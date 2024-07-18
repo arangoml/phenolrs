@@ -9,7 +9,6 @@ pub struct DataLoadRequest {
 }
 
 pub struct NetworkXGraphConfig {
-    pub load_node_dict: bool,
     pub load_adj_dict: bool,
     pub load_adj_dict_as_directed: bool,
     pub load_adj_dict_as_multigraph: bool,
