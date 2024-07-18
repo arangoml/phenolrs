@@ -1,4 +1,4 @@
-from typing import Any, Tuple
+from typing import Any, Set, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -10,7 +10,7 @@ class NetworkXLoader:
     @staticmethod
     def load_into_networkx(
         database: str,
-        metagraph: dict[str, Any],
+        metagraph: dict[str, dict[str, Set[str]]],
         hosts: list[str],
         user_jwt: str | None = None,
         username: str | None = None,
@@ -18,7 +18,6 @@ class NetworkXLoader:
         tls_cert: Any | None = None,
         parallelism: int | None = None,
         batch_size: int | None = None,
-        load_node_dict: bool = True,
         load_adj_dict: bool = True,
         load_adj_dict_as_directed: bool = True,
         load_adj_dict_as_multigraph: bool = True,
@@ -30,37 +29,42 @@ class NetworkXLoader:
         npt.NDArray[np.int64],
         dict[str, int],
     ]:
-        # TODO: replace with pydantic validation
-        db_config_options: dict[str, Any] = {
-            "endpoints": hosts,
-            "database": database,
-        }
-        load_config_options: dict[str, Any] = {
-            "parallelism": parallelism if parallelism is not None else 8,
-            "batch_size": batch_size if batch_size is not None else 100000,
-            "prefetch_count": 5,
-        }
-
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
 
         if "edgeCollections" not in metagraph:
             raise PhenolError("edgeCollections not found in metagraph")
 
-        if len(metagraph["vertexCollections"]) == 0:
-            raise PhenolError(
-                "vertexCollections must map to non-empty dictionary"
-            )  # noqa
+        if len(metagraph["vertexCollections"]) + len(metagraph["edgeCollections"]) == 0:
+            m = "vertexCollections and edgeCollections cannot both be empty"
+            raise PhenolError(m)
 
-        if len(metagraph["edgeCollections"]) == 0:
-            raise PhenolError(
-                "edgeCollections must map to non-empty dictionary"
-            )  # noqa
+        if len(metagraph["edgeCollections"]) == 0 and (load_adj_dict or load_coo):
+            m = "edgeCollections must be non-empty if **load_adj_dict** or **load_coo** is True"
+            raise PhenolError(m)
 
-        if not load_node_dict and not load_adj_dict and not load_coo:
-            raise PhenolError(
-                "At least one of load_node_dict, load_adj_dict, or load_coo must be True"  # noqa
-            )
+        # TODO: replace with pydantic validation
+        db_config_options: dict[str, Any] = {
+            "endpoints": hosts,
+            "database": database,
+        }
+
+        # TODO Anthony: Revisit this condition
+        load_all_vertex_attributes = all(
+            [len(entries) == 0 for entries in metagraph["vertexCollections"].values()]
+        )
+
+        load_all_edge_attributes = load_adj_dict and all(
+            [len(entries) == 0 for entries in metagraph["edgeCollections"].values()]
+        )
+
+        load_config_options: dict[str, Any] = {
+            "parallelism": parallelism if parallelism is not None else 8,
+            "batch_size": batch_size if batch_size is not None else 100000,
+            "prefetch_count": 5,
+            "load_all_vertex_attributes": load_all_vertex_attributes,
+            "load_all_edge_attributes": load_all_edge_attributes,
+        }
 
         if username:
             db_config_options["username"] = username
@@ -71,16 +75,7 @@ class NetworkXLoader:
         if tls_cert:
             db_config_options["tls_cert"] = tls_cert
 
-        # load_config = {
-        #     "parallelism": parallelism,
-        #     "batch_size": batch_size,
-        #     "load_vertices": load_node_dict,
-        #     "load_edges": load_adj_dict or load_coo,
-        #     "load_all_attributes_via_aql": True,
-        # }
-
         graph_config = {
-            "load_node_dict": load_node_dict,
             "load_adj_dict": load_adj_dict,
             "load_adj_dict_as_directed": load_adj_dict_as_directed,
             "load_adj_dict_as_multigraph": load_adj_dict_as_multigraph,
@@ -88,13 +83,13 @@ class NetworkXLoader:
         }
 
         vertex_collections = [
-            {"name": v_col_name, "fields": []}
-            for v_col_name, _ in metagraph["vertexCollections"].items()
+            {"name": v_col_name, "fields": list(entries)}
+            for v_col_name, entries in metagraph["vertexCollections"].items()
         ]
 
         edge_collections = [
-            {"name": e_col_name, "fields": []}
-            for e_col_name, _ in metagraph["edgeCollections"].items()
+            {"name": e_col_name, "fields": list(entries)}
+            for e_col_name, entries in metagraph["edgeCollections"].items()
         ]
 
         node_dict, adj_dict, src_indices, dst_indices, id_to_index_map = (
