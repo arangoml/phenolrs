@@ -1,4 +1,4 @@
-use crate::graph::NumpyGraph;
+use crate::graph::Graph;
 use crate::input::load_request::DataLoadRequest;
 use lightning::errors::GraphLoaderError;
 use lightning::{CollectionInfo, GraphLoader};
@@ -7,8 +7,6 @@ use serde_json::Value;
 use std::error::Error;
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
-
-use crate::graph::{identify_graph, Graph};
 
 pub fn get_arangodb_graph<G: Graph + Send + Sync + 'static>(
     req: DataLoadRequest,
@@ -98,16 +96,16 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
     }
 
     let graph_arc_clone = graph_arc.clone();
-    let handle_vertices = move |vertex_keys: &Vec<Vec<u8>>,
-                                vertex_json: &mut Vec<Vec<Value>>,
+    let handle_vertices = move |vertex_ids: &Vec<Vec<u8>>,
+                                vertex_jsons: &mut Vec<Vec<Value>>,
                                 vertex_field_names: &Vec<String>| {
         let mut graph = graph_arc_clone.write().unwrap();
 
-        for i in 0..vertex_keys.len() {
-            let k = &vertex_keys[i];
+        for i in 0..vertex_ids.len() {
+            let id = &vertex_ids[i];
             let mut cols: Vec<Value> = vec![];
-            std::mem::swap(&mut cols, &mut vertex_json[i]);
-            graph.insert_vertex(k.clone(), cols, &vertex_field_names);
+            std::mem::swap(&mut cols, &mut vertex_jsons[i]);
+            graph.insert_vertex(id.clone(), cols, &vertex_field_names);
         }
 
         Ok(())
@@ -125,29 +123,33 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
     }
 
     let graph_arc_clone = graph_arc.clone();
-    let handle_edges =
-        move |col_names: &Vec<Vec<u8>>, from_ids: &Vec<Vec<u8>>, to_ids: &Vec<Vec<u8>>| {
-            {
-                // Now actually insert edges by writing the graph
-                // object:
-                let mut graph = graph_arc_clone.write().unwrap();
-                for i in 0..col_names.len() {
-                    let insertion_result = graph.insert_edge(
-                        col_names[i].clone(),
-                        from_ids[i].clone(),
-                        to_ids[i].clone(),
-                        vec![],
-                    );
-                    if insertion_result.is_err() {
-                        return Err(GraphLoaderError::from(format!(
-                            "Could not insert edge: {:?}",
-                            insertion_result.err()
-                        )));
-                    }
+    let handle_edges = move |from_ids: &Vec<Vec<u8>>,
+                             to_ids: &Vec<Vec<u8>>,
+                             edge_jsons: &mut Vec<Vec<Value>>,
+                             edge_field_names: &Vec<String>| {
+        {
+            // Now actually insert edges by writing the graph
+            // object:
+            let mut graph = graph_arc_clone.write().unwrap();
+            for i in 0..edge_jsons.len() {
+                let mut cols: Vec<Value> = vec![];
+                std::mem::swap(&mut cols, &mut edge_jsons[i]);
+                let insertion_result = graph.insert_edge(
+                    from_ids[i].clone(),
+                    to_ids[i].clone(),
+                    cols,
+                    &edge_field_names,
+                );
+                if insertion_result.is_err() {
+                    return Err(GraphLoaderError::from(format!(
+                        "Could not insert edge: {:?}",
+                        insertion_result.err()
+                    )));
                 }
             }
-            Ok(())
-        };
+        }
+        Ok(())
+    };
 
     if req.edge_collections.len() > 0 {
         // only load edges if there are any
