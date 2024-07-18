@@ -40,7 +40,7 @@ class NetworkXLoader:
             raise PhenolError(m)
 
         if len(metagraph["edgeCollections"]) == 0 and (load_adj_dict or load_coo):
-            m = "edgeCollections must be non-empty if **load_adj_dict** or **load_coo** is True"
+            m = "edgeCollections must be non-empty if **load_adj_dict** or **load_coo** is True"  # noqa
             raise PhenolError(m)
 
         # TODO: replace with pydantic validation

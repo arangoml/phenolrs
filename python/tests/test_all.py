@@ -129,8 +129,8 @@ def test_phenol_abide_networkx(
     res = NetworkXLoader.load_into_networkx(
         connection_information["dbName"],
         {
-            "vertexCollections": {"Subjects": {}},
-            "edgeCollections": {"medical_affinity_graph": {}},
+            "vertexCollections": {"Subjects": set()},
+            "edgeCollections": {"medical_affinity_graph": set()},
         },
         [connection_information["url"]],
         username=connection_information["username"],
@@ -164,7 +164,7 @@ def test_phenol_abide_networkx(
         connection_information["dbName"],
         {
             "vertexCollections": {},  # No vertexCollections
-            "edgeCollections": {"medical_affinity_graph": {}},
+            "edgeCollections": {"medical_affinity_graph": set()},
         },
         [connection_information["url"]],
         username=connection_information["username"],
@@ -191,7 +191,7 @@ def test_phenol_abide_networkx(
         connection_information["dbName"],
         {
             "vertexCollections": {},  # No vertexCollections
-            "edgeCollections": {"medical_affinity_graph": {}},
+            "edgeCollections": {"medical_affinity_graph": set()},
         },
         [connection_information["url"]],
         username=connection_information["username"],
@@ -211,7 +211,7 @@ def test_phenol_abide_networkx(
         connection_information["dbName"],
         {
             "vertexCollections": {},  # No vertexCollections
-            "edgeCollections": {"medical_affinity_graph": {}},
+            "edgeCollections": {"medical_affinity_graph": set()},
         },
         [connection_information["url"]],
         username=connection_information["username"],
