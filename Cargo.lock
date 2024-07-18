@@ -528,7 +528,7 @@ checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 [[package]]
 name = "lightning"
 version = "1.0.0"
-source = "git+ssh://git@github.com/arangodb/lightning?branch=feature/load-all-attributes-if-aql#797fd0289fd05d8b6f28006bdbefbe1191a18578"
+source = "git+ssh://git@github.com/arangodb/lightning?branch=GA-156#04763675ef02977a14441325918244e34274f710"
 dependencies = [
  "bytes",
  "log",
