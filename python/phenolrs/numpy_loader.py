@@ -34,6 +34,8 @@ class NumpyLoader:
             "parallelism": parallelism if parallelism is not None else 8,
             "batch_size": batch_size if batch_size is not None else 100000,
             "prefetch_count": 5,
+            "load_all_vertex_attributes": False,
+            "load_all_edge_attributes": False,
         }
         if username:
             db_config_options["username"] = username
