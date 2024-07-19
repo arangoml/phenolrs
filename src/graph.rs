@@ -39,7 +39,7 @@ pub struct NumpyGraph {
 pub struct NetworkXGraph {
     pub load_adj_dict: bool,
     pub is_directed: bool,
-    pub load_adj_dict_as_multigraph: bool,
+    pub is_multigraph: bool,
     pub load_coo: bool,
 
     // node_map is a dictionary of node IDs to their json data
@@ -75,13 +75,13 @@ impl NetworkXGraph {
     pub fn new(
         load_adj_dict: bool,
         is_directed: bool,
-        load_adj_dict_as_multigraph: bool,
+        is_multigraph: bool,
         load_coo: bool,
     ) -> Arc<RwLock<NetworkXGraph>> {
         Arc::new(RwLock::new(NetworkXGraph {
             load_adj_dict,
             is_directed,
-            load_adj_dict_as_multigraph,
+            is_multigraph,
             load_coo,
             node_map: HashMap::new(),
             adj_map: HashMap::new(),
@@ -321,7 +321,7 @@ impl Graph for NetworkXGraph {
             properties.insert("_to".to_string(), Value::String(to_id_str.clone()));
 
             // MultiDiGraph
-            if self.load_adj_dict_as_multigraph {
+            if self.is_multigraph {
                 if !self.adj_map_multigraph.contains_key(&from_id_str) {
                     self.adj_map_multigraph
                         .insert(from_id_str.clone(), HashMap::new());

@@ -80,7 +80,7 @@ fn graph_to_networkx_format(
         NetworkXGraph::new(
             graph_config.load_adj_dict,
             graph_config.is_directed,
-            graph_config.load_adj_dict_as_multigraph,
+            graph_config.is_multigraph,
             graph_config.load_coo,
         )
     };
@@ -88,7 +88,7 @@ fn graph_to_networkx_format(
     let graph = load::retrieve::get_arangodb_graph(request, graph_factory).unwrap();
 
     let node_dict = construct::construct_dict_of_dict(graph.node_map, py)?;
-    let adj_dict = if graph_config.load_adj_dict_as_multigraph {
+    let adj_dict = if graph_config.is_multigraph {
         construct::construct_dict_of_dict_of_dict_of_dict(graph.adj_map_multigraph, py)?
     } else {
         construct::construct_dict_of_dict_of_dict(graph.adj_map, py)?

@@ -20,7 +20,7 @@ class NetworkXLoader:
         batch_size: int | None = None,
         load_adj_dict: bool = True,
         is_directed: bool = True,
-        load_adj_dict_as_multigraph: bool = True,
+        is_multigraph: bool = True,
         load_coo: bool = True,
     ) -> Tuple[
         dict[str, dict[str, Any]],
@@ -78,7 +78,7 @@ class NetworkXLoader:
         graph_config = {
             "load_adj_dict": load_adj_dict,
             "is_directed": is_directed,
-            "load_adj_dict_as_multigraph": load_adj_dict_as_multigraph,
+            "is_multigraph": is_multigraph,
             "load_coo": load_coo,
         }
 
