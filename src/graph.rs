@@ -258,8 +258,7 @@ impl Graph for NetworkXGraph {
         field_names: &Vec<String>,
     ) {
         assert_eq!(columns.len(), 1);
-        // TODO Anthony: Support field_names (for now, it only has @collection_name)
-        assert_eq!(field_names.len(), 1);
+        assert_eq!(field_names.len(), 0); // TODO: Add support for field_names
 
         let json = columns.get(0);
         let vertex_id = String::from_utf8(id.clone()).unwrap();
@@ -281,8 +280,7 @@ impl Graph for NetworkXGraph {
         field_names: &Vec<String>,
     ) -> Result<()> {
         assert_eq!(columns.len(), 1);
-        // TODO Anthony: Support field_names (for now, it only has @collection_name)
-        assert_eq!(field_names.len(), 1);
+        assert_eq!(field_names.len(), 0); // TODO: Add support for field_names
 
         let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
         let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();

@@ -44,14 +44,16 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
     graph_arc: Arc<RwLock<G>>,
 ) -> Result<Arc<RwLock<G>>, String> {
     let db_config = req.db_config;
+    let load_config = req.load_config;
 
-    // add "@collection_name" to every db config vertex collection field name
     let mut local_vertex_collections = vec![];
     let mut local_edge_collections = vec![];
 
     for col in &req.vertex_collections {
         let mut v_fields = vec![];
-        v_fields.push("@collection_name".to_string());
+        if !load_config.load_all_vertex_attributes {
+            v_fields.push("@collection_name".to_string());
+        }
         v_fields.extend(col.fields.clone());
         let v_collection_info = CollectionInfo {
             name: col.name.clone(),
@@ -61,7 +63,9 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
     }
     for col in &req.edge_collections {
         let mut e_fields = vec![];
-        e_fields.push("@collection_name".to_string());
+        if !load_config.load_all_edge_attributes {
+            e_fields.push("@collection_name".to_string());
+        }
         e_fields.extend(col.fields.clone());
         let e_collection_info = CollectionInfo {
             name: col.name.clone(),
@@ -69,8 +73,6 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
         };
         local_edge_collections.push(e_collection_info);
     }
-
-    let load_config = req.load_config;
 
     if db_config.endpoints.is_empty() {
         return Err("no endpoints given".to_string());
