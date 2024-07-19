@@ -38,7 +38,7 @@ pub struct NumpyGraph {
 #[derive(Debug)]
 pub struct NetworkXGraph {
     pub load_adj_dict: bool,
-    pub load_adj_dict_as_directed: bool,
+    pub is_directed: bool,
     pub load_adj_dict_as_multigraph: bool,
     pub load_coo: bool,
 
@@ -74,13 +74,13 @@ impl NumpyGraph {
 impl NetworkXGraph {
     pub fn new(
         load_adj_dict: bool,
-        load_adj_dict_as_directed: bool,
+        is_directed: bool,
         load_adj_dict_as_multigraph: bool,
         load_coo: bool,
     ) -> Arc<RwLock<NetworkXGraph>> {
         Arc::new(RwLock::new(NetworkXGraph {
             load_adj_dict,
-            load_adj_dict_as_directed,
+            is_directed,
             load_adj_dict_as_multigraph,
             load_coo,
             node_map: HashMap::new(),
@@ -338,7 +338,7 @@ impl Graph for NetworkXGraph {
                 from_to_map.insert(index, properties.clone());
 
                 // MutliGraph
-                if !self.load_adj_dict_as_directed {
+                if !self.is_directed {
                     let to_map = self.adj_map_multigraph.get_mut(&to_id_str).unwrap();
                     let to_from_map = to_map.entry(from_id_str.clone()).or_insert(HashMap::new());
                     to_from_map.insert(index, properties.clone());
@@ -358,7 +358,7 @@ impl Graph for NetworkXGraph {
                 from_map.insert(to_id_str.clone(), properties.clone());
 
                 // Graph
-                if !self.load_adj_dict_as_directed {
+                if !self.is_directed {
                     let to_map = self.adj_map.get_mut(&to_id_str).unwrap();
                     to_map.insert(from_id_str.clone(), properties.clone());
                 }

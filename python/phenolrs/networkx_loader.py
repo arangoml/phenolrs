@@ -19,7 +19,7 @@ class NetworkXLoader:
         parallelism: int | None = None,
         batch_size: int | None = None,
         load_adj_dict: bool = True,
-        load_adj_dict_as_directed: bool = True,
+        is_directed: bool = True,
         load_adj_dict_as_multigraph: bool = True,
         load_coo: bool = True,
     ) -> Tuple[
@@ -77,7 +77,7 @@ class NetworkXLoader:
 
         graph_config = {
             "load_adj_dict": load_adj_dict,
-            "load_adj_dict_as_directed": load_adj_dict_as_directed,
+            "is_directed": is_directed,
             "load_adj_dict_as_multigraph": load_adj_dict_as_multigraph,
             "load_coo": load_coo,
         }

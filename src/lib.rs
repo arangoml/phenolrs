@@ -79,7 +79,7 @@ fn graph_to_networkx_format(
     let graph_factory = || {
         NetworkXGraph::new(
             graph_config.load_adj_dict,
-            graph_config.load_adj_dict_as_directed,
+            graph_config.is_directed,
             graph_config.load_adj_dict_as_multigraph,
             graph_config.load_coo,
         )

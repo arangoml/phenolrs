@@ -135,7 +135,7 @@ def test_phenol_abide_networkx(
         [connection_information["url"]],
         username=connection_information["username"],
         password=connection_information["password"],
-        load_adj_dict_as_directed=True,
+        is_directed=True,
         load_adj_dict_as_multigraph=True,
     )
     assert isinstance(res, tuple)
@@ -170,7 +170,7 @@ def test_phenol_abide_networkx(
         username=connection_information["username"],
         password=connection_information["password"],
         load_coo=False,
-        load_adj_dict_as_directed=True,
+        is_directed=True,
         load_adj_dict_as_multigraph=False,
     )
     node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = res
@@ -197,7 +197,7 @@ def test_phenol_abide_networkx(
         username=connection_information["username"],
         password=connection_information["password"],
         load_coo=False,
-        load_adj_dict_as_directed=False,
+        is_directed=False,
         load_adj_dict_as_multigraph=True,
     )
     node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = res
@@ -217,7 +217,7 @@ def test_phenol_abide_networkx(
         username=connection_information["username"],
         password=connection_information["password"],
         load_coo=False,
-        load_adj_dict_as_directed=False,
+        is_directed=False,
         load_adj_dict_as_multigraph=False,
     )
     node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = res
