@@ -14,7 +14,7 @@ lto = "fat"
 # TODO: add rustflags for target features/cpus
 
 [dependencies]
-lightning = { git = "ssh://git@github.com/arangodb/lightning", rev = "a1e99493696319121e23a3039ae1c701e1155375" }
+lightning = { git = "ssh://git@github.com/arangodb/lightning", rev = "a10051c5aba28a6b0c31a1ca034b55f44f61a099" }
 # lightning = { path = "../lightning" }
 numpy = "0.20.0"
 tokio = { version = "1", features = ["full"] }
