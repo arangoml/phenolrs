@@ -31,7 +31,7 @@ create_exception!(phenolrs, PhenolError, PyException);
 #[pyfunction]
 #[cfg(not(test))]
 fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCompatible> {
-    let graph_factory = || NumpyGraph::new();
+    let graph_factory = NumpyGraph::new;
     let graph =
         load::retrieve::get_arangodb_graph(request, graph_factory).map_err(PhenolError::new_err)?;
 

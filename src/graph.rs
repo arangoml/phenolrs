@@ -267,7 +267,7 @@ impl Graph for NetworkXGraph {
         assert_eq!(columns.len(), 1);
         assert_eq!(field_names.len(), 0); // TODO: Add support for field_names
 
-        let json = columns.get(0);
+        let json = columns.first();
         let vertex_id = String::from_utf8(id.clone()).unwrap();
 
         let mut properties = match json {
@@ -316,7 +316,7 @@ impl Graph for NetworkXGraph {
         }
 
         if self.load_adj_dict {
-            let json = columns.get(0);
+            let json = columns.first();
             let mut properties = match json {
                 Some(Value::Object(map)) => map.clone(),
                 _ => Map::new(),
@@ -338,14 +338,14 @@ impl Graph for NetworkXGraph {
                 }
 
                 let from_map = self.adj_map_multigraph.get_mut(&from_id_str).unwrap();
-                let from_to_map = from_map.entry(to_id_str.clone()).or_insert(HashMap::new());
+                let from_to_map = from_map.entry(to_id_str.clone()).or_default();
                 let index = from_to_map.len();
                 from_to_map.insert(index, properties.clone());
 
                 // MutliGraph
                 if !self.is_directed {
                     let to_map = self.adj_map_multigraph.get_mut(&to_id_str).unwrap();
-                    let to_from_map = to_map.entry(from_id_str.clone()).or_insert(HashMap::new());
+                    let to_from_map = to_map.entry(from_id_str.clone()).or_default();
                     to_from_map.insert(index, properties.clone());
                 }
 
