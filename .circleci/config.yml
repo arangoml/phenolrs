@@ -184,6 +184,7 @@ jobs:
           name: Run tests
           command: |
             conda activate phenolrs
+            export RUST_BACKTRACE=1
             pytest --url http://172.28.0.1:8529 python/tests
   publish:
     executor: generate-executor
