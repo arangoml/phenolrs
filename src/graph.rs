@@ -109,7 +109,14 @@ impl Graph for NumpyGraph {
                 col_name = columns[i].as_str().unwrap().to_string();
                 continue;
             }
+            if feature_name == "_id" {
+                continue;
+            }
             let feature_vec = parse_value_to_vec(&columns[i]);
+            if feature_vec.is_none() {
+                println!("Feature {} is not a vector. Skipping.", feature_name);
+                continue;
+            }
             feature_res.insert(feature_name.clone(), feature_vec.unwrap());
         }
 

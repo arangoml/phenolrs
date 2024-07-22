@@ -91,22 +91,21 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
         local_vertex_collections,
         local_edge_collections,
     )
-    .await;
+        .await;
     match graph_loader_res {
         Ok(g) => graph_loader = g,
         Err(e) => return Err(format!("Could not create graph loader: {:?}", e)),
     }
 
-    let graph_arc_clone = graph_arc.clone();
+    let graph_arc_clone_v = graph_arc.clone();
     let handle_vertices = move |vertex_ids: &Vec<Vec<u8>>,
                                 vertex_jsons: &mut Vec<Vec<Value>>,
                                 vertex_field_names: &Vec<String>| {
-        let mut graph = graph_arc_clone.write().unwrap();
-
         for i in 0..vertex_ids.len() {
             let id = &vertex_ids[i];
             let mut cols: Vec<Value> = vec![];
             std::mem::swap(&mut cols, &mut vertex_jsons[i]);
+            let mut graph = graph_arc_clone_v.write().unwrap();
             graph.insert_vertex(id.clone(), cols, &vertex_field_names);
         }
 
@@ -124,7 +123,7 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
         }
     }
 
-    let graph_arc_clone = graph_arc.clone();
+    let graph_arc_clone_e = graph_arc.clone();
     let handle_edges = move |from_ids: &Vec<Vec<u8>>,
                              to_ids: &Vec<Vec<u8>>,
                              edge_jsons: &mut Vec<Vec<Value>>,
@@ -132,7 +131,7 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
         {
             // Now actually insert edges by writing the graph
             // object:
-            let mut graph = graph_arc_clone.write().unwrap();
+            let mut graph = graph_arc_clone_e.write().unwrap();
             for i in 0..edge_jsons.len() {
                 let mut cols: Vec<Value> = vec![];
                 std::mem::swap(&mut cols, &mut edge_jsons[i]);
