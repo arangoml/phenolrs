@@ -91,7 +91,7 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
         local_vertex_collections,
         local_edge_collections,
     )
-        .await;
+    .await;
     match graph_loader_res {
         Ok(g) => graph_loader = g,
         Err(e) => return Err(format!("Could not create graph loader: {:?}", e)),
