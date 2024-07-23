@@ -38,9 +38,11 @@ pub struct NumpyGraph {
 #[derive(Debug)]
 pub struct NetworkXGraph {
     pub load_adj_dict: bool,
+    pub load_coo: bool,
+    pub load_all_vertex_attributes: bool,
+    pub load_all_edge_attributes: bool,
     pub is_directed: bool,
     pub is_multigraph: bool,
-    pub load_coo: bool,
 
     // node_map is a dictionary of node IDs to their json data
     // e.g {'user/1': {'name': 'Alice', 'age': 25}, 'user/2': {'name': 'Bob', 'age': 30}, ...}
@@ -74,15 +76,19 @@ impl NumpyGraph {
 impl NetworkXGraph {
     pub fn new(
         load_adj_dict: bool,
+        load_coo: bool,
+        load_all_vertex_attributes: bool,
+        load_all_edge_attributes: bool,
         is_directed: bool,
         is_multigraph: bool,
-        load_coo: bool,
     ) -> Arc<RwLock<NetworkXGraph>> {
         Arc::new(RwLock::new(NetworkXGraph {
             load_adj_dict,
+            load_coo,
+            load_all_vertex_attributes,
+            load_all_edge_attributes,
             is_directed,
             is_multigraph,
-            load_coo,
             node_map: HashMap::new(),
             adj_map: HashMap::new(),
             adj_map_multigraph: HashMap::new(),
@@ -264,18 +270,29 @@ impl Graph for NetworkXGraph {
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) {
-        assert_eq!(columns.len(), 1);
-        assert_eq!(field_names.len(), 0); // TODO: Add support for field_names
-
-        let json = columns.first();
+        let mut properties = Map::new();
         let vertex_id = String::from_utf8(id.clone()).unwrap();
 
-        let mut properties = match json {
-            Some(Value::Object(map)) => map.clone(),
-            _ => Map::new(),
-        };
+        if self.load_all_vertex_attributes {
+            assert_eq!(columns.len(), 1);
+            assert_eq!(field_names.len(), 0); // TODO: Add support for field_names
 
-        properties.insert("_id".to_string(), Value::String(vertex_id.clone()));
+            let json = columns.first();
+            properties = match json {
+                Some(Value::Object(map)) => map.clone(),
+                _ => panic!("Vertex data must be a json object"),
+            };
+
+            properties.insert("_id".to_string(), Value::String(vertex_id.clone()));
+        } else {
+            for (i, field_name) in field_names.iter().enumerate() {
+                if field_name == "@collection_name" || field_name == "_id" {
+                    continue;
+                }
+                properties.insert(field_name.clone(), columns[i].clone());
+            }
+        }
+
         self.node_map.insert(vertex_id, properties.clone());
     }
 
@@ -286,9 +303,6 @@ impl Graph for NetworkXGraph {
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) -> Result<()> {
-        assert_eq!(columns.len(), 1);
-        assert_eq!(field_names.len(), 0); // TODO: Add support for field_names
-
         let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
         let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();
 
@@ -316,14 +330,28 @@ impl Graph for NetworkXGraph {
         }
 
         if self.load_adj_dict {
-            let json = columns.first();
-            let mut properties = match json {
-                Some(Value::Object(map)) => map.clone(),
-                _ => Map::new(),
-            };
+            let mut properties = Map::new();
 
-            properties.insert("_from".to_string(), Value::String(from_id_str.clone()));
-            properties.insert("_to".to_string(), Value::String(to_id_str.clone()));
+            if self.load_all_edge_attributes {
+                assert_eq!(columns.len(), 1);
+                assert_eq!(field_names.len(), 0);
+
+                let json = columns.first();
+                properties = match json {
+                    Some(Value::Object(map)) => map.clone(),
+                    _ => panic!("Edge data must be a json object"),
+                };
+
+                properties.insert("_from".to_string(), Value::String(from_id_str.clone()));
+                properties.insert("_to".to_string(), Value::String(to_id_str.clone()));
+            } else {
+                for (i, field_name) in field_names.iter().enumerate() {
+                    if field_name == "@collection_name" {
+                        continue;
+                    }
+                    properties.insert(field_name.clone(), columns[i].clone());
+                }
+            }
 
             // MultiDiGraph
             if self.is_multigraph {

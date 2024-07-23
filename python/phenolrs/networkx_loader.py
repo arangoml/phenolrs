@@ -19,9 +19,11 @@ class NetworkXLoader:
         parallelism: int | None = None,
         batch_size: int | None = None,
         load_adj_dict: bool = True,
+        load_coo: bool = True,
+        load_all_vertex_attributes: bool = True,
+        load_all_edge_attributes: bool = True,
         is_directed: bool = True,
         is_multigraph: bool = True,
-        load_coo: bool = True,
     ) -> Tuple[
         dict[str, dict[str, Any]],
         dict[str, dict[str, dict[str, Any] | dict[int, dict[str, Any]]]],
@@ -43,20 +45,23 @@ class NetworkXLoader:
             m = "edgeCollections must be non-empty if **load_adj_dict** or **load_coo** is True"  # noqa
             raise PhenolError(m)
 
+        if load_all_vertex_attributes and any(
+            [len(entries) > 0 for entries in metagraph["vertexCollections"].values()]
+        ):
+            m = "load_all_vertex_attributes is True, but vertexCollections contain attributes"  # noqa
+            raise PhenolError(m)
+
+        if load_all_edge_attributes and any(
+            [len(entries) > 0 for entries in metagraph["edgeCollections"].values()]
+        ):
+            m = "load_all_edge_attributes is True, but edgeCollections contain attributes"  # noqa
+            raise PhenolError(m)
+
         # TODO: replace with pydantic validation
         db_config_options: dict[str, Any] = {
             "endpoints": hosts,
             "database": database,
         }
-
-        # TODO Anthony: Revisit this condition
-        load_all_vertex_attributes = all(
-            [len(entries) == 0 for entries in metagraph["vertexCollections"].values()]
-        )
-
-        load_all_edge_attributes = load_adj_dict and all(
-            [len(entries) == 0 for entries in metagraph["edgeCollections"].values()]
-        )
 
         load_config_options: dict[str, Any] = {
             "parallelism": parallelism if parallelism is not None else 8,

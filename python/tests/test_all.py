@@ -1,6 +1,8 @@
 import numpy
+import pytest
 from torch_geometric.data import HeteroData
 
+from phenolrs import PhenolError
 from phenolrs.networkx_loader import NetworkXLoader
 from phenolrs.numpy_loader import NumpyLoader
 from phenolrs.pyg_loader import PygLoader
@@ -225,3 +227,89 @@ def test_phenol_abide_networkx(
     assert len(adj_dict[from_key][to_key]) > 1
     for key in adj_dict[from_key][to_key].keys():
         assert isinstance(key, str)
+
+    # Graph (no vertex/edge attributes)
+    res = NetworkXLoader.load_into_networkx(
+        connection_information["dbName"],
+        {
+            "vertexCollections": {"Subjects": set()},
+            "edgeCollections": {"medical_affinity_graph": set()},
+        },
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        load_adj_dict=True,
+        load_coo=False,
+        load_all_vertex_attributes=False,  # no node data
+        load_all_edge_attributes=False,  # no edge data
+        is_directed=False,
+        is_multigraph=False,
+    )
+    node_dict, adj_dict, _, _, _ = res
+
+    assert len(node_dict) == len(adj_dict) == 871
+    for v in node_dict.values():
+        assert isinstance(v, dict)
+        assert len(v) == 0
+
+    for v1 in adj_dict.values():
+        for v2 in v1.values():
+            assert isinstance(v2, dict)
+            assert list(v2.keys()) == ["_id"]
+
+    # Graph (custom vertex/edge attributes)
+    with pytest.raises(PhenolError):
+        res = NetworkXLoader.load_into_networkx(
+            connection_information["dbName"],
+            {
+                "vertexCollections": {"Subjects": {"label"}},
+                "edgeCollections": {"medical_affinity_graph": {"_rev"}},
+            },
+            [connection_information["url"]],
+            username=connection_information["username"],
+            password=connection_information["password"],
+            load_all_vertex_attributes=True,  # v collection contain attributes
+        )
+
+    with pytest.raises(PhenolError):
+        res = NetworkXLoader.load_into_networkx(
+            connection_information["dbName"],
+            {
+                "vertexCollections": {"Subjects": {"label"}},
+                "edgeCollections": {"medical_affinity_graph": {"_rev"}},
+            },
+            [connection_information["url"]],
+            username=connection_information["username"],
+            password=connection_information["password"],
+            load_all_vertex_attributes=False,
+            load_all_edge_attributes=True,  # e collection contain attributes
+        )
+
+    res = NetworkXLoader.load_into_networkx(
+        connection_information["dbName"],
+        {
+            "vertexCollections": {"Subjects": {"label"}},
+            "edgeCollections": {"medical_affinity_graph": {"_rev"}},
+        },
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        load_adj_dict=True,
+        load_coo=False,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        is_directed=False,
+        is_multigraph=False,
+    )
+
+    node_dict, adj_dict, _, _, _ = res
+
+    assert len(node_dict) == len(adj_dict) == 871
+    for v in node_dict.values():
+        assert isinstance(v, dict)
+        assert list(v.keys()) == ["label"]
+
+    for v1 in adj_dict.values():
+        for v2 in v1.values():
+            assert isinstance(v2, dict)
+            assert list(v2.keys()) == ["_id", "_rev"]

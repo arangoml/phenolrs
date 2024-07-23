@@ -76,12 +76,17 @@ fn graph_to_networkx_format(
     &PyArray1<usize>,
     &PyDict,
 )> {
+    let load_all_vertex_attributes = request.load_config.load_all_vertex_attributes;
+    let load_all_edge_attributes = request.load_config.load_all_edge_attributes;
+
     let graph_factory = || {
         NetworkXGraph::new(
             graph_config.load_adj_dict,
+            graph_config.load_coo,
+            load_all_vertex_attributes,
+            load_all_edge_attributes,
             graph_config.is_directed,
             graph_config.is_multigraph,
-            graph_config.load_coo,
         )
     };
 
