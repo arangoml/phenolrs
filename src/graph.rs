@@ -30,17 +30,20 @@ impl Graph {
 
     pub fn insert_vertex(
         &mut self,
-        key: Vec<u8>, // cannot be empty
+        id: Vec<u8>, // cannot be empty
         columns: Vec<Value>,
         field_names: &[String],
     ) {
-        // Important note: Actually the API returns IDs instead of keys .................
-        assert!(!columns.is_empty());
-        assert_eq!(columns.len(), field_names.len());
-        // columns[0] is type Value::String and must be the collection name
-        let col_name = match &columns[0] {
+        debug_assert!(!columns.is_empty());
+        debug_assert_eq!(columns.len(), field_names.len());
+
+        let col_name_position = field_names
+            .iter()
+            .position(|x| x == "@collection_name")
+            .expect("No @collection_name in field names");
+        let col_name = match &columns[col_name_position] {
             Value::String(s) => s,
-            _ => panic!("Expected Value::String"),
+            _ => panic!("Expected Value::String for @collection_name"),
         };
 
         let mut feature_res: HashMap<String, Vec<f64>> = HashMap::new();
@@ -80,7 +83,7 @@ impl Graph {
                 .unwrap();
 
             let cur_ind = keys_to_inds.len();
-            let cur_id_str = String::from_utf8(key.clone()).unwrap();
+            let cur_id_str = String::from_utf8(id.clone()).unwrap();
             // let cur_key_str = cur_id_str.splitn(2, '/').nth(1).unwrap().to_string();
             // This is a bit stupid right now. Before the library merge of lightning, this route here
             // always ad the id here in key.clone(). Now it is not the case anymore. So we need to
@@ -141,9 +144,9 @@ impl Graph {
             .iter()
             .position(|x| x == "@collection_name")
             .expect("No @collection_name in edge field names");
-        let col_name = match &columns[col_name_position][0] {
+        let col_name = match &columns[col_name_position] {
             Value::String(s) => s.as_str(),
-            _ => panic!("Expected Value::String"),
+            _ => panic!("Expected Value::String for @collection_name"),
         };
 
         let key_tup = (col_name.to_string(), from_col.clone(), to_col.clone());

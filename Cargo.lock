@@ -527,8 +527,8 @@ checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 
 [[package]]
 name = "lightning"
-version = "1.0.0"
-source = "git+ssh://git@github.com/arangodb/lightning?tag=v0.0.2#1c354ec3c03d8543d2bd6835abd0351074a1acbf"
+version = "0.0.5"
+source = "git+ssh://git@github.com/arangodb/lightning?tag=v0.0.5#dd482b7ef72ec822d510c03e3e88f6098b74b150"
 dependencies = [
  "bytes",
  "log",
