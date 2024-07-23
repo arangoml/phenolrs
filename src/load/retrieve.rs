@@ -91,6 +91,8 @@ pub async fn fetch_graph_from_arangodb_local_variant(
         load_config,
         local_vertex_collections,
         local_edge_collections,
+        Some(false),
+        Some(false),
     )
     .await;
     match graph_loader_res {
