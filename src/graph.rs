@@ -111,10 +111,10 @@ impl Graph {
 
     pub fn insert_edge(
         &mut self,
-        col_name: Vec<u8>,
         from_id: Vec<u8>,
         to_id: Vec<u8>,
-        _data: Vec<u8>,
+        columns: Vec<Value>,
+        edge_field_names: Vec<String>,
     ) -> Result<()> {
         let (from_col, from_key) = {
             let s = String::from_utf8(from_id.clone()).expect("_from to be a string");
@@ -130,11 +130,17 @@ impl Graph {
             (col.to_string(), key[1..].to_string())
         };
 
-        let key_tup = (
-            String::from_utf8(col_name).unwrap(),
-            from_col.clone(),
-            to_col.clone(),
-        );
+        debug_assert!(edge_field_names.contains(&String::from("@collection_name")));
+        let col_name_position = edge_field_names
+            .iter()
+            .position(|x| x == "@collection_name")
+            .expect("No @collection_name in edge field names");
+        let col_name = match &columns[col_name_position][0] {
+            Value::String(s) => s.as_str(),
+            _ => panic!("Expected Value::String"),
+        };
+
+        let key_tup = (col_name.to_string(), from_col.clone(), to_col.clone());
         if !self.coo_by_from_edge_to.contains_key(&key_tup) {
             self.coo_by_from_edge_to
                 .insert(key_tup.clone(), vec![vec![], vec![]]);

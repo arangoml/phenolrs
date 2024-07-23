@@ -79,10 +79,18 @@ impl FromPyObject<'_> for LocalDataLoadConfiguration {
         let prefetch_count: u32 = input_dict
             .get_item("prefetch_count")?
             .map_or(Ok(5), |v| v.extract())?;
+        let load_all_vertex_attributes: bool = input_dict
+            .get_item("load_all_vertex_attributes")?
+            .map_or(Ok(false), |v| v.extract())?;
+        let load_all_edge_attributes: bool = input_dict
+            .get_item("load_all_edge_attributes")?
+            .map_or(Ok(false), |v| v.extract())?;
         Ok(LocalDataLoadConfiguration(DataLoadConfiguration {
             parallelism,
             batch_size,
             prefetch_count,
+            load_all_vertex_attributes,
+            load_all_edge_attributes,
         }))
     }
 }
