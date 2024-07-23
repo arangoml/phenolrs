@@ -29,8 +29,6 @@ pub fn create_collection_info_vec(
     collection_info.iter().map(|c| c.0.clone()).collect()
 }
 
-
-
 impl FromPyObject<'_> for DataLoadRequest {
     fn extract(ob: &PyAny) -> PyResult<Self> {
         let input_dict: &PyDict = ob.downcast()?;

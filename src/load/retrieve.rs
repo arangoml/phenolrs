@@ -85,7 +85,6 @@ pub async fn fetch_graph_from_arangodb_local_variant(
         SystemTime::now().duration_since(begin).unwrap()
     );
 
-    
     let graph_loader_res = GraphLoader::new_custom(
         db_config,
         load_config,
