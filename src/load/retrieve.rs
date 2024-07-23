@@ -85,7 +85,7 @@ pub async fn fetch_graph_from_arangodb_local_variant(
         SystemTime::now().duration_since(begin).unwrap()
     );
 
-    let graph_loader;
+    
     let graph_loader_res = GraphLoader::new_custom(
         db_config,
         load_config,
@@ -93,10 +93,10 @@ pub async fn fetch_graph_from_arangodb_local_variant(
         local_edge_collections,
     )
     .await;
-    match graph_loader_res {
-        Ok(g) => graph_loader = g,
+    let graph_loader = match graph_loader_res {
+        Ok(g) => g,
         Err(e) => return Err(format!("Could not create graph loader: {:?}", e)),
-    }
+    };
 
     let graph_arc_clone = graph_arc.clone();
     let handle_vertices = move |vertex_ids: &Vec<Vec<u8>>,
@@ -108,13 +108,13 @@ pub async fn fetch_graph_from_arangodb_local_variant(
             let k = &vertex_ids[i];
             let mut cols: Vec<Value> = vec![];
             std::mem::swap(&mut cols, &mut columns[i]);
-            graph.insert_vertex(k.clone(), cols, &vertex_field_names);
+            graph.insert_vertex(k.clone(), cols, vertex_field_names);
         }
 
         Ok(())
     };
 
-    if req.vertex_collections.len() > 0 {
+    if !req.vertex_collections.is_empty() {
         // only load vertices if there are any
         let vertices_result = graph_loader.do_vertices(handle_vertices).await;
         if vertices_result.is_err() {
@@ -152,7 +152,7 @@ pub async fn fetch_graph_from_arangodb_local_variant(
         Ok(())
     };
 
-    if req.edge_collections.len() > 0 {
+    if !req.edge_collections.is_empty() {
         // only load edges if there are any
         let edges_result = graph_loader.do_edges(handle_edges).await;
         if edges_result.is_err() {

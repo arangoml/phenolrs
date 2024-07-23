@@ -5,6 +5,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::types::PyDict;
 use pyo3::{FromPyObject, PyAny, PyResult};
 
+#[derive(Default)]
 pub struct LocalDataLoadConfiguration(pub DataLoadConfiguration);
 
 impl From<LocalDataLoadConfiguration> for DataLoadConfiguration {
@@ -12,6 +13,7 @@ impl From<LocalDataLoadConfiguration> for DataLoadConfiguration {
         local.0
     }
 }
+#[derive(Default)]
 pub struct LocalDatabaseConfiguration(pub DatabaseConfiguration);
 
 impl From<LocalDatabaseConfiguration> for DatabaseConfiguration {
@@ -27,17 +29,7 @@ pub fn create_collection_info_vec(
     collection_info.iter().map(|c| c.0.clone()).collect()
 }
 
-impl Default for LocalDatabaseConfiguration {
-    fn default() -> Self {
-        LocalDatabaseConfiguration(DatabaseConfiguration::default())
-    }
-}
 
-impl Default for LocalDataLoadConfiguration {
-    fn default() -> Self {
-        LocalDataLoadConfiguration(DataLoadConfiguration::default())
-    }
-}
 
 impl FromPyObject<'_> for DataLoadRequest {
     fn extract(ob: &PyAny) -> PyResult<Self> {

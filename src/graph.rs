@@ -32,7 +32,7 @@ impl Graph {
         &mut self,
         key: Vec<u8>, // cannot be empty
         columns: Vec<Value>,
-        field_names: &Vec<String>,
+        field_names: &[String],
     ) {
         // Important note: Actually the API returns IDs instead of keys .................
         assert!(!columns.is_empty());
