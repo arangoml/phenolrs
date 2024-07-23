@@ -255,7 +255,7 @@ def test_phenol_abide_networkx(
     for v1 in adj_dict.values():
         for v2 in v1.values():
             assert isinstance(v2, dict)
-            assert list(v2.keys()) == ["_id"]
+            assert len(v) == 0
 
     # Graph (custom vertex/edge attributes)
     with pytest.raises(PhenolError):
@@ -312,4 +312,4 @@ def test_phenol_abide_networkx(
     for v1 in adj_dict.values():
         for v2 in v1.values():
             assert isinstance(v2, dict)
-            assert list(v2.keys()) == ["_id", "_rev"]
+            assert list(v2.keys()) == ["_rev"]
