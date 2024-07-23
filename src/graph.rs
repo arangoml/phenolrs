@@ -48,7 +48,13 @@ impl Graph {
             if feature_name == "@collection_name" {
                 continue;
             }
+            if feature_name == "_id" {
+                continue;
+            }
             let feature_vec = parse_value_to_vec(&columns[i]);
+            if feature_vec.is_none() {
+                continue;
+            }
             feature_res.insert(feature_name.clone(), feature_vec.unwrap());
         }
 
