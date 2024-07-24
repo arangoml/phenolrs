@@ -1,6 +1,4 @@
-mod arangodb;
-mod client;
-mod graphs;
+mod graph;
 mod input;
 mod load;
 mod output;

@@ -14,15 +14,17 @@ lto = "fat"
 # TODO: add rustflags for target features/cpus
 
 [dependencies]
+lightning = { git = "ssh://git@github.com/arangodb/lightning", tag = "v0.0.5" }
+#lightning = { path = "../lightning" }
 numpy = "0.20.0"
 tokio = { version = "1", features = ["full"] }
 bytes = "1.5.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-reqwest = { version= "0.11", features = ["json", "rustls-tls"] }
+reqwest = { version = "0.11.16", features = ["json", "rustls-tls"] }
 reqwest-retry = "0.3.0"
 reqwest-middleware = "0.2.4"
-log = "0.4"
+log = "0.4.22"
 ndarray = "0.15.6"
 anyhow = "1.0.80"
 
