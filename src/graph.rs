@@ -103,7 +103,7 @@ impl Graph for NumpyGraph {
         &mut self,
         id: Vec<u8>, // cannot be empty
         columns: Vec<Value>,
-        field_names: &[String],
+        field_names: &Vec<String>,
     ) {
         debug_assert!(!columns.is_empty());
         debug_assert_eq!(columns.len(), field_names.len());
@@ -119,7 +119,9 @@ impl Graph for NumpyGraph {
 
         let mut feature_res: HashMap<String, Vec<f64>> = HashMap::new();
         for (i, feature_name) in field_names.iter().enumerate() {
-            if feature_name == "_id" { continue; }
+            if feature_name == "_id" {
+                continue;
+            }
             let feature_vec = parse_value_to_vec(&columns[i]);
             if feature_vec.is_none() {
                 println!("Feature {} is not a vector. Skipping.", feature_name);
