@@ -158,6 +158,7 @@ jobs:
             source ~/.bashrc
             conda create -n phenolrs python=3.10 -y
             conda activate phenolrs
+            conda install numpy
       - run:
           name: Install Phenol deps
           command: |
