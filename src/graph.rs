@@ -103,21 +103,23 @@ impl Graph for NumpyGraph {
         &mut self,
         id: Vec<u8>, // cannot be empty
         columns: Vec<Value>,
-        field_names: &Vec<String>,
+        field_names: &[String],
     ) {
-        assert!(!columns.is_empty());
-        assert_eq!(columns.len(), field_names.len());
+        debug_assert!(!columns.is_empty());
+        debug_assert_eq!(columns.len(), field_names.len());
 
-        let mut col_name = String::new();
+        let col_name_position = field_names
+            .iter()
+            .position(|x| x == "@collection_name")
+            .expect("No @collection_name in field names");
+        let col_name = match &columns[col_name_position] {
+            Value::String(s) => s,
+            _ => panic!("Expected Value::String for @collection_name"),
+        };
+
         let mut feature_res: HashMap<String, Vec<f64>> = HashMap::new();
         for (i, feature_name) in field_names.iter().enumerate() {
-            if feature_name == "@collection_name" {
-                col_name = columns[i].as_str().unwrap().to_string();
-                continue;
-            }
-            if feature_name == "_id" {
-                continue;
-            }
+            if feature_name == "_id" { continue; }
             let feature_vec = parse_value_to_vec(&columns[i]);
             if feature_vec.is_none() {
                 println!("Feature {} is not a vector. Skipping.", feature_name);
@@ -220,8 +222,17 @@ impl Graph for NumpyGraph {
             (col.to_string(), key[1..].to_string())
         };
 
-        let key_tup = (col_name.clone(), from_col.clone(), to_col.clone());
+        debug_assert!(field_names.contains(&String::from("@collection_name")));
+        let col_name_position = field_names
+            .iter()
+            .position(|x| x == "@collection_name")
+            .expect("No @collection_name in edge field names");
+        let col_name = match &columns[col_name_position] {
+            Value::String(s) => s.as_str(),
+            _ => panic!("Expected Value::String for @collection_name"),
+        };
 
+        let key_tup = (col_name.to_string(), from_col.clone(), to_col.clone());
         if !self.coo_by_from_edge_to.contains_key(&key_tup) {
             self.coo_by_from_edge_to
                 .insert(key_tup.clone(), vec![vec![], vec![]]);
