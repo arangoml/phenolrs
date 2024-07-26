@@ -153,7 +153,6 @@ def test_karate_networkx(
     assert len(node_dict) == len(vertex_ids_to_indices) > 0
     assert len(src_indices) == len(dst_indices) > 0
 
-
     assert set(adj_dict.keys()) == {"succ", "pred"}
     succ = adj_dict["succ"]
     assert isinstance(succ[from_key], dict)
