@@ -18,7 +18,8 @@ dependencies = [
 [project.optional-dependencies]
 tests = [
     "pytest",
-    "arango-datasets"
+    "arango-datasets",
+    "adbnx-adapter",
 ]
 torch = [
     "torch",

@@ -32,8 +32,11 @@ create_exception!(phenolrs, PhenolError, PyException);
 #[cfg(not(test))]
 fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCompatible> {
     let graph_factory = NumpyGraph::new;
+
+    println!("Retrieving Numpy Graph...");
     let graph =
         load::retrieve::get_arangodb_graph(request, graph_factory).map_err(PhenolError::new_err)?;
+    println!("Retrieved. Building python objects...");
 
     let col_to_features = construct::construct_col_to_features(
         convert_nested_features_map(graph.cols_to_features),
@@ -50,8 +53,7 @@ fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCo
 
     let cols_to_inds_to_keys =
         construct::construct_cols_to_inds_to_keys(graph.cols_to_inds_to_keys, py)?;
-
-    println!("Finished retrieval!");
+    println!("Built python objects.");
 
     let res = (
         col_to_features,
@@ -87,17 +89,29 @@ fn graph_to_networkx_format(
             load_all_edge_attributes,
             graph_config.is_directed,
             graph_config.is_multigraph,
+            graph_config.symmterize_edges_if_directed,
         )
     };
 
+    println!("Retrieving NetworkX Graph...");
     let graph = load::retrieve::get_arangodb_graph(request, graph_factory).unwrap();
+    println!("Retrieved. Building python objects...");
 
     let node_dict = construct::construct_dict_of_dict(graph.node_map, py)?;
     let adj_dict = if graph_config.is_multigraph {
-        construct::construct_dict_of_dict_of_dict_of_dict(graph.adj_map_multigraph, py)?
+        if graph_config.is_directed {
+            construct::construct_multidigraph(graph.adj_map_multidigraph, py)?
+        } else {
+            construct::construct_multigraph(graph.adj_map_multigraph, py)?
+        }
     } else {
-        construct::construct_dict_of_dict_of_dict(graph.adj_map, py)?
+        if graph_config.is_directed {
+            construct::construct_digraph(graph.adj_map_digraph, py)?
+        } else {
+            construct::construct_graph(graph.adj_map_graph, py)?
+        }
     };
+    println!("Built python objects.");
 
     let coo = graph.coo;
     let src_indices = PyArray1::from_vec(py, coo.0);

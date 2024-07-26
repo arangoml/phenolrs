@@ -140,20 +140,24 @@ impl FromPyObject<'_> for NetworkXGraphConfig {
         let load_adj_dict: bool = input_dict
             .get_item("load_adj_dict")?
             .map_or_else(|| Ok(true), |c| c.extract())?;
+        let load_coo: bool = input_dict
+            .get_item("load_coo")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
         let is_directed: bool = input_dict
             .get_item("is_directed")?
             .map_or_else(|| Ok(true), |c| c.extract())?;
         let is_multigraph: bool = input_dict
             .get_item("is_multigraph")?
             .map_or_else(|| Ok(true), |c| c.extract())?;
-        let load_coo: bool = input_dict
-            .get_item("load_coo")?
-            .map_or_else(|| Ok(true), |c| c.extract())?;
+        let symmterize_edges_if_directed: bool = input_dict
+            .get_item("symmterize_edges_if_directed")?
+            .map_or_else(|| Ok(false), |c| c.extract())?;
         Ok(NetworkXGraphConfig {
             load_adj_dict,
+            load_coo,
             is_directed,
             is_multigraph,
-            load_coo,
+            symmterize_edges_if_directed,
         })
     }
 }

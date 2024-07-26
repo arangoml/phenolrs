@@ -10,7 +10,8 @@ pub struct DataLoadRequest {
 
 pub struct NetworkXGraphConfig {
     pub load_adj_dict: bool,
+    pub load_coo: bool,
     pub is_directed: bool,
     pub is_multigraph: bool,
-    pub load_coo: bool,
+    pub symmterize_edges_if_directed: bool,
 }

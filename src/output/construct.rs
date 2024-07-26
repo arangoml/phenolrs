@@ -92,7 +92,7 @@ pub fn construct_dict_of_dict(
 }
 
 #[cfg(not(test))]
-pub fn construct_dict_of_dict_of_dict(
+pub fn construct_graph(
     input: HashMap<String, HashMap<String, Map<String, Value>>>,
     py: Python,
 ) -> PyResult<&PyDict> {
@@ -115,7 +115,34 @@ pub fn construct_dict_of_dict_of_dict(
 }
 
 #[cfg(not(test))]
-pub fn construct_dict_of_dict_of_dict_of_dict(
+pub fn construct_digraph(
+    input: HashMap<String, HashMap<String, HashMap<String, Map<String, Value>>>>,
+    py: Python,
+) -> PyResult<&PyDict> {
+    let pydict = PyDict::new(py);
+
+    for (key, properties) in input.iter() {
+        let inner_dict = PyDict::new(py);
+        for (property_key, property_value) in properties.iter() {
+            let inner_inner_dict = PyDict::new(py);
+            for (inner_property_key, inner_property_value) in property_value.iter() {
+                let inner_inner_inner_dict = PyDict::new(py);
+                for (inner_inner_property_key, inner_inner_property_value) in inner_property_value {
+                    let py_value = construct_py_object(inner_inner_property_value, py)?;
+                    inner_inner_inner_dict.set_item(inner_inner_property_key, py_value)?;
+                }
+                inner_inner_dict.set_item(inner_property_key, inner_inner_inner_dict)?;
+            }
+            inner_dict.set_item(property_key, inner_inner_dict)?;
+        }
+        pydict.set_item(key, inner_dict)?;
+    }
+
+    Ok(pydict)
+}
+
+#[cfg(not(test))]
+pub fn construct_multigraph(
     input: HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>,
     py: Python,
 ) -> PyResult<&PyDict> {
@@ -130,6 +157,43 @@ pub fn construct_dict_of_dict_of_dict_of_dict(
                 for (inner_inner_property_key, inner_inner_property_value) in inner_property_value {
                     let py_value = construct_py_object(inner_inner_property_value, py)?;
                     inner_inner_inner_dict.set_item(inner_inner_property_key, py_value)?;
+                }
+                inner_inner_dict.set_item(inner_property_key, inner_inner_inner_dict)?;
+            }
+            inner_dict.set_item(property_key, inner_inner_dict)?;
+        }
+        pydict.set_item(key, inner_dict)?;
+    }
+
+    Ok(pydict)
+}
+
+#[cfg(not(test))]
+pub fn construct_multidigraph(
+    input: HashMap<String, HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>>,
+    py: Python,
+) -> PyResult<&PyDict> {
+    let pydict = PyDict::new(py);
+
+    for (key, properties) in input.iter() {
+        let inner_dict = PyDict::new(py);
+        for (property_key, property_value) in properties.iter() {
+            let inner_inner_dict = PyDict::new(py);
+            for (inner_property_key, inner_property_value) in property_value.iter() {
+                let inner_inner_inner_dict = PyDict::new(py);
+                for (inner_inner_property_key, inner_inner_property_value) in
+                    inner_property_value.iter()
+                {
+                    let inner_inner_inner_inner_dict = PyDict::new(py);
+                    for (inner_inner_inner_property_key, inner_inner_inner_property_value) in
+                        inner_inner_property_value
+                    {
+                        let py_value = construct_py_object(inner_inner_inner_property_value, py)?;
+                        inner_inner_inner_inner_dict
+                            .set_item(inner_inner_inner_property_key, py_value)?;
+                    }
+                    inner_inner_inner_dict
+                        .set_item(inner_inner_property_key, inner_inner_inner_inner_dict)?;
                 }
                 inner_inner_dict.set_item(inner_property_key, inner_inner_inner_dict)?;
             }

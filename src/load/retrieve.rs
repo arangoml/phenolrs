@@ -2,11 +2,9 @@ use crate::graph::Graph;
 use crate::input::load_request::DataLoadRequest;
 use lightning::errors::GraphLoaderError;
 use lightning::{CollectionInfo, GraphLoader};
-use log::info;
 use serde_json::Value;
 use std::error::Error;
 use std::sync::{Arc, RwLock};
-use std::time::SystemTime;
 
 pub fn get_arangodb_graph<G: Graph + Send + Sync + 'static>(
     req: DataLoadRequest,
@@ -14,17 +12,14 @@ pub fn get_arangodb_graph<G: Graph + Send + Sync + 'static>(
 ) -> Result<G, String> {
     let graph = graph_factory();
     let graph_clone = graph.clone(); // for background thread
-    println!("Starting computation");
+
     // Fetch from ArangoDB in a background thread:
     let handle = std::thread::spawn(move || {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap()
-            .block_on(async {
-                println!("Loading!");
-                fetch_graph_from_arangodb_local_variant(req, graph_clone).await
-            })
+            .block_on(async { fetch_graph_from_arangodb_local_variant(req, graph_clone).await })
     });
     handle.join().map_err(|_s| "Computation failed")??;
     let inner_rw_lock = Arc::<std::sync::RwLock<G>>::try_unwrap(graph)
@@ -77,12 +72,6 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
     if db_config.endpoints.is_empty() {
         return Err("no endpoints given".to_string());
     }
-    let begin = SystemTime::now();
-
-    println!(
-        "{:?} Fetching graph from ArangoDB...",
-        SystemTime::now().duration_since(begin).unwrap()
-    );
 
     let graph_loader_res = GraphLoader::new_custom(
         db_config,
@@ -91,6 +80,7 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
         local_edge_collections,
     )
     .await;
+
     let graph_loader = match graph_loader_res {
         Ok(g) => g,
         Err(e) => return Err(format!("Could not create graph loader: {:?}", e)),
@@ -158,11 +148,5 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
         }
     }
 
-    {
-        info!(
-            "{:?} Graph loaded.",
-            SystemTime::now().duration_since(begin).unwrap()
-        );
-    }
     Ok(graph_arc)
 }

@@ -43,17 +43,19 @@ pub struct NetworkXGraph {
     pub load_all_edge_attributes: bool,
     pub is_directed: bool,
     pub is_multigraph: bool,
+    pub symmterize_edges_if_directed: bool,
 
     // node_map is a dictionary of node IDs to their json data
     // e.g {'user/1': {'name': 'Alice', 'age': 25}, 'user/2': {'name': 'Bob', 'age': 30}, ...}
     pub node_map: HashMap<String, Map<String, Value>>,
 
-    // adj_map is a dict of dict of dict that represents the adjacency list of the graph
-    // e.g {'user/1': {'user/2': {'weight': 0.6}, 'user/3': {'weight': 0.2}}, 'user/2': {'user/1': {'weight': 0.6}, 'user/3': {'weight': 0.2}}, ...}
-    // However, it is also possible to have multiple edges between the same pair of nodes.
-    // e.g {'user/1': {'user/2': {0: {'weight': 0.6}, 1: {'weight': 0.8}}}}
-    pub adj_map: HashMap<String, HashMap<String, Map<String, Value>>>,
+    // adj_map represents the adjacency list of the graph
+    // it can be a graph, digraph, multigraph, or multidigraph
+    pub adj_map_graph: HashMap<String, HashMap<String, Map<String, Value>>>,
+    pub adj_map_digraph: HashMap<String, HashMap<String, HashMap<String, Map<String, Value>>>>,
     pub adj_map_multigraph: HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>,
+    pub adj_map_multidigraph:
+        HashMap<String, HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>>,
 
     // e.g ([0, 1, 2], [1, 2, 3])
     pub coo: (Vec<usize>, Vec<usize>),
@@ -81,7 +83,16 @@ impl NetworkXGraph {
         load_all_edge_attributes: bool,
         is_directed: bool,
         is_multigraph: bool,
+        symmterize_edges_if_directed: bool,
     ) -> Arc<RwLock<NetworkXGraph>> {
+        let mut adj_map_digraph = HashMap::new();
+        adj_map_digraph.insert("succ".to_string(), HashMap::new());
+        adj_map_digraph.insert("pred".to_string(), HashMap::new());
+
+        let mut adj_map_multidigraph = HashMap::new();
+        adj_map_multidigraph.insert("succ".to_string(), HashMap::new());
+        adj_map_multidigraph.insert("pred".to_string(), HashMap::new());
+
         Arc::new(RwLock::new(NetworkXGraph {
             load_adj_dict,
             load_coo,
@@ -89,9 +100,12 @@ impl NetworkXGraph {
             load_all_edge_attributes,
             is_directed,
             is_multigraph,
+            symmterize_edges_if_directed,
             node_map: HashMap::new(),
-            adj_map: HashMap::new(),
+            adj_map_graph: HashMap::new(),
+            adj_map_digraph: adj_map_digraph,
             adj_map_multigraph: HashMap::new(),
+            adj_map_multidigraph: adj_map_multidigraph,
             coo: (vec![], vec![]),
             vertex_id_to_index: HashMap::new(),
         }))
@@ -366,46 +380,127 @@ impl Graph for NetworkXGraph {
                 }
             }
 
-            // MultiDiGraph
+            // MultiDiGraph or MultiGraph
             if self.is_multigraph {
-                if !self.adj_map_multigraph.contains_key(&from_id_str) {
-                    self.adj_map_multigraph
-                        .insert(from_id_str.clone(), HashMap::new());
-                }
+                if self.is_directed {
+                    // 1) Add [from, to] in _succ adjacency list
 
-                if !self.adj_map_multigraph.contains_key(&to_id_str) {
-                    self.adj_map_multigraph
-                        .insert(to_id_str.clone(), HashMap::new());
-                }
+                    let _succ = self.adj_map_multidigraph.get_mut("succ").unwrap();
 
-                let from_map = self.adj_map_multigraph.get_mut(&from_id_str).unwrap();
-                let from_to_map = from_map.entry(to_id_str.clone()).or_default();
-                let index = from_to_map.len();
-                from_to_map.insert(index, properties.clone());
+                    if !_succ.contains_key(&from_id_str) {
+                        _succ.insert(from_id_str.clone(), HashMap::new());
+                    }
 
-                // MutliGraph
-                if !self.is_directed {
+                    if !_succ.contains_key(&to_id_str) {
+                        _succ.insert(to_id_str.clone(), HashMap::new());
+                    }
+
+                    let succ_from_map = _succ.get_mut(&from_id_str).unwrap();
+                    let succ_from_to_map = succ_from_map.entry(to_id_str.clone()).or_default();
+                    let index = succ_from_to_map.len();
+                    succ_from_to_map.insert(index, properties.clone());
+
+                    if self.symmterize_edges_if_directed {
+                        let succ_to_map = _succ.get_mut(&to_id_str).unwrap();
+                        let succ_to_from_map = succ_to_map.entry(from_id_str.clone()).or_default();
+                        succ_to_from_map.insert(index, properties.clone());
+                    }
+
+                    // 2) Add [to, from] in _pred adjacency list
+                    let _pred = self.adj_map_multidigraph.get_mut("pred").unwrap();
+
+                    if !_pred.contains_key(&to_id_str) {
+                        _pred.insert(to_id_str.clone(), HashMap::new());
+                    }
+
+                    if !_pred.contains_key(&from_id_str) {
+                        _pred.insert(from_id_str.clone(), HashMap::new());
+                    }
+
+                    let pred_to_map = _pred.get_mut(&to_id_str).unwrap();
+                    let pred_to_from_map = pred_to_map.entry(from_id_str.clone()).or_default();
+                    let index = pred_to_from_map.len();
+                    pred_to_from_map.insert(index, properties.clone());
+
+                    if self.symmterize_edges_if_directed {
+                        let pred_from_map = _pred.get_mut(&from_id_str).unwrap();
+                        let pred_from_to_map = pred_from_map.entry(to_id_str.clone()).or_default();
+                        pred_from_to_map.insert(index, properties.clone());
+                    }
+                } else {
+                    if !self.adj_map_multigraph.contains_key(&from_id_str) {
+                        self.adj_map_multigraph
+                            .insert(from_id_str.clone(), HashMap::new());
+                    }
+
+                    if !self.adj_map_multigraph.contains_key(&to_id_str) {
+                        self.adj_map_multigraph
+                            .insert(to_id_str.clone(), HashMap::new());
+                    }
+
+                    let from_map = self.adj_map_multigraph.get_mut(&from_id_str).unwrap();
+                    let from_to_map = from_map.entry(to_id_str.clone()).or_default();
+                    let index = from_to_map.len();
+                    from_to_map.insert(index, properties.clone());
+
                     let to_map = self.adj_map_multigraph.get_mut(&to_id_str).unwrap();
                     let to_from_map = to_map.entry(from_id_str.clone()).or_default();
                     to_from_map.insert(index, properties.clone());
                 }
-
-            // DiGraph
+            // DiGraph or Graph
             } else {
-                if !self.adj_map.contains_key(&from_id_str) {
-                    self.adj_map.insert(from_id_str.clone(), HashMap::new());
-                }
+                if self.is_directed {
+                    // 1) Add [from, to] in _succ adjacency list
+                    let _succ = self.adj_map_digraph.get_mut("succ").unwrap();
 
-                if !self.adj_map.contains_key(&to_id_str) {
-                    self.adj_map.insert(to_id_str.clone(), HashMap::new());
-                }
+                    if !_succ.contains_key(&from_id_str) {
+                        _succ.insert(from_id_str.clone(), HashMap::new());
+                    }
 
-                let from_map = self.adj_map.get_mut(&from_id_str).unwrap();
-                from_map.insert(to_id_str.clone(), properties.clone());
+                    if !_succ.contains_key(&to_id_str) {
+                        _succ.insert(to_id_str.clone(), HashMap::new());
+                    }
 
-                // Graph
-                if !self.is_directed {
-                    let to_map = self.adj_map.get_mut(&to_id_str).unwrap();
+                    let succ_from_map = _succ.get_mut(&from_id_str).unwrap();
+                    succ_from_map.insert(to_id_str.clone(), properties.clone());
+
+                    if self.symmterize_edges_if_directed {
+                        let succ_to_map = _succ.get_mut(&to_id_str).unwrap();
+                        succ_to_map.insert(from_id_str.clone(), properties.clone());
+                    }
+
+                    // 2) Add [to, from] in _pred adjacency list
+                    let _pred = self.adj_map_digraph.get_mut("pred").unwrap();
+
+                    if !_pred.contains_key(&to_id_str) {
+                        _pred.insert(to_id_str.clone(), HashMap::new());
+                    }
+
+                    if !_pred.contains_key(&from_id_str) {
+                        _pred.insert(from_id_str.clone(), HashMap::new());
+                    }
+
+                    let pred_to_map = _pred.get_mut(&to_id_str).unwrap();
+                    pred_to_map.insert(from_id_str.clone(), properties.clone());
+
+                    if self.symmterize_edges_if_directed {
+                        let pred_from_map = _pred.get_mut(&from_id_str).unwrap();
+                        pred_from_map.insert(to_id_str.clone(), properties.clone());
+                    }
+                } else {
+                    if !self.adj_map_graph.contains_key(&from_id_str) {
+                        self.adj_map_graph
+                            .insert(from_id_str.clone(), HashMap::new());
+                    }
+
+                    if !self.adj_map_graph.contains_key(&to_id_str) {
+                        self.adj_map_graph.insert(to_id_str.clone(), HashMap::new());
+                    }
+
+                    let from_map = self.adj_map_graph.get_mut(&from_id_str).unwrap();
+                    from_map.insert(to_id_str.clone(), properties.clone());
+
+                    let to_map = self.adj_map_graph.get_mut(&to_id_str).unwrap();
                     to_map.insert(from_id_str.clone(), properties.clone());
                 }
             }

@@ -5,6 +5,8 @@ import numpy.typing as npt
 
 from phenolrs import PhenolError, graph_to_networkx_format
 
+from .typings import DiGraph, Graph, MultiDiGraph, MultiGraph
+
 
 class NetworkXLoader:
     @staticmethod
@@ -24,9 +26,10 @@ class NetworkXLoader:
         load_all_edge_attributes: bool = True,
         is_directed: bool = True,
         is_multigraph: bool = True,
+        symmterize_edges_if_directed: bool = False,
     ) -> Tuple[
         dict[str, dict[str, Any]],
-        dict[str, dict[str, dict[str, Any] | dict[int, dict[str, Any]]]],
+        Graph | DiGraph | MultiGraph | MultiDiGraph,
         npt.NDArray[np.int64],
         npt.NDArray[np.int64],
         dict[str, int],
@@ -82,9 +85,10 @@ class NetworkXLoader:
 
         graph_config = {
             "load_adj_dict": load_adj_dict,
+            "load_coo": load_coo,
             "is_directed": is_directed,
             "is_multigraph": is_multigraph,
-            "load_coo": load_coo,
+            "symmterize_edges_if_directed": symmterize_edges_if_directed,
         }
 
         vertex_collections = [
