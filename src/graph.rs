@@ -10,6 +10,26 @@ pub struct VertexHash(u64);
 #[derive(Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Debug)]
 pub struct VertexIndex(u64);
 
+fn panic_if_edge_exists<X>(map: &HashMap<String, X>, from_id_str: String, to_id_str: String) {
+    if map.contains_key(&to_id_str) {
+        panic!("ERROR: Edge '{}' to '{}' already exists in Adjacency Dictionary. Consider switching to Multi(Di)Graph instead.", from_id_str, to_id_str);
+    }
+}
+
+fn parse_value_to_vec(val: &Value) -> Option<Vec<f64>> {
+    match val.as_array() {
+        Some(v) => {
+            let float_casted: Vec<f64> = v.iter().filter_map(|v| v.as_f64()).collect();
+            if float_casted.len() != v.len() {
+                None
+            } else {
+                Some(float_casted)
+            }
+        }
+        None => val.as_f64().map(|only_val| vec![only_val]),
+    }
+}
+
 pub trait Graph {
     fn insert_vertex(
         &mut self,
@@ -303,9 +323,11 @@ impl NetworkXGraph {
         }
 
         let from_map = self.adj_map_graph.get_mut(&from_id_str).unwrap();
+        panic_if_edge_exists(from_map, from_id_str.clone(), to_id_str.clone());
         from_map.insert(to_id_str.clone(), properties.clone());
 
         let to_map = self.adj_map_graph.get_mut(&to_id_str).unwrap();
+        panic_if_edge_exists(to_map, to_id_str.clone(), from_id_str.clone());
         to_map.insert(from_id_str.clone(), properties.clone());
     }
 
@@ -327,10 +349,12 @@ impl NetworkXGraph {
         }
 
         let succ_from_map = _succ.get_mut(&from_id_str).unwrap();
+        panic_if_edge_exists(succ_from_map, from_id_str.clone(), to_id_str.clone());
         succ_from_map.insert(to_id_str.clone(), properties.clone());
 
         if self.symmterize_edges_if_directed {
             let succ_to_map = _succ.get_mut(&to_id_str).unwrap();
+            panic_if_edge_exists(succ_to_map, to_id_str.clone(), from_id_str.clone());
             succ_to_map.insert(from_id_str.clone(), properties.clone());
         }
 
@@ -346,10 +370,12 @@ impl NetworkXGraph {
         }
 
         let pred_to_map = _pred.get_mut(&to_id_str).unwrap();
+        panic_if_edge_exists(pred_to_map, to_id_str.clone(), from_id_str.clone());
         pred_to_map.insert(from_id_str.clone(), properties.clone());
 
         if self.symmterize_edges_if_directed {
             let pred_from_map = _pred.get_mut(&from_id_str).unwrap();
+            panic_if_edge_exists(pred_from_map, from_id_str.clone(), to_id_str.clone());
             pred_from_map.insert(to_id_str.clone(), properties.clone());
         }
     }
@@ -592,21 +618,6 @@ impl Graph for NumpyGraph {
             cur_coo[1].push(*to_id);
         };
         Ok(())
-    }
-}
-
-fn parse_value_to_vec(val: &Value) -> Option<Vec<f64>> {
-    // first try array
-    match val.as_array() {
-        Some(v) => {
-            let float_casted: Vec<f64> = v.iter().filter_map(|v| v.as_f64()).collect();
-            if float_casted.len() != v.len() {
-                None
-            } else {
-                Some(float_casted)
-            }
-        }
-        None => val.as_f64().map(|only_val| vec![only_val]),
     }
 }
 
