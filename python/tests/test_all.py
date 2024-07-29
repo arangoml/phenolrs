@@ -150,8 +150,8 @@ def test_karate_networkx(
     assert isinstance(src_indices, numpy.ndarray)
     assert isinstance(dst_indices, numpy.ndarray)
     assert isinstance(vertex_ids_to_indices, dict)
-    assert len(node_dict) == len(vertex_ids_to_indices) > 0
-    assert len(src_indices) == len(dst_indices) > 0
+    assert len(node_dict) == len(vertex_ids_to_indices) == 34
+    assert len(src_indices) == len(dst_indices) == 78
 
     assert set(adj_dict.keys()) == {"succ", "pred"}
     succ = adj_dict["succ"]
@@ -198,6 +198,7 @@ def test_karate_networkx(
     node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = res
     assert from_key in adj_dict["succ"][to_key]
     assert to_key in adj_dict["pred"][from_key]
+    assert len(src_indices) == len(dst_indices) == 156
 
     # DiGraph
     res = NetworkXLoader.load_into_networkx(

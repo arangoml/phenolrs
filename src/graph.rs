@@ -140,21 +140,29 @@ impl NetworkXGraph {
         };
 
         let insert_coo_fn = if load_coo {
-            NetworkXGraph::insert_coo
+            if is_directed {
+                if symmterize_edges_if_directed {
+                    NetworkXGraph::insert_coo_undirected
+                } else {
+                    NetworkXGraph::insert_coo_directed
+                }
+            } else {
+                NetworkXGraph::insert_coo_undirected
+            }
         } else {
             NetworkXGraph::insert_coo_dummy
         };
 
         let insert_adj_fn = if load_adj_dict {
-            if is_directed {
-                if is_multigraph {
+            if is_multigraph {
+                if is_directed {
                     NetworkXGraph::insert_adj_multidigraph
                 } else {
-                    NetworkXGraph::insert_adj_digraph
+                    NetworkXGraph::insert_adj_multigraph
                 }
             } else {
-                if is_multigraph {
-                    NetworkXGraph::insert_adj_multigraph
+                if is_directed {
+                    NetworkXGraph::insert_adj_digraph
                 } else {
                     NetworkXGraph::insert_adj_graph
                 }
@@ -284,11 +292,15 @@ impl NetworkXGraph {
         properties
     }
 
-    fn insert_coo(&mut self, from_id_str: String, to_id_str: String) {
+    fn get_from_and_to_id_index(
+        &mut self,
+        from_id_str: String,
+        to_id_str: String,
+    ) -> (usize, usize) {
         let from_id_index = match self.vertex_id_to_index.get(&from_id_str) {
             Some(index) => *index,
             None => {
-                let index: usize = self.vertex_id_to_index.len();
+                let index = self.vertex_id_to_index.len();
                 self.vertex_id_to_index.insert(from_id_str.clone(), index);
                 index
             }
@@ -302,6 +314,22 @@ impl NetworkXGraph {
                 index
             }
         };
+
+        (from_id_index, to_id_index)
+    }
+
+    fn insert_coo_undirected(&mut self, from_id_str: String, to_id_str: String) {
+        let (from_id_index, to_id_index) = self.get_from_and_to_id_index(from_id_str, to_id_str);
+
+        self.coo.0.push(from_id_index);
+        self.coo.1.push(to_id_index);
+
+        self.coo.0.push(to_id_index);
+        self.coo.1.push(from_id_index);
+    }
+
+    fn insert_coo_directed(&mut self, from_id_str: String, to_id_str: String) {
+        let (from_id_index, to_id_index) = self.get_from_and_to_id_index(from_id_str, to_id_str);
 
         self.coo.0.push(from_id_index);
         self.coo.1.push(to_id_index);
