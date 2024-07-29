@@ -128,19 +128,19 @@ impl NetworkXGraph {
         let insert_adj_fn = if load_adj_dict {
             if is_directed {
                 if is_multigraph {
-                    NetworkXGraph::insert_adj_dict_multidigraph
+                    NetworkXGraph::insert_adj_multidigraph
                 } else {
-                    NetworkXGraph::insert_adj_dict_digraph
+                    NetworkXGraph::insert_adj_digraph
                 }
             } else {
                 if is_multigraph {
-                    NetworkXGraph::insert_adj_dict_multigraph
+                    NetworkXGraph::insert_adj_multigraph
                 } else {
-                    NetworkXGraph::insert_adj_dict_graph
+                    NetworkXGraph::insert_adj_graph
                 }
             }
         } else {
-            NetworkXGraph::insert_adj_dict_dummy
+            NetworkXGraph::insert_adj_dummy
         };
 
         Arc::new(RwLock::new(NetworkXGraph {
@@ -177,7 +177,7 @@ impl NetworkXGraph {
 
     fn insert_coo_dummy(&mut self, _from_id_str: String, _to_id_str: String) {}
 
-    fn insert_adj_dict_dummy(
+    fn insert_adj_dummy(
         &mut self,
         _from_id_str: String,
         _to_id_str: String,
@@ -287,7 +287,7 @@ impl NetworkXGraph {
         self.coo.1.push(to_id_index);
     }
 
-    fn insert_adj_dict_graph(
+    fn insert_adj_graph(
         &mut self,
         from_id_str: String,
         to_id_str: String,
@@ -309,7 +309,7 @@ impl NetworkXGraph {
         to_map.insert(from_id_str.clone(), properties.clone());
     }
 
-    fn insert_adj_dict_digraph(
+    fn insert_adj_digraph(
         &mut self,
         from_id_str: String,
         to_id_str: String,
@@ -354,7 +354,7 @@ impl NetworkXGraph {
         }
     }
 
-    fn insert_adj_dict_multigraph(
+    fn insert_adj_multigraph(
         &mut self,
         from_id_str: String,
         to_id_str: String,
@@ -380,7 +380,7 @@ impl NetworkXGraph {
         to_from_map.insert(index, properties.clone());
     }
 
-    fn insert_adj_dict_multidigraph(
+    fn insert_adj_multidigraph(
         &mut self,
         from_id_str: String,
         to_id_str: String,
