@@ -191,8 +191,8 @@ impl NetworkXGraph {
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) -> Map<String, Value> {
-        assert_eq!(columns.len(), 1);
-        assert_eq!(field_names.len(), 0);
+        debug_assert_eq!(columns.len(), 1);
+        debug_assert_eq!(field_names.len(), 0);
 
         let json = columns.first();
         let mut properties = match json {
@@ -230,8 +230,8 @@ impl NetworkXGraph {
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) -> Map<String, Value> {
-        assert_eq!(columns.len(), 1);
-        assert_eq!(field_names.len(), 0);
+        debug_assert_eq!(columns.len(), 1);
+        debug_assert_eq!(field_names.len(), 0);
 
         let json = columns.first();
         let mut properties = match json {
@@ -528,8 +528,8 @@ impl Graph for NumpyGraph {
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) -> Result<()> {
-        assert!(!columns.is_empty());
-        assert_eq!(columns.len(), field_names.len());
+        debug_assert!(!columns.is_empty());
+        debug_assert_eq!(columns.len(), field_names.len());
 
         let mut col_name = String::new();
         for (i, feature_name) in field_names.iter().enumerate() {
