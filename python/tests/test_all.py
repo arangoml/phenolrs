@@ -179,6 +179,8 @@ def test_karate_networkx(
             assert isinstance(edge, dict)
             assert edge == adj_dict["pred"][to_id][from_id]
 
+    assert set(node_dict[from_key].keys()) == {"_id", "_key", "_rev", "club"}
+
     # MultiDiGraph (with edge symmetery)
     res = NetworkXLoader.load_into_networkx(
         "karate",

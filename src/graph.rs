@@ -62,6 +62,16 @@ pub struct NetworkXGraph {
 
     // e.g {'user/1': 0, 'user/2': 1, ...}
     pub vertex_id_to_index: HashMap<String, usize>,
+
+    // pre-defined functions
+    get_vertex_properties_fn:
+        fn(&mut NetworkXGraph, String, Vec<Value>, &Vec<String>) -> Map<String, Value>,
+
+    get_edge_properties_fn:
+        fn(&mut NetworkXGraph, String, String, Vec<Value>, &Vec<String>) -> Map<String, Value>,
+
+    insert_coo_fn: fn(&mut NetworkXGraph, String, String),
+    insert_adj_fn: fn(&mut NetworkXGraph, String, String, Map<String, Value>),
 }
 
 impl NumpyGraph {
@@ -93,6 +103,46 @@ impl NetworkXGraph {
         adj_map_multidigraph.insert("succ".to_string(), HashMap::new());
         adj_map_multidigraph.insert("pred".to_string(), HashMap::new());
 
+        let get_vertex_properties_fn = if load_all_vertex_attributes {
+            NetworkXGraph::get_vertex_properties_all
+        } else {
+            NetworkXGraph::get_vertex_properties_selected
+        };
+
+        let get_edge_properties_fn = if load_adj_dict {
+            if load_all_edge_attributes {
+                NetworkXGraph::get_edge_properties_all
+            } else {
+                NetworkXGraph::get_edge_properties_selected
+            }
+        } else {
+            NetworkXGraph::get_edge_properties_dummy
+        };
+
+        let insert_coo_fn = if load_coo {
+            NetworkXGraph::insert_coo
+        } else {
+            NetworkXGraph::insert_coo_dummy
+        };
+
+        let insert_adj_fn = if load_adj_dict {
+            if is_directed {
+                if is_multigraph {
+                    NetworkXGraph::insert_adj_dict_multidigraph
+                } else {
+                    NetworkXGraph::insert_adj_dict_digraph
+                }
+            } else {
+                if is_multigraph {
+                    NetworkXGraph::insert_adj_dict_multigraph
+                } else {
+                    NetworkXGraph::insert_adj_dict_graph
+                }
+            }
+        } else {
+            NetworkXGraph::insert_adj_dict_dummy
+        };
+
         Arc::new(RwLock::new(NetworkXGraph {
             load_adj_dict,
             load_coo,
@@ -108,7 +158,277 @@ impl NetworkXGraph {
             adj_map_multidigraph: adj_map_multidigraph,
             coo: (vec![], vec![]),
             vertex_id_to_index: HashMap::new(),
+            get_vertex_properties_fn,
+            get_edge_properties_fn,
+            insert_coo_fn,
+            insert_adj_fn,
         }))
+    }
+
+    fn get_edge_properties_dummy(
+        &mut self,
+        _from_id: String,
+        _to_id: String,
+        _columns: Vec<Value>,
+        _field_names: &Vec<String>,
+    ) -> Map<String, Value> {
+        Map::new()
+    }
+
+    fn insert_coo_dummy(&mut self, _from_id_str: String, _to_id_str: String) {}
+
+    fn insert_adj_dict_dummy(
+        &mut self,
+        _from_id_str: String,
+        _to_id_str: String,
+        _properties: Map<String, Value>,
+    ) {
+    }
+
+    fn get_vertex_properties_all(
+        &mut self,
+        vertex_id: String,
+        columns: Vec<Value>,
+        field_names: &Vec<String>,
+    ) -> Map<String, Value> {
+        assert_eq!(columns.len(), 1);
+        assert_eq!(field_names.len(), 0);
+
+        let json = columns.first();
+        let mut properties = match json {
+            Some(Value::Object(map)) => map.clone(),
+            _ => panic!("Vertex data must be a json object"),
+        };
+
+        properties.insert("_id".to_string(), Value::String(vertex_id.clone()));
+
+        properties
+    }
+
+    fn get_vertex_properties_selected(
+        &mut self,
+        _vertex_id: String,
+        columns: Vec<Value>,
+        field_names: &Vec<String>,
+    ) -> Map<String, Value> {
+        let mut properties = Map::new();
+
+        for (i, field_name) in field_names.iter().enumerate() {
+            if field_name == "@collection_name" || field_name == "_id" {
+                continue;
+            }
+            properties.insert(field_name.clone(), columns[i].clone());
+        }
+
+        properties
+    }
+
+    fn get_edge_properties_all(
+        &mut self,
+        from_id: String,
+        to_id: String,
+        columns: Vec<Value>,
+        field_names: &Vec<String>,
+    ) -> Map<String, Value> {
+        assert_eq!(columns.len(), 1);
+        assert_eq!(field_names.len(), 0);
+
+        let json = columns.first();
+        let mut properties = match json {
+            Some(Value::Object(map)) => map.clone(),
+            _ => panic!("Edge data must be a json object"),
+        };
+
+        properties.insert("_from".to_string(), Value::String(from_id.clone()));
+        properties.insert("_to".to_string(), Value::String(to_id.clone()));
+
+        properties
+    }
+
+    fn get_edge_properties_selected(
+        &mut self,
+        _from_id: String,
+        _to_id: String,
+        columns: Vec<Value>,
+        field_names: &Vec<String>,
+    ) -> Map<String, Value> {
+        let mut properties = Map::new();
+
+        for (i, field_name) in field_names.iter().enumerate() {
+            if field_name == "@collection_name" {
+                continue;
+            }
+            properties.insert(field_name.clone(), columns[i].clone());
+        }
+
+        properties
+    }
+
+    fn insert_coo(&mut self, from_id_str: String, to_id_str: String) {
+        let from_id_index = match self.vertex_id_to_index.get(&from_id_str) {
+            Some(index) => *index,
+            None => {
+                let index: usize = self.vertex_id_to_index.len();
+                self.vertex_id_to_index.insert(from_id_str.clone(), index);
+                index
+            }
+        };
+
+        let to_id_index = match self.vertex_id_to_index.get(&to_id_str) {
+            Some(index) => *index,
+            None => {
+                let index = self.vertex_id_to_index.len();
+                self.vertex_id_to_index.insert(to_id_str.clone(), index);
+                index
+            }
+        };
+
+        self.coo.0.push(from_id_index);
+        self.coo.1.push(to_id_index);
+    }
+
+    fn insert_adj_dict_graph(
+        &mut self,
+        from_id_str: String,
+        to_id_str: String,
+        properties: Map<String, Value>,
+    ) {
+        if !self.adj_map_graph.contains_key(&from_id_str) {
+            self.adj_map_graph
+                .insert(from_id_str.clone(), HashMap::new());
+        }
+
+        if !self.adj_map_graph.contains_key(&to_id_str) {
+            self.adj_map_graph.insert(to_id_str.clone(), HashMap::new());
+        }
+
+        let from_map = self.adj_map_graph.get_mut(&from_id_str).unwrap();
+        from_map.insert(to_id_str.clone(), properties.clone());
+
+        let to_map = self.adj_map_graph.get_mut(&to_id_str).unwrap();
+        to_map.insert(from_id_str.clone(), properties.clone());
+    }
+
+    fn insert_adj_dict_digraph(
+        &mut self,
+        from_id_str: String,
+        to_id_str: String,
+        properties: Map<String, Value>,
+    ) {
+        // 1) Add [from, to] in _succ adjacency list
+        let _succ = self.adj_map_digraph.get_mut("succ").unwrap();
+
+        if !_succ.contains_key(&from_id_str) {
+            _succ.insert(from_id_str.clone(), HashMap::new());
+        }
+
+        if !_succ.contains_key(&to_id_str) {
+            _succ.insert(to_id_str.clone(), HashMap::new());
+        }
+
+        let succ_from_map = _succ.get_mut(&from_id_str).unwrap();
+        succ_from_map.insert(to_id_str.clone(), properties.clone());
+
+        if self.symmterize_edges_if_directed {
+            let succ_to_map = _succ.get_mut(&to_id_str).unwrap();
+            succ_to_map.insert(from_id_str.clone(), properties.clone());
+        }
+
+        // 2) Add [to, from] in _pred adjacency list
+        let _pred = self.adj_map_digraph.get_mut("pred").unwrap();
+
+        if !_pred.contains_key(&to_id_str) {
+            _pred.insert(to_id_str.clone(), HashMap::new());
+        }
+
+        if !_pred.contains_key(&from_id_str) {
+            _pred.insert(from_id_str.clone(), HashMap::new());
+        }
+
+        let pred_to_map = _pred.get_mut(&to_id_str).unwrap();
+        pred_to_map.insert(from_id_str.clone(), properties.clone());
+
+        if self.symmterize_edges_if_directed {
+            let pred_from_map = _pred.get_mut(&from_id_str).unwrap();
+            pred_from_map.insert(to_id_str.clone(), properties.clone());
+        }
+    }
+
+    fn insert_adj_dict_multigraph(
+        &mut self,
+        from_id_str: String,
+        to_id_str: String,
+        properties: Map<String, Value>,
+    ) {
+        if !self.adj_map_multigraph.contains_key(&from_id_str) {
+            self.adj_map_multigraph
+                .insert(from_id_str.clone(), HashMap::new());
+        }
+
+        if !self.adj_map_multigraph.contains_key(&to_id_str) {
+            self.adj_map_multigraph
+                .insert(to_id_str.clone(), HashMap::new());
+        }
+
+        let from_map = self.adj_map_multigraph.get_mut(&from_id_str).unwrap();
+        let from_to_map = from_map.entry(to_id_str.clone()).or_default();
+        let index = from_to_map.len();
+        from_to_map.insert(index, properties.clone());
+
+        let to_map = self.adj_map_multigraph.get_mut(&to_id_str).unwrap();
+        let to_from_map = to_map.entry(from_id_str.clone()).or_default();
+        to_from_map.insert(index, properties.clone());
+    }
+
+    fn insert_adj_dict_multidigraph(
+        &mut self,
+        from_id_str: String,
+        to_id_str: String,
+        properties: Map<String, Value>,
+    ) {
+        // 1) Add [from, to] in _succ adjacency list
+        let _succ = self.adj_map_multidigraph.get_mut("succ").unwrap();
+
+        if !_succ.contains_key(&from_id_str) {
+            _succ.insert(from_id_str.clone(), HashMap::new());
+        }
+
+        if !_succ.contains_key(&to_id_str) {
+            _succ.insert(to_id_str.clone(), HashMap::new());
+        }
+
+        let succ_from_map = _succ.get_mut(&from_id_str).unwrap();
+        let succ_from_to_map = succ_from_map.entry(to_id_str.clone()).or_default();
+        let index = succ_from_to_map.len();
+        succ_from_to_map.insert(index, properties.clone());
+
+        if self.symmterize_edges_if_directed {
+            let succ_to_map = _succ.get_mut(&to_id_str).unwrap();
+            let succ_to_from_map = succ_to_map.entry(from_id_str.clone()).or_default();
+            succ_to_from_map.insert(index, properties.clone());
+        }
+
+        // 2) Add [to, from] in _pred adjacency list
+        let _pred = self.adj_map_multidigraph.get_mut("pred").unwrap();
+
+        if !_pred.contains_key(&to_id_str) {
+            _pred.insert(to_id_str.clone(), HashMap::new());
+        }
+
+        if !_pred.contains_key(&from_id_str) {
+            _pred.insert(from_id_str.clone(), HashMap::new());
+        }
+
+        let pred_to_map = _pred.get_mut(&to_id_str).unwrap();
+        let pred_to_from_map = pred_to_map.entry(from_id_str.clone()).or_default();
+        let index = pred_to_from_map.len();
+        pred_to_from_map.insert(index, properties.clone());
+
+        if self.symmterize_edges_if_directed {
+            let pred_from_map = _pred.get_mut(&from_id_str).unwrap();
+            let pred_from_to_map = pred_from_map.entry(to_id_str.clone()).or_default();
+            pred_from_to_map.insert(index, properties.clone());
+        }
     }
 }
 
@@ -297,28 +617,10 @@ impl Graph for NetworkXGraph {
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) {
-        let mut properties = Map::new();
         let vertex_id = String::from_utf8(id.clone()).unwrap();
 
-        if self.load_all_vertex_attributes {
-            assert_eq!(columns.len(), 1);
-            assert_eq!(field_names.len(), 0); // TODO: Add support for field_names
-
-            let json = columns.first();
-            properties = match json {
-                Some(Value::Object(map)) => map.clone(),
-                _ => panic!("Vertex data must be a json object"),
-            };
-
-            properties.insert("_id".to_string(), Value::String(vertex_id.clone()));
-        } else {
-            for (i, field_name) in field_names.iter().enumerate() {
-                if field_name == "@collection_name" || field_name == "_id" {
-                    continue;
-                }
-                properties.insert(field_name.clone(), columns[i].clone());
-            }
-        }
+        let properties =
+            (self.get_vertex_properties_fn)(self, vertex_id.clone(), columns, field_names);
 
         self.node_map.insert(vertex_id, properties.clone());
     }
@@ -333,178 +635,17 @@ impl Graph for NetworkXGraph {
         let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
         let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();
 
-        if self.load_coo {
-            let from_id_index = match self.vertex_id_to_index.get(&from_id_str) {
-                Some(index) => *index,
-                None => {
-                    let index: usize = self.vertex_id_to_index.len();
-                    self.vertex_id_to_index.insert(from_id_str.clone(), index);
-                    index
-                }
-            };
+        (self.insert_coo_fn)(self, from_id_str.clone(), to_id_str.clone());
 
-            let to_id_index = match self.vertex_id_to_index.get(&to_id_str) {
-                Some(index) => *index,
-                None => {
-                    let index = self.vertex_id_to_index.len();
-                    self.vertex_id_to_index.insert(to_id_str.clone(), index);
-                    index
-                }
-            };
+        let properties = (self.get_edge_properties_fn)(
+            self,
+            from_id_str.clone(),
+            to_id_str.clone(),
+            columns,
+            field_names,
+        );
 
-            self.coo.0.push(from_id_index);
-            self.coo.1.push(to_id_index);
-        }
-
-        if self.load_adj_dict {
-            let mut properties = Map::new();
-
-            if self.load_all_edge_attributes {
-                assert_eq!(columns.len(), 1);
-                assert_eq!(field_names.len(), 0);
-
-                let json = columns.first();
-                properties = match json {
-                    Some(Value::Object(map)) => map.clone(),
-                    _ => panic!("Edge data must be a json object"),
-                };
-
-                properties.insert("_from".to_string(), Value::String(from_id_str.clone()));
-                properties.insert("_to".to_string(), Value::String(to_id_str.clone()));
-            } else {
-                for (i, field_name) in field_names.iter().enumerate() {
-                    if field_name == "@collection_name" {
-                        continue;
-                    }
-                    properties.insert(field_name.clone(), columns[i].clone());
-                }
-            }
-
-            // MultiDiGraph or MultiGraph
-            if self.is_multigraph {
-                if self.is_directed {
-                    // 1) Add [from, to] in _succ adjacency list
-
-                    let _succ = self.adj_map_multidigraph.get_mut("succ").unwrap();
-
-                    if !_succ.contains_key(&from_id_str) {
-                        _succ.insert(from_id_str.clone(), HashMap::new());
-                    }
-
-                    if !_succ.contains_key(&to_id_str) {
-                        _succ.insert(to_id_str.clone(), HashMap::new());
-                    }
-
-                    let succ_from_map = _succ.get_mut(&from_id_str).unwrap();
-                    let succ_from_to_map = succ_from_map.entry(to_id_str.clone()).or_default();
-                    let index = succ_from_to_map.len();
-                    succ_from_to_map.insert(index, properties.clone());
-
-                    if self.symmterize_edges_if_directed {
-                        let succ_to_map = _succ.get_mut(&to_id_str).unwrap();
-                        let succ_to_from_map = succ_to_map.entry(from_id_str.clone()).or_default();
-                        succ_to_from_map.insert(index, properties.clone());
-                    }
-
-                    // 2) Add [to, from] in _pred adjacency list
-                    let _pred = self.adj_map_multidigraph.get_mut("pred").unwrap();
-
-                    if !_pred.contains_key(&to_id_str) {
-                        _pred.insert(to_id_str.clone(), HashMap::new());
-                    }
-
-                    if !_pred.contains_key(&from_id_str) {
-                        _pred.insert(from_id_str.clone(), HashMap::new());
-                    }
-
-                    let pred_to_map = _pred.get_mut(&to_id_str).unwrap();
-                    let pred_to_from_map = pred_to_map.entry(from_id_str.clone()).or_default();
-                    let index = pred_to_from_map.len();
-                    pred_to_from_map.insert(index, properties.clone());
-
-                    if self.symmterize_edges_if_directed {
-                        let pred_from_map = _pred.get_mut(&from_id_str).unwrap();
-                        let pred_from_to_map = pred_from_map.entry(to_id_str.clone()).or_default();
-                        pred_from_to_map.insert(index, properties.clone());
-                    }
-                } else {
-                    if !self.adj_map_multigraph.contains_key(&from_id_str) {
-                        self.adj_map_multigraph
-                            .insert(from_id_str.clone(), HashMap::new());
-                    }
-
-                    if !self.adj_map_multigraph.contains_key(&to_id_str) {
-                        self.adj_map_multigraph
-                            .insert(to_id_str.clone(), HashMap::new());
-                    }
-
-                    let from_map = self.adj_map_multigraph.get_mut(&from_id_str).unwrap();
-                    let from_to_map = from_map.entry(to_id_str.clone()).or_default();
-                    let index = from_to_map.len();
-                    from_to_map.insert(index, properties.clone());
-
-                    let to_map = self.adj_map_multigraph.get_mut(&to_id_str).unwrap();
-                    let to_from_map = to_map.entry(from_id_str.clone()).or_default();
-                    to_from_map.insert(index, properties.clone());
-                }
-            // DiGraph or Graph
-            } else {
-                if self.is_directed {
-                    // 1) Add [from, to] in _succ adjacency list
-                    let _succ = self.adj_map_digraph.get_mut("succ").unwrap();
-
-                    if !_succ.contains_key(&from_id_str) {
-                        _succ.insert(from_id_str.clone(), HashMap::new());
-                    }
-
-                    if !_succ.contains_key(&to_id_str) {
-                        _succ.insert(to_id_str.clone(), HashMap::new());
-                    }
-
-                    let succ_from_map = _succ.get_mut(&from_id_str).unwrap();
-                    succ_from_map.insert(to_id_str.clone(), properties.clone());
-
-                    if self.symmterize_edges_if_directed {
-                        let succ_to_map = _succ.get_mut(&to_id_str).unwrap();
-                        succ_to_map.insert(from_id_str.clone(), properties.clone());
-                    }
-
-                    // 2) Add [to, from] in _pred adjacency list
-                    let _pred = self.adj_map_digraph.get_mut("pred").unwrap();
-
-                    if !_pred.contains_key(&to_id_str) {
-                        _pred.insert(to_id_str.clone(), HashMap::new());
-                    }
-
-                    if !_pred.contains_key(&from_id_str) {
-                        _pred.insert(from_id_str.clone(), HashMap::new());
-                    }
-
-                    let pred_to_map = _pred.get_mut(&to_id_str).unwrap();
-                    pred_to_map.insert(from_id_str.clone(), properties.clone());
-
-                    if self.symmterize_edges_if_directed {
-                        let pred_from_map = _pred.get_mut(&from_id_str).unwrap();
-                        pred_from_map.insert(to_id_str.clone(), properties.clone());
-                    }
-                } else {
-                    if !self.adj_map_graph.contains_key(&from_id_str) {
-                        self.adj_map_graph
-                            .insert(from_id_str.clone(), HashMap::new());
-                    }
-
-                    if !self.adj_map_graph.contains_key(&to_id_str) {
-                        self.adj_map_graph.insert(to_id_str.clone(), HashMap::new());
-                    }
-
-                    let from_map = self.adj_map_graph.get_mut(&from_id_str).unwrap();
-                    from_map.insert(to_id_str.clone(), properties.clone());
-
-                    let to_map = self.adj_map_graph.get_mut(&to_id_str).unwrap();
-                    to_map.insert(from_id_str.clone(), properties.clone());
-                }
-            }
-        }
+        (self.insert_adj_fn)(self, from_id_str.clone(), to_id_str.clone(), properties);
 
         Ok(())
     }
