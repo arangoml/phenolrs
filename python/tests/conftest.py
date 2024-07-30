@@ -84,3 +84,39 @@ def load_karate(connection_information: Dict[str, Any]) -> None:
         ADBNX_Adapter(karate_db).networkx_to_arangodb(
             "karate", nx.karate_club_graph(), edge_def
         )
+
+
+@pytest.fixture(scope="module")
+def load_multigraph(connection_information: Dict[str, Any]) -> None:
+    client = arango.ArangoClient(connection_information["url"])
+    sys_db = client.db(
+        "_system",
+        username=connection_information["username"],
+        password=connection_information["password"],
+    )
+
+    if not sys_db.has_database("multigraph"):
+        sys_db.delete_database("multigraph", ignore_missing=True)
+        sys_db.create_database("multigraph")
+        multigraph_db = client.db(
+            "multigraph",
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        edge_def = [
+            {
+                "edge_collection": "to",
+                "from_vertex_collections": ["node"],
+                "to_vertex_collections": ["node"],
+            }
+        ]
+
+        G = nx.MultiGraph()
+        G.add_edge(0, 1, weight=1)
+        G.add_edge(0, 1, weight=2)
+        G.add_edge(1, 2, weight=3)
+        G.add_edge(2, 3, weight=4)
+        G.add_edge(2, 3, weight=7)
+
+        ADBNX_Adapter(multigraph_db).networkx_to_arangodb("multigraph", G, edge_def)

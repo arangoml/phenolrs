@@ -77,11 +77,11 @@ pub struct NetworkXGraph {
     pub adj_map_multidigraph:
         HashMap<String, HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>>,
 
-    // e.g ([0, 1, 2], [1, 2, 3])
-    pub coo: (Vec<usize>, Vec<usize>),
-
-    // e.g {'user/1': 0, 'user/2': 1, ...}
-    pub vertex_id_to_index: HashMap<String, usize>,
+    pub coo: (Vec<usize>, Vec<usize>), // e.g ([0, 1, 2], [1, 2, 3])
+    pub vertex_id_to_index: HashMap<String, usize>, // e.g {'user/1': 0, 'user/2': 1, ...}
+    pub edge_indices: Vec<usize>,      //only for multi(di)graph
+    pub edge_index_map: HashMap<(String, String), usize>, //only for multi(di)graph
+    // pub edge_values: HashMap<String, Vec<usize>>, // {'weight': [4, 5, 1], ...)}
 
     // pre-defined functions
     get_vertex_properties_fn:
@@ -90,7 +90,7 @@ pub struct NetworkXGraph {
     get_edge_properties_fn:
         fn(&mut NetworkXGraph, String, String, Vec<Value>, &Vec<String>) -> Map<String, Value>,
 
-    insert_coo_fn: fn(&mut NetworkXGraph, String, String),
+    insert_coo_fn: fn(&mut NetworkXGraph, String, String, Map<String, Value>),
     insert_adj_fn: fn(&mut NetworkXGraph, String, String, Map<String, Value>),
 }
 
@@ -140,14 +140,26 @@ impl NetworkXGraph {
         };
 
         let insert_coo_fn = if load_coo {
-            if is_directed {
-                if symmterize_edges_if_directed {
-                    NetworkXGraph::insert_coo_undirected
+            if is_multigraph {
+                if is_directed {
+                    if symmterize_edges_if_directed {
+                        NetworkXGraph::insert_coo_multigraph
+                    } else {
+                        NetworkXGraph::insert_coo_multidigraph
+                    }
                 } else {
-                    NetworkXGraph::insert_coo_directed
+                    NetworkXGraph::insert_coo_multigraph
                 }
             } else {
-                NetworkXGraph::insert_coo_undirected
+                if is_directed {
+                    if symmterize_edges_if_directed {
+                        NetworkXGraph::insert_coo_graph
+                    } else {
+                        NetworkXGraph::insert_coo_digraph
+                    }
+                } else {
+                    NetworkXGraph::insert_coo_graph
+                }
             }
         } else {
             NetworkXGraph::insert_coo_dummy
@@ -186,6 +198,9 @@ impl NetworkXGraph {
             adj_map_multidigraph: adj_map_multidigraph,
             coo: (vec![], vec![]),
             vertex_id_to_index: HashMap::new(),
+            edge_indices: vec![],
+            edge_index_map: HashMap::new(),
+            // edge_values: HashMap::new(),
             get_vertex_properties_fn,
             get_edge_properties_fn,
             insert_coo_fn,
@@ -203,7 +218,13 @@ impl NetworkXGraph {
         Map::new()
     }
 
-    fn insert_coo_dummy(&mut self, _from_id_str: String, _to_id_str: String) {}
+    fn insert_coo_dummy(
+        &mut self,
+        _from_id_str: String,
+        _to_id_str: String,
+        _properties: Map<String, Value>,
+    ) {
+    }
 
     fn insert_adj_dummy(
         &mut self,
@@ -318,7 +339,12 @@ impl NetworkXGraph {
         (from_id_index, to_id_index)
     }
 
-    fn insert_coo_undirected(&mut self, from_id_str: String, to_id_str: String) {
+    fn insert_coo_graph(
+        &mut self,
+        from_id_str: String,
+        to_id_str: String,
+        _properties: Map<String, Value>,
+    ) {
         let (from_id_index, to_id_index) = self.get_from_and_to_id_index(from_id_str, to_id_str);
 
         self.coo.0.push(from_id_index);
@@ -328,11 +354,84 @@ impl NetworkXGraph {
         self.coo.1.push(from_id_index);
     }
 
-    fn insert_coo_directed(&mut self, from_id_str: String, to_id_str: String) {
+    fn insert_coo_digraph(
+        &mut self,
+        from_id_str: String,
+        to_id_str: String,
+        _properties: Map<String, Value>,
+    ) {
         let (from_id_index, to_id_index) = self.get_from_and_to_id_index(from_id_str, to_id_str);
 
         self.coo.0.push(from_id_index);
         self.coo.1.push(to_id_index);
+    }
+
+    fn insert_coo_multigraph(
+        &mut self,
+        from_id_str: String,
+        to_id_str: String,
+        _properties: Map<String, Value>,
+    ) {
+        let (from_id_index, to_id_index) =
+            self.get_from_and_to_id_index(from_id_str.clone(), to_id_str.clone());
+
+        let edge_index = match self
+            .edge_index_map
+            .get(&(from_id_str.clone(), to_id_str.clone()))
+        {
+            Some(index) => {
+                let index = *index + 1;
+                self.edge_index_map
+                    .insert((from_id_str.clone(), to_id_str.clone()), index);
+                self.edge_index_map.insert((to_id_str, from_id_str), index);
+                index
+            }
+            None => {
+                let index = 0;
+                self.edge_index_map
+                    .insert((from_id_str.clone(), to_id_str.clone()), index);
+                self.edge_index_map.insert((to_id_str, from_id_str), index);
+                index
+            }
+        };
+
+        self.coo.0.push(from_id_index);
+        self.coo.1.push(to_id_index);
+        self.edge_indices.push(edge_index);
+
+        self.coo.0.push(to_id_index);
+        self.coo.1.push(from_id_index);
+        self.edge_indices.push(edge_index);
+    }
+
+    fn insert_coo_multidigraph(
+        &mut self,
+        from_id_str: String,
+        to_id_str: String,
+        _properties: Map<String, Value>,
+    ) {
+        let (from_id_index, to_id_index) =
+            self.get_from_and_to_id_index(from_id_str.clone(), to_id_str.clone());
+
+        let edge_index = match self
+            .edge_index_map
+            .get(&(from_id_str.clone(), to_id_str.clone()))
+        {
+            Some(index) => {
+                let index = *index + 1;
+                self.edge_index_map.insert((from_id_str, to_id_str), index);
+                index
+            }
+            None => {
+                let index = 0;
+                self.edge_index_map.insert((from_id_str, to_id_str), index);
+                index
+            }
+        };
+
+        self.coo.0.push(from_id_index);
+        self.coo.1.push(to_id_index);
+        self.edge_indices.push(edge_index);
     }
 
     fn insert_adj_graph(
@@ -673,9 +772,6 @@ impl Graph for NetworkXGraph {
     ) -> Result<()> {
         let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
         let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();
-
-        (self.insert_coo_fn)(self, from_id_str.clone(), to_id_str.clone());
-
         let properties = (self.get_edge_properties_fn)(
             self,
             from_id_str.clone(),
@@ -684,6 +780,12 @@ impl Graph for NetworkXGraph {
             field_names,
         );
 
+        (self.insert_coo_fn)(
+            self,
+            from_id_str.clone(),
+            to_id_str.clone(),
+            properties.clone(),
+        );
         (self.insert_adj_fn)(self, from_id_str.clone(), to_id_str.clone(), properties);
 
         Ok(())

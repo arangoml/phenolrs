@@ -18,6 +18,7 @@ def graph_to_networkx_format(
     Graph | DiGraph | MultiGraph | MultiDiGraph,
     npt.NDArray[np.int64],
     npt.NDArray[np.int64],
+    npt.NDArray[np.int64],
     dict[str, int],
 ]: ...
 

@@ -32,6 +32,7 @@ class NetworkXLoader:
         Graph | DiGraph | MultiGraph | MultiDiGraph,
         npt.NDArray[np.int64],
         npt.NDArray[np.int64],
+        npt.NDArray[np.int64],
         dict[str, int],
     ]:
         if "vertexCollections" not in metagraph:
@@ -58,6 +59,10 @@ class NetworkXLoader:
             [len(entries) > 0 for entries in metagraph["edgeCollections"].values()]
         ):
             m = "load_all_edge_attributes is True, but edgeCollections contain attributes"  # noqa
+            raise PhenolError(m)
+
+        if len(metagraph["edgeCollections"]) != 0 and not (load_coo or load_adj_dict):
+            m = "load_coo and load_adj_dict cannot both be False if edgeCollections is non-empty"  # noqa
             raise PhenolError(m)
 
         # TODO: replace with pydantic validation
@@ -101,7 +106,7 @@ class NetworkXLoader:
             for e_col_name, entries in metagraph["edgeCollections"].items()
         ]
 
-        node_dict, adj_dict, src_indices, dst_indices, id_to_index_map = (
+        node_dict, adj_dict, src_indices, dst_indices, edge_indices, id_to_index_map = (
             graph_to_networkx_format(
                 request={
                     "vertex_collections": vertex_collections,
@@ -113,4 +118,11 @@ class NetworkXLoader:
             )
         )
 
-        return node_dict, adj_dict, src_indices, dst_indices, id_to_index_map
+        return (
+            node_dict,
+            adj_dict,
+            src_indices,
+            dst_indices,
+            edge_indices,
+            id_to_index_map,
+        )

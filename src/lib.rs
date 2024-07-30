@@ -76,6 +76,7 @@ fn graph_to_networkx_format(
     &PyDict,
     &PyArray1<usize>,
     &PyArray1<usize>,
+    &PyArray1<usize>,
     &PyDict,
 )> {
     let load_all_vertex_attributes = request.load_config.load_all_vertex_attributes;
@@ -116,6 +117,7 @@ fn graph_to_networkx_format(
     let coo = graph.coo;
     let src_indices = PyArray1::from_vec(py, coo.0);
     let dst_indices = PyArray1::from_vec(py, coo.1);
+    let edge_indices = PyArray1::from_vec(py, graph.edge_indices);
     let vertex_id_to_index = construct::construct_dict(graph.vertex_id_to_index, py)?;
 
     let res = (
@@ -123,6 +125,7 @@ fn graph_to_networkx_format(
         adj_dict,
         src_indices,
         dst_indices,
+        edge_indices,
         vertex_id_to_index,
     );
 

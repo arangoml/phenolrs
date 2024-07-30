@@ -143,7 +143,14 @@ def test_karate_networkx(
         is_multigraph=True,
     )
     assert isinstance(res, tuple)
-    node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = res
+    (
+        node_dict,
+        adj_dict,
+        src_indices,
+        dst_indices,
+        edge_indices,
+        vertex_ids_to_indices,
+    ) = res
 
     assert isinstance(node_dict, dict)
     assert isinstance(adj_dict, dict)
@@ -151,7 +158,7 @@ def test_karate_networkx(
     assert isinstance(dst_indices, numpy.ndarray)
     assert isinstance(vertex_ids_to_indices, dict)
     assert len(node_dict) == len(vertex_ids_to_indices) == 34
-    assert len(src_indices) == len(dst_indices) == 78
+    assert len(src_indices) == len(dst_indices) == len(edge_indices) == 78
 
     assert set(adj_dict.keys()) == {"succ", "pred"}
     succ = adj_dict["succ"]
@@ -195,10 +202,17 @@ def test_karate_networkx(
         is_multigraph=True,
         symmterize_edges_if_directed=True,
     )
-    node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = res
+    (
+        node_dict,
+        adj_dict,
+        src_indices,
+        dst_indices,
+        edge_indices,
+        vertex_ids_to_indices,
+    ) = res
     assert from_key in adj_dict["succ"][to_key]
     assert to_key in adj_dict["pred"][from_key]
-    assert len(src_indices) == len(dst_indices) == 156
+    assert len(src_indices) == len(dst_indices) == len(edge_indices) == 156
 
     # DiGraph
     res = NetworkXLoader.load_into_networkx(
@@ -210,20 +224,21 @@ def test_karate_networkx(
         [connection_information["url"]],
         username=connection_information["username"],
         password=connection_information["password"],
-        load_coo=False,
+        load_coo=True,
         is_directed=True,
         is_multigraph=False,
     )
-    node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = res
+    (
+        node_dict,
+        adj_dict,
+        src_indices,
+        dst_indices,
+        edge_indices,
+        vertex_ids_to_indices,
+    ) = res
 
-    assert (
-        len(node_dict)
-        == len(src_indices)
-        == len(dst_indices)
-        == len(vertex_ids_to_indices)
-        == 0
-    )
-
+    assert len(src_indices) == len(dst_indices) == 78
+    assert len(edge_indices) == 0
     for from_id, adj in adj_dict["succ"].items():
         for to_id, edge in adj.items():
             assert isinstance(edge, dict)
@@ -243,7 +258,23 @@ def test_karate_networkx(
         is_directed=False,
         is_multigraph=True,
     )
-    node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = res
+    (
+        node_dict,
+        adj_dict,
+        src_indices,
+        dst_indices,
+        edge_indices,
+        vertex_ids_to_indices,
+    ) = res
+
+    assert (
+        len(node_dict)
+        == len(src_indices)
+        == len(dst_indices)
+        == len(edge_indices)
+        == len(vertex_ids_to_indices)
+        == 0
+    )
 
     assert len(adj_dict[from_key][to_key]) == 1
     assert type(next(iter(adj_dict[from_key][to_key].keys()))) is int
@@ -263,8 +294,16 @@ def test_karate_networkx(
         is_directed=False,
         is_multigraph=False,
     )
-    node_dict, adj_dict, src_indices, dst_indices, vertex_ids_to_indices = res
+    (
+        node_dict,
+        adj_dict,
+        src_indices,
+        dst_indices,
+        edge_indices,
+        vertex_ids_to_indices,
+    ) = res
 
+    assert len(edge_indices) == 0
     assert len(adj_dict[from_key][to_key]) > 1
     for key in adj_dict[from_key][to_key].keys():
         assert isinstance(key, str)
@@ -286,7 +325,7 @@ def test_karate_networkx(
         is_directed=False,
         is_multigraph=False,
     )
-    node_dict, adj_dict, _, _, _ = res
+    node_dict, adj_dict, _, _, _, _ = res
 
     assert len(node_dict) == len(adj_dict) > 0
     for v in node_dict.values():
@@ -343,7 +382,7 @@ def test_karate_networkx(
         is_multigraph=False,
     )
 
-    node_dict, adj_dict, _, _, _ = res
+    node_dict, adj_dict, _, _, _, _ = res
 
     assert len(node_dict) == len(adj_dict) > 0
     for v in node_dict.values():
@@ -354,3 +393,63 @@ def test_karate_networkx(
         for v2 in v1.values():
             assert isinstance(v2, dict)
             assert list(v2.keys()) == ["weight"]
+
+
+def test_multigraph_networkx(
+    load_multigraph: None, connection_information: dict[str, str]
+) -> None:
+    res = NetworkXLoader.load_into_networkx(
+        "multigraph",
+        {
+            "vertexCollections": {},
+            "edgeCollections": {"to": set()},
+        },
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        load_adj_dict=False,
+        load_coo=True,
+        is_directed=False,
+        is_multigraph=True,
+    )
+
+    (
+        _,
+        _,
+        src_indices,
+        dst_indices,
+        edge_indices,
+        _,
+    ) = res
+
+    assert list(src_indices) == [0, 1, 0, 1, 1, 2, 2, 3, 2, 3]
+    assert list(dst_indices) == [1, 0, 1, 0, 2, 1, 3, 2, 3, 2]
+    assert list(edge_indices) == [0, 0, 1, 1, 0, 0, 0, 0, 1, 1]
+
+    res = NetworkXLoader.load_into_networkx(
+        "multigraph",
+        {
+            "vertexCollections": {},
+            "edgeCollections": {"to": set()},
+        },
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        load_adj_dict=False,
+        load_coo=True,
+        is_directed=True,
+        is_multigraph=True,
+    )
+
+    (
+        _,
+        _,
+        src_indices,
+        dst_indices,
+        edge_indices,
+        _,
+    ) = res
+
+    assert list(src_indices) == [0, 0, 1, 2, 2]
+    assert list(dst_indices) == [1, 1, 2, 3, 3]
+    assert list(edge_indices) == [0, 1, 0, 0, 1]
