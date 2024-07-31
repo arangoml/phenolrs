@@ -1,7 +1,7 @@
 import argparse
 import time
 
-from phenolrs.pyg.loader import PygLoader
+from phenolrs.pyg import PygLoader
 
 
 def load_abide(host: str, password: str, cert_path: str) -> None:

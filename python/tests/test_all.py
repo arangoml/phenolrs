@@ -5,9 +5,9 @@ import pytest
 from torch_geometric.data import HeteroData
 
 from phenolrs import PhenolError
-from phenolrs.networkx.loader import NetworkXLoader
-from phenolrs.numpy.loader import NumpyLoader
-from phenolrs.pyg.loader import PygLoader
+from phenolrs.networkx import NetworkXLoader
+from phenolrs.numpy import NumpyLoader
+from phenolrs.pyg import PygLoader
 
 
 def test_abide_hetero(load_abide: None, connection_information: dict[str, str]) -> None:
