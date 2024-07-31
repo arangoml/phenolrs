@@ -1,6 +1,7 @@
 from typing import Any
 
-Graph = dict[str, dict[str, dict[str, Any]]]
+Json = dict[str, Any]
+Graph = dict[str, dict[str, Json]]
 DiGraph = dict[str, Graph]
-MultiGraph = dict[str, dict[str, dict[int, dict[str, Any]]]]
+MultiGraph = dict[str, dict[str, dict[int, Json]]]
 MultiDiGraph = dict[str, MultiGraph]
