@@ -5,7 +5,7 @@ import numpy.typing as npt
 
 from phenolrs import PhenolError, graph_to_networkx_format
 
-from .typings import DiGraph, Graph, MultiDiGraph, MultiGraph
+from .typings import DiGraphAdj, GraphAdj, MultiDiGraphAdj, MultiGraphAdj
 
 
 class NetworkXLoader:
@@ -29,7 +29,7 @@ class NetworkXLoader:
         symmetrize_edges_if_directed: bool = False,
     ) -> Tuple[
         dict[str, dict[str, Any]],
-        Graph | DiGraph | MultiGraph | MultiDiGraph,
+        GraphAdj | DiGraphAdj | MultiGraphAdj | MultiDiGraphAdj,
         npt.NDArray[np.int64],
         npt.NDArray[np.int64],
         npt.NDArray[np.int64],
