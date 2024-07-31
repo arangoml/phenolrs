@@ -3,7 +3,7 @@ from typing import Any, Tuple
 import numpy as np
 
 from phenolrs import PhenolError
-from phenolrs.numpy_loader import NumpyLoader
+from phenolrs.numpy.loader import NumpyLoader
 
 try:
     import torch

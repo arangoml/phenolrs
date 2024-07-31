@@ -3,7 +3,7 @@ import typing
 import numpy as np
 import numpy.typing as npt
 
-from .typings import DiGraph, Graph, MultiDiGraph, MultiGraph
+from .networkx.typings import DiGraph, Graph, MultiDiGraph, MultiGraph
 
 def graph_to_numpy_format(request: dict[str, typing.Any]) -> typing.Tuple[
     dict[str, dict[str, npt.NDArray[np.float64]]],
