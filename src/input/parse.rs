@@ -149,15 +149,15 @@ impl FromPyObject<'_> for NetworkXGraphConfig {
         let is_multigraph: bool = input_dict
             .get_item("is_multigraph")?
             .map_or_else(|| Ok(true), |c| c.extract())?;
-        let symmterize_edges_if_directed: bool = input_dict
-            .get_item("symmterize_edges_if_directed")?
+        let symmetrize_edges_if_directed: bool = input_dict
+            .get_item("symmetrize_edges_if_directed")?
             .map_or_else(|| Ok(false), |c| c.extract())?;
         Ok(NetworkXGraphConfig {
             load_adj_dict,
             load_coo,
             is_directed,
             is_multigraph,
-            symmterize_edges_if_directed,
+            symmetrize_edges_if_directed,
         })
     }
 }

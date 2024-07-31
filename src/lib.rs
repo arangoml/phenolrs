@@ -90,7 +90,7 @@ fn graph_to_networkx_format(
             load_all_edge_attributes,
             graph_config.is_directed,
             graph_config.is_multigraph,
-            graph_config.symmterize_edges_if_directed,
+            graph_config.symmetrize_edges_if_directed,
         )
     };
 

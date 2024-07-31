@@ -13,5 +13,5 @@ pub struct NetworkXGraphConfig {
     pub load_coo: bool,
     pub is_directed: bool,
     pub is_multigraph: bool,
-    pub symmterize_edges_if_directed: bool,
+    pub symmetrize_edges_if_directed: bool,
 }

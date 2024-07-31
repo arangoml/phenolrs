@@ -200,7 +200,7 @@ def test_karate_networkx(
         password=connection_information["password"],
         is_directed=True,
         is_multigraph=True,
-        symmterize_edges_if_directed=True,
+        symmetrize_edges_if_directed=True,
     )
     (
         node_dict,

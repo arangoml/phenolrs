@@ -63,7 +63,7 @@ pub struct NetworkXGraph {
     pub load_all_edge_attributes: bool,
     pub is_directed: bool,
     pub is_multigraph: bool,
-    pub symmterize_edges_if_directed: bool,
+    pub symmetrize_edges_if_directed: bool,
 
     // node_map is a dictionary of node IDs to their json data
     // e.g {'user/1': {'name': 'Alice', 'age': 25}, 'user/2': {'name': 'Bob', 'age': 30}, ...}
@@ -113,7 +113,7 @@ impl NetworkXGraph {
         load_all_edge_attributes: bool,
         is_directed: bool,
         is_multigraph: bool,
-        symmterize_edges_if_directed: bool,
+        symmetrize_edges_if_directed: bool,
     ) -> Arc<RwLock<NetworkXGraph>> {
         let mut adj_map_digraph = HashMap::new();
         adj_map_digraph.insert("succ".to_string(), HashMap::new());
@@ -142,7 +142,7 @@ impl NetworkXGraph {
         let insert_coo_fn = if load_coo {
             if is_multigraph {
                 if is_directed {
-                    if symmterize_edges_if_directed {
+                    if symmetrize_edges_if_directed {
                         NetworkXGraph::insert_coo_multigraph
                     } else {
                         NetworkXGraph::insert_coo_multidigraph
@@ -152,7 +152,7 @@ impl NetworkXGraph {
                 }
             } else {
                 if is_directed {
-                    if symmterize_edges_if_directed {
+                    if symmetrize_edges_if_directed {
                         NetworkXGraph::insert_coo_graph
                     } else {
                         NetworkXGraph::insert_coo_digraph
@@ -190,7 +190,7 @@ impl NetworkXGraph {
             load_all_edge_attributes,
             is_directed,
             is_multigraph,
-            symmterize_edges_if_directed,
+            symmetrize_edges_if_directed,
             node_map: HashMap::new(),
             adj_map_graph: HashMap::new(),
             adj_map_digraph: adj_map_digraph,
@@ -479,7 +479,7 @@ impl NetworkXGraph {
         panic_if_edge_exists(succ_from_map, from_id_str.clone(), to_id_str.clone());
         succ_from_map.insert(to_id_str.clone(), properties.clone());
 
-        if self.symmterize_edges_if_directed {
+        if self.symmetrize_edges_if_directed {
             let succ_to_map = _succ.get_mut(&to_id_str).unwrap();
             panic_if_edge_exists(succ_to_map, to_id_str.clone(), from_id_str.clone());
             succ_to_map.insert(from_id_str.clone(), properties.clone());
@@ -500,7 +500,7 @@ impl NetworkXGraph {
         panic_if_edge_exists(pred_to_map, to_id_str.clone(), from_id_str.clone());
         pred_to_map.insert(from_id_str.clone(), properties.clone());
 
-        if self.symmterize_edges_if_directed {
+        if self.symmetrize_edges_if_directed {
             let pred_from_map = _pred.get_mut(&from_id_str).unwrap();
             panic_if_edge_exists(pred_from_map, from_id_str.clone(), to_id_str.clone());
             pred_from_map.insert(to_id_str.clone(), properties.clone());
@@ -555,7 +555,7 @@ impl NetworkXGraph {
         let index = succ_from_to_map.len();
         succ_from_to_map.insert(index, properties.clone());
 
-        if self.symmterize_edges_if_directed {
+        if self.symmetrize_edges_if_directed {
             let succ_to_map = _succ.get_mut(&to_id_str).unwrap();
             let succ_to_from_map = succ_to_map.entry(from_id_str.clone()).or_default();
             succ_to_from_map.insert(index, properties.clone());
@@ -577,7 +577,7 @@ impl NetworkXGraph {
         let index = pred_to_from_map.len();
         pred_to_from_map.insert(index, properties.clone());
 
-        if self.symmterize_edges_if_directed {
+        if self.symmetrize_edges_if_directed {
             let pred_from_map = _pred.get_mut(&from_id_str).unwrap();
             let pred_from_to_map = pred_from_map.entry(to_id_str.clone()).or_default();
             pred_from_to_map.insert(index, properties.clone());

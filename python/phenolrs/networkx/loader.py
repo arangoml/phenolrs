@@ -26,7 +26,7 @@ class NetworkXLoader:
         load_all_edge_attributes: bool = True,
         is_directed: bool = True,
         is_multigraph: bool = True,
-        symmterize_edges_if_directed: bool = False,
+        symmetrize_edges_if_directed: bool = False,
     ) -> Tuple[
         dict[str, dict[str, Any]],
         Graph | DiGraph | MultiGraph | MultiDiGraph,
@@ -93,7 +93,7 @@ class NetworkXLoader:
             "load_coo": load_coo,
             "is_directed": is_directed,
             "is_multigraph": is_multigraph,
-            "symmterize_edges_if_directed": symmterize_edges_if_directed,
+            "symmetrize_edges_if_directed": symmetrize_edges_if_directed,
         }
 
         vertex_collections = [
