@@ -10,9 +10,11 @@ from phenolrs.numpy import NumpyLoader
 from phenolrs.pyg import PygLoader
 
 
-def test_abide_hetero(load_abide: None, connection_information: dict[str, str]) -> None:
+def test_abide_hetero(
+    load_abide: None, abide_db_name: str, connection_information: dict[str, str]
+) -> None:
     result = PygLoader.load_into_pyg_heterodata(
-        "abide",
+        abide_db_name,
         {
             "vertexCollections": {
                 "Subjects": {"x": "brain_fmri_features", "y": "label"}
@@ -39,7 +41,7 @@ def test_abide_hetero(load_abide: None, connection_information: dict[str, str]) 
 
     # Metagraph variation
     result = PygLoader.load_into_pyg_heterodata(
-        "abide",
+        abide_db_name,
         {
             "vertexCollections": {
                 "Subjects": {"x": {"brain_fmri_features": None}, "y": "label"}
@@ -65,7 +67,9 @@ def test_abide_hetero(load_abide: None, connection_information: dict[str, str]) 
     ].shape == (2, 606770)
 
 
-def test_abide_numpy(load_abide: None, connection_information: dict[str, str]) -> None:
+def test_abide_numpy(
+    load_abide: None, abide_db_name: str, connection_information: dict[str, str]
+) -> None:
     (
         features_by_col,
         coo_map,
@@ -73,7 +77,7 @@ def test_abide_numpy(load_abide: None, connection_information: dict[str, str]) -
         col_to_ind_to_adb_key,
         vertex_cols_source_to_output,
     ) = NumpyLoader.load_graph_to_numpy(
-        "abide",
+        abide_db_name,
         {
             "vertexCollections": {"Subjects": {"x": "brain_fmri_features"}},
             "edgeCollections": {"medical_affinity_graph": {}},
@@ -102,7 +106,7 @@ def test_abide_numpy(load_abide: None, connection_information: dict[str, str]) -
         col_to_ind_to_adb_key,
         vertex_cols_source_to_output,
     ) = NumpyLoader.load_graph_to_numpy(
-        "abide",
+        abide_db_name,
         {
             "vertexCollections": {"Subjects": {"x": "brain_fmri_features"}},
             # "edgeCollections": {"medical_affinity_graph": {}},
@@ -123,7 +127,7 @@ def test_abide_numpy(load_abide: None, connection_information: dict[str, str]) -
 
 
 def test_karate_networkx(
-    load_karate: None, connection_information: dict[str, str]
+    load_karate: None, karate_db_name: str, connection_information: dict[str, str]
 ) -> None:
     adj_dict: Any
     from_key = "person/1"
@@ -131,7 +135,7 @@ def test_karate_networkx(
 
     # MutliDiGraph
     res = NetworkXLoader.load_into_networkx(
-        "karate",
+        karate_db_name,
         {
             "vertexCollections": {"person": set()},
             "edgeCollections": {"knows": set()},
@@ -190,7 +194,7 @@ def test_karate_networkx(
 
     # MultiDiGraph (with edge symmetery)
     res = NetworkXLoader.load_into_networkx(
-        "karate",
+        karate_db_name,
         {
             "vertexCollections": {"person": set()},
             "edgeCollections": {"knows": set()},
@@ -216,7 +220,7 @@ def test_karate_networkx(
 
     # DiGraph
     res = NetworkXLoader.load_into_networkx(
-        "karate",
+        karate_db_name,
         {
             "vertexCollections": {},  # No vertexCollections
             "edgeCollections": {"knows": set()},
@@ -246,7 +250,7 @@ def test_karate_networkx(
 
     # MultiGraph
     res = NetworkXLoader.load_into_networkx(
-        "karate",
+        karate_db_name,
         {
             "vertexCollections": {},  # No vertexCollections
             "edgeCollections": {"knows": set()},
@@ -282,7 +286,7 @@ def test_karate_networkx(
 
     # Graph
     res = NetworkXLoader.load_into_networkx(
-        "karate",
+        karate_db_name,
         {
             "vertexCollections": {},  # No vertexCollections
             "edgeCollections": {"knows": set()},
@@ -310,7 +314,7 @@ def test_karate_networkx(
 
     # Graph (no vertex/edge attributes)
     res = NetworkXLoader.load_into_networkx(
-        "karate",
+        karate_db_name,
         {
             "vertexCollections": {"person": set()},
             "edgeCollections": {"knows": set()},
@@ -340,7 +344,7 @@ def test_karate_networkx(
     # Graph (custom vertex/edge attributes)
     with pytest.raises(PhenolError):
         res = NetworkXLoader.load_into_networkx(
-            "karate",
+            karate_db_name,
             {
                 "vertexCollections": {"person": {"club"}},
                 "edgeCollections": {"knows": {"weight"}},
@@ -353,7 +357,7 @@ def test_karate_networkx(
 
     with pytest.raises(PhenolError):
         res = NetworkXLoader.load_into_networkx(
-            "karate",
+            karate_db_name,
             {
                 "vertexCollections": {"person": {"club"}},
                 "edgeCollections": {"knows": {"weight"}},
@@ -366,7 +370,7 @@ def test_karate_networkx(
         )
 
     res = NetworkXLoader.load_into_networkx(
-        "karate",
+        karate_db_name,
         {
             "vertexCollections": {"person": {"club"}},
             "edgeCollections": {"knows": {"weight"}},
@@ -396,10 +400,12 @@ def test_karate_networkx(
 
 
 def test_multigraph_networkx(
-    load_multigraph: None, connection_information: dict[str, str]
+    load_multigraph: None,
+    multigraph_db_name: str,
+    connection_information: dict[str, str],
 ) -> None:
     res = NetworkXLoader.load_into_networkx(
-        "multigraph",
+        multigraph_db_name,
         {
             "vertexCollections": {},
             "edgeCollections": {"to": set()},
@@ -427,7 +433,7 @@ def test_multigraph_networkx(
     assert list(edge_indices) == [0, 0, 1, 1, 0, 0, 0, 0, 1, 1]
 
     res = NetworkXLoader.load_into_networkx(
-        "multigraph",
+        multigraph_db_name,
         {
             "vertexCollections": {},
             "edgeCollections": {"to": set()},

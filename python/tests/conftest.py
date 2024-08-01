@@ -35,7 +35,7 @@ def connection_information() -> Dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
-def load_abide(connection_information: Dict[str, Any]) -> None:
+def load_abide(abide_db_name: str, connection_information: Dict[str, Any]) -> None:
     client = arango.ArangoClient(connection_information["url"])
     sys_db = client.db(
         "_system",
@@ -43,11 +43,11 @@ def load_abide(connection_information: Dict[str, Any]) -> None:
         password=connection_information["password"],
     )
 
-    if not sys_db.has_database("abide"):
-        sys_db.delete_database("abide", ignore_missing=True)
-        sys_db.create_database("abide")
+    if not sys_db.has_database(abide_db_name):
+        sys_db.delete_database(abide_db_name, ignore_missing=True)
+        sys_db.create_database(abide_db_name)
         abide_db = client.db(
-            "abide",
+            abide_db_name,
             username=connection_information["username"],
             password=connection_information["password"],
         )
@@ -56,7 +56,12 @@ def load_abide(connection_information: Dict[str, Any]) -> None:
 
 
 @pytest.fixture(scope="module")
-def load_karate(connection_information: Dict[str, Any]) -> None:
+def abide_db_name() -> str:
+    return "abide"
+
+
+@pytest.fixture(scope="module")
+def load_karate(karate_db_name: str, connection_information: Dict[str, Any]) -> None:
     client = arango.ArangoClient(connection_information["url"])
     sys_db = client.db(
         "_system",
@@ -64,11 +69,11 @@ def load_karate(connection_information: Dict[str, Any]) -> None:
         password=connection_information["password"],
     )
 
-    if not sys_db.has_database("karate"):
-        sys_db.delete_database("karate", ignore_missing=True)
-        sys_db.create_database("karate")
+    if not sys_db.has_database(karate_db_name):
+        sys_db.delete_database(karate_db_name, ignore_missing=True)
+        sys_db.create_database(karate_db_name)
         karate_db = client.db(
-            "karate",
+            karate_db_name,
             username=connection_information["username"],
             password=connection_information["password"],
         )
@@ -82,12 +87,19 @@ def load_karate(connection_information: Dict[str, Any]) -> None:
         ]
 
         ADBNX_Adapter(karate_db).networkx_to_arangodb(
-            "karate", nx.karate_club_graph(), edge_def
+            karate_db_name, nx.karate_club_graph(), edge_def
         )
 
 
 @pytest.fixture(scope="module")
-def load_multigraph(connection_information: Dict[str, Any]) -> None:
+def karate_db_name() -> str:
+    return "karate"
+
+
+@pytest.fixture(scope="module")
+def load_multigraph(
+    multigraph_db_name: str, connection_information: Dict[str, Any]
+) -> None:
     client = arango.ArangoClient(connection_information["url"])
     sys_db = client.db(
         "_system",
@@ -95,11 +107,11 @@ def load_multigraph(connection_information: Dict[str, Any]) -> None:
         password=connection_information["password"],
     )
 
-    if not sys_db.has_database("multigraph"):
-        sys_db.delete_database("multigraph", ignore_missing=True)
-        sys_db.create_database("multigraph")
+    if not sys_db.has_database(multigraph_db_name):
+        sys_db.delete_database(multigraph_db_name, ignore_missing=True)
+        sys_db.create_database(multigraph_db_name)
         multigraph_db = client.db(
-            "multigraph",
+            multigraph_db_name,
             username=connection_information["username"],
             password=connection_information["password"],
         )
@@ -119,4 +131,11 @@ def load_multigraph(connection_information: Dict[str, Any]) -> None:
         G.add_edge(2, 3, weight=4)
         G.add_edge(2, 3, weight=7)
 
-        ADBNX_Adapter(multigraph_db).networkx_to_arangodb("multigraph", G, edge_def)
+        ADBNX_Adapter(multigraph_db).networkx_to_arangodb(
+            multigraph_db_name, G, edge_def
+        )
+
+
+@pytest.fixture(scope="module")
+def multigraph_db_name() -> str:
+    return "multigraph"
