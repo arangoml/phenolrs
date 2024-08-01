@@ -1,1 +1,1 @@
-from .loader import NumpyLoader  # noqa
+from .loader import NumpyLoader  # noqa: F401

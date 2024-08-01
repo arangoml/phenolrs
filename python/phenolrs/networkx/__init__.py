@@ -1,1 +1,1 @@
-from .loader import NetworkXLoader  # noqa
+from .loader import NetworkXLoader  # noqa: F401

@@ -1,1 +1,1 @@
-from .loader import PygLoader  # noqa
+from .loader import PygLoader  # noqa: F401
