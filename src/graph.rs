@@ -90,7 +90,7 @@ pub struct NetworkXGraph {
     get_edge_properties_fn:
         fn(&mut NetworkXGraph, String, String, Vec<Value>, &Vec<String>) -> Map<String, Value>,
 
-    insert_coo_fn: fn(&mut NetworkXGraph, String, String, Map<String, Value>),
+    insert_coo_fn: fn(&mut NetworkXGraph, String, String),
     insert_adj_fn: fn(&mut NetworkXGraph, String, String, Map<String, Value>),
 }
 
@@ -129,58 +129,46 @@ impl NetworkXGraph {
             NetworkXGraph::get_vertex_properties_selected
         };
 
-        let get_edge_properties_fn = if load_adj_dict {
-            if load_all_edge_attributes {
-                NetworkXGraph::get_edge_properties_all
-            } else {
-                NetworkXGraph::get_edge_properties_selected
-            }
+        let get_edge_properties_fn = if load_all_edge_attributes {
+            NetworkXGraph::get_edge_properties_all
         } else {
-            NetworkXGraph::get_edge_properties_dummy
+            NetworkXGraph::get_edge_properties_selected
         };
 
-        let insert_coo_fn = if load_coo {
-            if is_multigraph {
-                if is_directed {
-                    if symmetrize_edges_if_directed {
-                        NetworkXGraph::insert_coo_multigraph
-                    } else {
-                        NetworkXGraph::insert_coo_multidigraph
-                    }
-                } else {
+        let insert_coo_fn = if is_multigraph {
+            if is_directed {
+                if symmetrize_edges_if_directed {
                     NetworkXGraph::insert_coo_multigraph
+                } else {
+                    NetworkXGraph::insert_coo_multidigraph
                 }
             } else {
-                if is_directed {
-                    if symmetrize_edges_if_directed {
-                        NetworkXGraph::insert_coo_graph
-                    } else {
-                        NetworkXGraph::insert_coo_digraph
-                    }
-                } else {
-                    NetworkXGraph::insert_coo_graph
-                }
+                NetworkXGraph::insert_coo_multigraph
             }
         } else {
-            NetworkXGraph::insert_coo_dummy
+            if is_directed {
+                if symmetrize_edges_if_directed {
+                    NetworkXGraph::insert_coo_graph
+                } else {
+                    NetworkXGraph::insert_coo_digraph
+                }
+            } else {
+                NetworkXGraph::insert_coo_graph
+            }
         };
 
-        let insert_adj_fn = if load_adj_dict {
-            if is_multigraph {
-                if is_directed {
-                    NetworkXGraph::insert_adj_multidigraph
-                } else {
-                    NetworkXGraph::insert_adj_multigraph
-                }
+        let insert_adj_fn = if is_multigraph {
+            if is_directed {
+                NetworkXGraph::insert_adj_multidigraph
             } else {
-                if is_directed {
-                    NetworkXGraph::insert_adj_digraph
-                } else {
-                    NetworkXGraph::insert_adj_graph
-                }
+                NetworkXGraph::insert_adj_multigraph
             }
         } else {
-            NetworkXGraph::insert_adj_dummy
+            if is_directed {
+                NetworkXGraph::insert_adj_digraph
+            } else {
+                NetworkXGraph::insert_adj_graph
+            }
         };
 
         Arc::new(RwLock::new(NetworkXGraph {
@@ -206,32 +194,6 @@ impl NetworkXGraph {
             insert_coo_fn,
             insert_adj_fn,
         }))
-    }
-
-    fn get_edge_properties_dummy(
-        &mut self,
-        _from_id: String,
-        _to_id: String,
-        _columns: Vec<Value>,
-        _field_names: &Vec<String>,
-    ) -> Map<String, Value> {
-        Map::new()
-    }
-
-    fn insert_coo_dummy(
-        &mut self,
-        _from_id_str: String,
-        _to_id_str: String,
-        _properties: Map<String, Value>,
-    ) {
-    }
-
-    fn insert_adj_dummy(
-        &mut self,
-        _from_id_str: String,
-        _to_id_str: String,
-        _properties: Map<String, Value>,
-    ) {
     }
 
     fn get_vertex_properties_all(
@@ -343,7 +305,7 @@ impl NetworkXGraph {
         &mut self,
         from_id_str: String,
         to_id_str: String,
-        _properties: Map<String, Value>,
+        // _properties: Map<String, Value>,
     ) {
         let (from_id_index, to_id_index) = self.get_from_and_to_id_index(from_id_str, to_id_str);
 
@@ -358,7 +320,7 @@ impl NetworkXGraph {
         &mut self,
         from_id_str: String,
         to_id_str: String,
-        _properties: Map<String, Value>,
+        // _properties: Map<String, Value>,
     ) {
         let (from_id_index, to_id_index) = self.get_from_and_to_id_index(from_id_str, to_id_str);
 
@@ -370,7 +332,7 @@ impl NetworkXGraph {
         &mut self,
         from_id_str: String,
         to_id_str: String,
-        _properties: Map<String, Value>,
+        // _properties: Map<String, Value>,
     ) {
         let (from_id_index, to_id_index) =
             self.get_from_and_to_id_index(from_id_str.clone(), to_id_str.clone());
@@ -408,7 +370,7 @@ impl NetworkXGraph {
         &mut self,
         from_id_str: String,
         to_id_str: String,
-        _properties: Map<String, Value>,
+        // _properties: Map<String, Value>,
     ) {
         let (from_id_index, to_id_index) =
             self.get_from_and_to_id_index(from_id_str.clone(), to_id_str.clone());
@@ -772,21 +734,22 @@ impl Graph for NetworkXGraph {
     ) -> Result<()> {
         let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
         let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();
-        let properties = (self.get_edge_properties_fn)(
-            self,
-            from_id_str.clone(),
-            to_id_str.clone(),
-            columns,
-            field_names,
-        );
 
-        (self.insert_coo_fn)(
-            self,
-            from_id_str.clone(),
-            to_id_str.clone(),
-            properties.clone(),
-        );
-        (self.insert_adj_fn)(self, from_id_str.clone(), to_id_str.clone(), properties);
+        if self.load_coo {
+            (self.insert_coo_fn)(self, from_id_str.clone(), to_id_str.clone());
+        }
+
+        if self.load_adj_dict {
+            let properties = (self.get_edge_properties_fn)(
+                self,
+                from_id_str.clone(),
+                to_id_str.clone(),
+                columns,
+                field_names,
+            );
+
+            (self.insert_adj_fn)(self, from_id_str, to_id_str, properties);
+        }
 
         Ok(())
     }
