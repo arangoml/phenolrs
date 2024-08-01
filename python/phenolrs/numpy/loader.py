@@ -1,9 +1,14 @@
 from typing import Any, Tuple
 
-import numpy as np
-import numpy.typing as npt
-
 from phenolrs import PhenolError, graph_to_numpy_format
+
+from .typings import (
+    ArangoCollectionSourceToOutput,
+    ArangoCollectionToArangoKeyToIndex,
+    ArangoCollectionToIndexToArangoKey,
+    ArangoCollectionToNodeFeatures,
+    COOByEdgeType,
+)
 
 
 class NumpyLoader:
@@ -19,11 +24,11 @@ class NumpyLoader:
         parallelism: int | None = None,
         batch_size: int | None = None,
     ) -> Tuple[
-        dict[str, dict[str, npt.NDArray[np.float64]]],
-        dict[Tuple[str, str, str], npt.NDArray[np.float64]],
-        dict[str, dict[str, int]],
-        dict[str, dict[int, str]],
-        dict[str, dict[str, str]],
+        ArangoCollectionToNodeFeatures,
+        COOByEdgeType,
+        ArangoCollectionToArangoKeyToIndex,
+        ArangoCollectionToIndexToArangoKey,
+        ArangoCollectionSourceToOutput,
     ]:
         # TODO: replace with pydantic validation
         db_config_options: dict[str, Any] = {

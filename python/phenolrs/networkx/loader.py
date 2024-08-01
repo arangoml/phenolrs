@@ -1,11 +1,18 @@
 from typing import Any, Set, Tuple
 
-import numpy as np
-import numpy.typing as npt
-
 from phenolrs import PhenolError, graph_to_networkx_format
 
-from .typings import DiGraphAdj, GraphAdj, MultiDiGraphAdj, MultiGraphAdj
+from .typings import (
+    ArangoIDtoIndex,
+    DiGraphAdjDict,
+    DstIndices,
+    EdgeIndices,
+    GraphAdjDict,
+    MultiDiGraphAdjDict,
+    MultiGraphAdjDict,
+    NodeDict,
+    SrcIndices,
+)
 
 
 class NetworkXLoader:
@@ -28,12 +35,12 @@ class NetworkXLoader:
         is_multigraph: bool = True,
         symmetrize_edges_if_directed: bool = False,
     ) -> Tuple[
-        dict[str, dict[str, Any]],
-        GraphAdj | DiGraphAdj | MultiGraphAdj | MultiDiGraphAdj,
-        npt.NDArray[np.int64],
-        npt.NDArray[np.int64],
-        npt.NDArray[np.int64],
-        dict[str, int],
+        NodeDict,
+        GraphAdjDict | DiGraphAdjDict | MultiGraphAdjDict | MultiDiGraphAdjDict,
+        SrcIndices,
+        DstIndices,
+        EdgeIndices,
+        ArangoIDtoIndex,
     ]:
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
