@@ -98,18 +98,18 @@ fn graph_to_networkx_format(
     let graph = load::retrieve::get_arangodb_graph(request, graph_factory).unwrap();
     println!("Retrieved. Building python objects...");
 
-    let node_dict = construct::construct_dict_of_dict(graph.node_map, py)?;
+    let node_dict = construct::construct_node_dict(graph.node_map, py)?;
     let adj_dict = if graph_config.is_multigraph {
         if graph_config.is_directed {
-            construct::construct_multidigraph(graph.adj_map_multidigraph, py)?
+            construct::construct_multidigraph_adj_dict(graph.adj_map_multidigraph, py)?
         } else {
-            construct::construct_multigraph(graph.adj_map_multigraph, py)?
+            construct::construct_multigraph_adj_dict(graph.adj_map_multigraph, py)?
         }
     } else {
         if graph_config.is_directed {
-            construct::construct_digraph(graph.adj_map_digraph, py)?
+            construct::construct_digraph_adj_dict(graph.adj_map_digraph, py)?
         } else {
-            construct::construct_graph(graph.adj_map_graph, py)?
+            construct::construct_graph_adj_dict(graph.adj_map_graph, py)?
         }
     };
     println!("Built python objects.");
@@ -118,7 +118,7 @@ fn graph_to_networkx_format(
     let src_indices = PyArray1::from_vec(py, coo.0);
     let dst_indices = PyArray1::from_vec(py, coo.1);
     let edge_indices = PyArray1::from_vec(py, graph.edge_indices);
-    let vertex_id_to_index = construct::construct_dict(graph.vertex_id_to_index, py)?;
+    let vertex_id_to_index = construct::construct_vertex_id_to_index(graph.vertex_id_to_index, py)?;
 
     let res = (
         node_dict,

@@ -62,7 +62,10 @@ pub fn construct_cols_to_inds_to_keys(
 }
 
 #[cfg(not(test))]
-pub fn construct_dict(input: HashMap<String, usize>, py: Python) -> PyResult<&PyDict> {
+pub fn construct_vertex_id_to_index(
+    input: HashMap<String, usize>,
+    py: Python,
+) -> PyResult<&PyDict> {
     let pydict = PyDict::new(py);
 
     for (key, value) in input {
@@ -73,7 +76,7 @@ pub fn construct_dict(input: HashMap<String, usize>, py: Python) -> PyResult<&Py
 }
 
 #[cfg(not(test))]
-pub fn construct_dict_of_dict(
+pub fn construct_node_dict(
     input: HashMap<String, Map<String, Value>>,
     py: Python,
 ) -> PyResult<&PyDict> {
@@ -92,7 +95,7 @@ pub fn construct_dict_of_dict(
 }
 
 #[cfg(not(test))]
-pub fn construct_graph(
+pub fn construct_graph_adj_dict(
     input: HashMap<String, HashMap<String, Map<String, Value>>>,
     py: Python,
 ) -> PyResult<&PyDict> {
@@ -115,7 +118,7 @@ pub fn construct_graph(
 }
 
 #[cfg(not(test))]
-pub fn construct_digraph(
+pub fn construct_digraph_adj_dict(
     input: HashMap<String, HashMap<String, HashMap<String, Map<String, Value>>>>,
     py: Python,
 ) -> PyResult<&PyDict> {
@@ -142,7 +145,7 @@ pub fn construct_digraph(
 }
 
 #[cfg(not(test))]
-pub fn construct_multigraph(
+pub fn construct_multigraph_adj_dict(
     input: HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>,
     py: Python,
 ) -> PyResult<&PyDict> {
@@ -169,7 +172,7 @@ pub fn construct_multigraph(
 }
 
 #[cfg(not(test))]
-pub fn construct_multidigraph(
+pub fn construct_multidigraph_adj_dict(
     input: HashMap<String, HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>>,
     py: Python,
 ) -> PyResult<&PyDict> {
