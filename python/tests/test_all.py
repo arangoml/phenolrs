@@ -133,7 +133,7 @@ def test_karate_networkx(
     from_key = "person/1"
     to_key = "person/2"
 
-    # MutliDiGraph
+    # MultiDiGraph
     res = NetworkXLoader.load_into_networkx(
         karate_db_name,
         {
@@ -192,7 +192,7 @@ def test_karate_networkx(
 
     assert set(node_dict[from_key].keys()) == {"_id", "_key", "_rev", "club"}
 
-    # MultiDiGraph (with edge symmetery)
+    # MultiDiGraph (with edge symmetry)
     res = NetworkXLoader.load_into_networkx(
         karate_db_name,
         {

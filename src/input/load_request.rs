@@ -5,7 +5,6 @@ pub struct DataLoadRequest {
     pub edge_collections: Vec<CollectionInfo>,
     pub db_config: DatabaseConfiguration,
     pub load_config: DataLoadConfiguration,
-    // pub graph_config: GraphConfiguration
 }
 
 pub struct NetworkXGraphConfig {
