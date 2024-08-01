@@ -646,19 +646,6 @@ impl Graph for NumpyGraph {
         debug_assert!(!columns.is_empty());
         debug_assert_eq!(columns.len(), field_names.len());
 
-        let mut col_name = String::new();
-        for (i, feature_name) in field_names.iter().enumerate() {
-            if feature_name == "@collection_name" {
-                // Set the col_name to the collection name
-                col_name = columns[i].as_str().unwrap().to_string();
-                break;
-            }
-        }
-
-        if col_name.is_empty() {
-            return Err(anyhow!("col_name not set"));
-        }
-
         let (from_col, from_key) = {
             let s = String::from_utf8(from_id.clone()).expect("_from to be a string");
             let id_split = s.find('/').expect("Invalid format for _from");
