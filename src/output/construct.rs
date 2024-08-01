@@ -77,7 +77,7 @@ pub fn construct_vertex_id_to_index(
 
 #[cfg(not(test))]
 /// {
-///    "node/1": {property_key: property_value}, 
+///    "node/1": {property_key: property_value},
 ///    ...
 /// }
 pub fn construct_node_dict(
