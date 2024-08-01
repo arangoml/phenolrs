@@ -76,6 +76,10 @@ pub fn construct_vertex_id_to_index(
 }
 
 #[cfg(not(test))]
+/// {
+///    "node/1": {property_key: property_value}, 
+///    ...
+/// }
 pub fn construct_node_dict(
     input: HashMap<String, Map<String, Value>>,
     py: Python,
@@ -95,6 +99,13 @@ pub fn construct_node_dict(
 }
 
 #[cfg(not(test))]
+/// {
+///     "node/1": {
+///         "node/2": {property_key: property_value},
+///         ...
+///     },
+///     ...
+/// }
 pub fn construct_graph_adj_dict(
     input: HashMap<String, HashMap<String, Map<String, Value>>>,
     py: Python,
@@ -118,6 +129,19 @@ pub fn construct_graph_adj_dict(
 }
 
 #[cfg(not(test))]
+/// {
+///     "succ": {
+///         "node/1": {
+///             "node/2": {property_key: property_value},
+///             ...
+///         },
+///         ...
+///     },
+///    "pred": {
+///         "node/2": {...},
+///         ...
+///     }
+/// }
 pub fn construct_digraph_adj_dict(
     input: HashMap<String, HashMap<String, HashMap<String, Map<String, Value>>>>,
     py: Python,
@@ -145,6 +169,17 @@ pub fn construct_digraph_adj_dict(
 }
 
 #[cfg(not(test))]
+/// {
+///     "node/1": {
+///         "node/2": {
+///             0: {property_key: property_value}}},
+///             1: {...},
+///             ...
+///         },
+///         ...
+///     },
+///     ...
+/// }
 pub fn construct_multigraph_adj_dict(
     input: HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>,
     py: Python,
@@ -172,6 +207,23 @@ pub fn construct_multigraph_adj_dict(
 }
 
 #[cfg(not(test))]
+/// {
+///     "succ": {
+///         "node/1": {
+///            "node/2": {
+///                 0: {property_key: property_value}}},
+///                 1: {...},
+///                 ...,
+///            },
+///            ...
+///        },
+///        ...
+///     },
+///    "pred": {
+///         "node/2": {...},
+///         ...
+///     }
+/// }
 pub fn construct_multidigraph_adj_dict(
     input: HashMap<String, HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>>,
     py: Python,
@@ -209,6 +261,7 @@ pub fn construct_multidigraph_adj_dict(
 }
 
 #[cfg(not(test))]
+// Construct a Python object from a serde_json Value
 fn construct_py_object(value: &Value, py: Python) -> PyResult<PyObject> {
     match value {
         Value::Null => Ok(py.None()),
