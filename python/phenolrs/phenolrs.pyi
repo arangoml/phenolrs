@@ -3,11 +3,39 @@ import typing
 import numpy as np
 import numpy.typing as npt
 
-def graph_to_pyg_format(request: dict[str, typing.Any]) -> typing.Tuple[
-    dict[str, dict[str, npt.NDArray[np.float64]]],
-    dict[typing.Tuple[str, str, str], npt.NDArray[np.float64]],
-    dict[str, dict[str, int]],
-    dict[str, dict[int, str]],
+from .networkx.typings import (
+    ArangoIDtoIndex,
+    DiGraphAdjDict,
+    DstIndices,
+    EdgeIndices,
+    GraphAdjDict,
+    MultiDiGraphAdjDict,
+    MultiGraphAdjDict,
+    NodeDict,
+    SrcIndices,
+)
+from .numpy.typings import (
+    ArangoCollectionToArangoKeyToIndex,
+    ArangoCollectionToIndexToArangoKey,
+    ArangoCollectionToNodeFeatures,
+    COOByEdgeType,
+)
+
+def graph_to_numpy_format(request: dict[str, typing.Any]) -> typing.Tuple[
+    ArangoCollectionToNodeFeatures,
+    COOByEdgeType,
+    ArangoCollectionToArangoKeyToIndex,
+    ArangoCollectionToIndexToArangoKey,
+]: ...
+def graph_to_networkx_format(
+    request: dict[str, typing.Any], graph_config: dict[str, typing.Any]
+) -> typing.Tuple[
+    NodeDict,
+    GraphAdjDict | DiGraphAdjDict | MultiGraphAdjDict | MultiDiGraphAdjDict,
+    SrcIndices,
+    DstIndices,
+    EdgeIndices,
+    ArangoIDtoIndex,
 ]: ...
 
 class PhenolError(Exception): ...

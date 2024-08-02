@@ -1,4 +1,4 @@
-use crate::input::load_request::DataLoadRequest;
+use crate::input::load_request::{DataLoadRequest, NetworkXGraphConfig};
 use lightning::graph_loader::CollectionInfo;
 use lightning::{DataLoadConfiguration, DatabaseConfiguration};
 use pyo3::exceptions::PyValueError;
@@ -131,5 +131,33 @@ impl FromPyObject<'_> for LocalCollectionInfo {
             name: name.into(),
             fields: fields.iter().map(|s| String::from(*s)).collect(),
         }))
+    }
+}
+
+impl FromPyObject<'_> for NetworkXGraphConfig {
+    fn extract(ob: &'_ PyAny) -> PyResult<Self> {
+        let input_dict: &PyDict = ob.downcast()?;
+        let load_adj_dict: bool = input_dict
+            .get_item("load_adj_dict")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        let load_coo: bool = input_dict
+            .get_item("load_coo")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        let is_directed: bool = input_dict
+            .get_item("is_directed")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        let is_multigraph: bool = input_dict
+            .get_item("is_multigraph")?
+            .map_or_else(|| Ok(true), |c| c.extract())?;
+        let symmetrize_edges_if_directed: bool = input_dict
+            .get_item("symmetrize_edges_if_directed")?
+            .map_or_else(|| Ok(false), |c| c.extract())?;
+        Ok(NetworkXGraphConfig {
+            load_adj_dict,
+            load_coo,
+            is_directed,
+            is_multigraph,
+            symmetrize_edges_if_directed,
+        })
     }
 }

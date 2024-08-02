@@ -158,7 +158,6 @@ jobs:
             source ~/.bashrc
             conda create -n phenolrs python=3.10 -y
             conda activate phenolrs
-            conda install numpy
       - run:
           name: Install Phenol deps
           command: |
@@ -185,6 +184,7 @@ jobs:
           name: Run tests
           command: |
             conda activate phenolrs
+            export RUST_BACKTRACE=1
             pytest --url http://172.28.0.1:8529 python/tests
   publish:
     executor: generate-executor

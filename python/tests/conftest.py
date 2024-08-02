@@ -1,7 +1,9 @@
 from typing import Any, Dict
 
 import arango
+import networkx as nx
 import pytest
+from adbnx_adapter import ADBNX_Adapter
 from arango_datasets import Datasets
 
 connection_config: Dict[str, Any]
@@ -9,7 +11,6 @@ connection_config: Dict[str, Any]
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--url", action="store", default="http://localhost:8529")
-    parser.addoption("--dbName", action="store", default="abide")
     parser.addoption("--username", action="store", default="root")
     parser.addoption("--password", action="store", default="test")
 
@@ -20,7 +21,6 @@ def pytest_configure(config: pytest.Config) -> None:
         "url": config.getoption("url", default=None),
         "username": config.getoption("username"),
         "password": config.getoption("password"),
-        "dbName": config.getoption("dbName"),
     }
 
 
@@ -31,12 +31,11 @@ def connection_information() -> Dict[str, Any]:
         "url": connection_config.get("url"),
         "username": connection_config.get("username"),
         "password": connection_config.get("password"),
-        "dbName": connection_config.get("dbName"),
     }
 
 
 @pytest.fixture(scope="module")
-def load_abide(connection_information: Dict[str, Any]) -> None:
+def load_abide(abide_db_name: str, connection_information: Dict[str, Any]) -> None:
     client = arango.ArangoClient(connection_information["url"])
     sys_db = client.db(
         "_system",
@@ -44,13 +43,99 @@ def load_abide(connection_information: Dict[str, Any]) -> None:
         password=connection_information["password"],
     )
 
-    if not sys_db.has_database("abide"):
-        sys_db.delete_database("abide", ignore_missing=True)
-        sys_db.create_database("abide")
+    if not sys_db.has_database(abide_db_name):
+        sys_db.delete_database(abide_db_name, ignore_missing=True)
+        sys_db.create_database(abide_db_name)
         abide_db = client.db(
-            "abide",
+            abide_db_name,
             username=connection_information["username"],
             password=connection_information["password"],
         )
         dsets = Datasets(abide_db)
         dsets.load("ABIDE")
+
+
+@pytest.fixture(scope="module")
+def abide_db_name() -> str:
+    return "abide"
+
+
+@pytest.fixture(scope="module")
+def load_karate(karate_db_name: str, connection_information: Dict[str, Any]) -> None:
+    client = arango.ArangoClient(connection_information["url"])
+    sys_db = client.db(
+        "_system",
+        username=connection_information["username"],
+        password=connection_information["password"],
+    )
+
+    if not sys_db.has_database(karate_db_name):
+        sys_db.delete_database(karate_db_name, ignore_missing=True)
+        sys_db.create_database(karate_db_name)
+        karate_db = client.db(
+            karate_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        edge_def = [
+            {
+                "edge_collection": "knows",
+                "from_vertex_collections": ["person"],
+                "to_vertex_collections": ["person"],
+            }
+        ]
+
+        ADBNX_Adapter(karate_db).networkx_to_arangodb(
+            karate_db_name, nx.karate_club_graph(), edge_def
+        )
+
+
+@pytest.fixture(scope="module")
+def karate_db_name() -> str:
+    return "karate"
+
+
+@pytest.fixture(scope="module")
+def load_multigraph(
+    multigraph_db_name: str, connection_information: Dict[str, Any]
+) -> None:
+    client = arango.ArangoClient(connection_information["url"])
+    sys_db = client.db(
+        "_system",
+        username=connection_information["username"],
+        password=connection_information["password"],
+    )
+
+    if not sys_db.has_database(multigraph_db_name):
+        sys_db.delete_database(multigraph_db_name, ignore_missing=True)
+        sys_db.create_database(multigraph_db_name)
+        multigraph_db = client.db(
+            multigraph_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        edge_def = [
+            {
+                "edge_collection": "to",
+                "from_vertex_collections": ["node"],
+                "to_vertex_collections": ["node"],
+            }
+        ]
+
+        G = nx.MultiGraph()
+        G.add_edge(0, 1, weight=1)
+        G.add_edge(0, 1, weight=2)
+        G.add_edge(1, 2, weight=3)
+        G.add_edge(2, 3, weight=4)
+        G.add_edge(2, 3, weight=7)
+
+        ADBNX_Adapter(multigraph_db).networkx_to_arangodb(
+            multigraph_db_name, G, edge_def
+        )
+
+
+@pytest.fixture(scope="module")
+def multigraph_db_name() -> str:
+    return "multigraph"

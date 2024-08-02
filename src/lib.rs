@@ -3,7 +3,8 @@ mod input;
 mod load;
 mod output;
 
-use input::load_request::DataLoadRequest;
+use input::load_request::{DataLoadRequest, NetworkXGraphConfig};
+use numpy::PyArray1;
 #[cfg(not(test))]
 use output::construct;
 use output::convert::{convert_coo_edge_map, convert_nested_features_map};
@@ -16,6 +17,8 @@ use pyo3::prelude::*;
 #[cfg(not(test))]
 use pyo3::types::PyDict;
 
+use graph::{NetworkXGraph, NumpyGraph};
+
 #[cfg(not(test))]
 type PygCompatible<'a> = (&'a PyDict, &'a PyDict, &'a PyDict, &'a PyDict);
 
@@ -27,8 +30,13 @@ create_exception!(phenolrs, PhenolError, PyException);
 #[cfg(not(test))]
 #[pyfunction]
 #[cfg(not(test))]
-fn graph_to_pyg_format(py: Python, request: DataLoadRequest) -> PyResult<PygCompatible> {
-    let graph = load::retrieve::get_arangodb_graph(request).map_err(PhenolError::new_err)?;
+fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCompatible> {
+    let graph_factory = NumpyGraph::new;
+
+    println!("Retrieving Numpy Graph...");
+    let graph =
+        load::retrieve::get_arangodb_graph(request, graph_factory).map_err(PhenolError::new_err)?;
+    println!("Retrieved. Building python objects...");
 
     let col_to_features = construct::construct_col_to_features(
         convert_nested_features_map(graph.cols_to_features),
@@ -45,8 +53,7 @@ fn graph_to_pyg_format(py: Python, request: DataLoadRequest) -> PyResult<PygComp
 
     let cols_to_inds_to_keys =
         construct::construct_cols_to_inds_to_keys(graph.cols_to_inds_to_keys, py)?;
-
-    println!("Finished retrieval!");
+    println!("Built python objects.");
 
     let res = (
         col_to_features,
@@ -58,12 +65,80 @@ fn graph_to_pyg_format(py: Python, request: DataLoadRequest) -> PyResult<PygComp
     Ok(res)
 }
 
+#[pyfunction]
+#[cfg(not(test))]
+fn graph_to_networkx_format(
+    py: Python,
+    request: DataLoadRequest,
+    graph_config: NetworkXGraphConfig,
+) -> PyResult<(
+    &PyDict,
+    &PyDict,
+    &PyArray1<usize>,
+    &PyArray1<usize>,
+    &PyArray1<usize>,
+    &PyDict,
+)> {
+    let load_all_vertex_attributes = request.load_config.load_all_vertex_attributes;
+    let load_all_edge_attributes = request.load_config.load_all_edge_attributes;
+
+    let graph_factory = || {
+        NetworkXGraph::new(
+            graph_config.load_adj_dict,
+            graph_config.load_coo,
+            load_all_vertex_attributes,
+            load_all_edge_attributes,
+            graph_config.is_directed,
+            graph_config.is_multigraph,
+            graph_config.symmetrize_edges_if_directed,
+        )
+    };
+
+    println!("Retrieving NetworkX Graph...");
+    let graph = load::retrieve::get_arangodb_graph(request, graph_factory).unwrap();
+    println!("Retrieved. Building python objects...");
+
+    let node_dict = construct::construct_node_dict(graph.node_map, py)?;
+    let adj_dict = if graph_config.is_multigraph {
+        if graph_config.is_directed {
+            construct::construct_multidigraph_adj_dict(graph.adj_map_multidigraph, py)?
+        } else {
+            construct::construct_multigraph_adj_dict(graph.adj_map_multigraph, py)?
+        }
+    } else {
+        if graph_config.is_directed {
+            construct::construct_digraph_adj_dict(graph.adj_map_digraph, py)?
+        } else {
+            construct::construct_graph_adj_dict(graph.adj_map_graph, py)?
+        }
+    };
+    println!("Built python objects.");
+
+    let coo = graph.coo;
+    let src_indices = PyArray1::from_vec(py, coo.0);
+    let dst_indices = PyArray1::from_vec(py, coo.1);
+    let edge_indices = PyArray1::from_vec(py, graph.edge_indices);
+    let vertex_id_to_index = construct::construct_vertex_id_to_index(graph.vertex_id_to_index, py)?;
+
+    let res = (
+        node_dict,
+        adj_dict,
+        src_indices,
+        dst_indices,
+        edge_indices,
+        vertex_id_to_index,
+    );
+
+    Ok(res)
+}
+
 /// A Python module implemented in Rust.
 #[cfg(not(test))]
 #[pymodule]
 #[cfg(not(test))]
 fn phenolrs(py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(graph_to_pyg_format, m)?)?;
+    m.add_function(wrap_pyfunction!(graph_to_numpy_format, m)?)?;
+    m.add_function(wrap_pyfunction!(graph_to_networkx_format, m)?)?;
     m.add("PhenolError", py.get_type::<PhenolError>())?;
     Ok(())
 }

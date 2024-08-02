@@ -1,9 +1,14 @@
-import typing
+from typing import Any, Tuple
 
 import numpy as np
 
 from phenolrs import PhenolError
-from phenolrs.numpy_loader import NumpyLoader
+from phenolrs.numpy import NumpyLoader
+
+from .typings import (
+    ArangoCollectionToArangoKeyToIndex,
+    ArangoCollectionToIndexToArangoKey,
+)
 
 try:
     import torch
@@ -18,15 +23,17 @@ class PygLoader:
     @staticmethod
     def load_into_pyg_data(
         database: str,
-        metagraph: dict[str, typing.Any],
+        metagraph: dict[str, Any],
         hosts: list[str],
         user_jwt: str | None = None,
         username: str | None = None,
         password: str | None = None,
-        tls_cert: typing.Any | None = None,
+        tls_cert: Any | None = None,
         parallelism: int | None = None,
         batch_size: int | None = None,
-    ) -> tuple["Data", dict[str, dict[str, int]], dict[str, dict[int, str]]]:
+    ) -> Tuple[
+        "Data", ArangoCollectionToArangoKeyToIndex, ArangoCollectionToIndexToArangoKey
+    ]:
         if not TORCH_AVAILABLE:
             m = "Missing required dependencies. Install with `pip install phenolrs[torch]`"  # noqa: E501
             raise ImportError(m)
@@ -101,15 +108,19 @@ class PygLoader:
     @staticmethod
     def load_into_pyg_heterodata(
         database: str,
-        metagraph: dict[str, typing.Any],
+        metagraph: dict[str, Any],
         hosts: list[str],
         user_jwt: str | None = None,
         username: str | None = None,
         password: str | None = None,
-        tls_cert: typing.Any | None = None,
+        tls_cert: Any | None = None,
         parallelism: int | None = None,
         batch_size: int | None = None,
-    ) -> tuple["HeteroData", dict[str, dict[str, int]], dict[str, dict[int, str]]]:
+    ) -> tuple[
+        "HeteroData",
+        ArangoCollectionToArangoKeyToIndex,
+        ArangoCollectionToIndexToArangoKey,
+    ]:
         if not TORCH_AVAILABLE:
             m = "Missing required dependencies. Install with `pip install phenolrs[torch]`"  # noqa: E501
             raise ImportError(m)

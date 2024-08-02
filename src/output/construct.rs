@@ -1,8 +1,13 @@
 use ndarray::{Array, Ix2};
 use numpy::ToPyArray;
-use pyo3::types::PyDict;
+use pyo3::types::{PyDict, PyList};
 use pyo3::{PyResult, Python};
 use std::collections::HashMap;
+
+use serde_json::{Map, Value};
+
+#[cfg(not(test))]
+use pyo3::prelude::*;
 
 #[cfg(not(test))] // not(test) is needed to let us use `cargo test`
 pub fn construct_col_to_features(
@@ -54,4 +59,236 @@ pub fn construct_cols_to_inds_to_keys(
         .iter()
         .for_each(|item| dict.set_item(item.0, item.1).unwrap());
     Ok(dict)
+}
+
+#[cfg(not(test))]
+pub fn construct_vertex_id_to_index(
+    input: HashMap<String, usize>,
+    py: Python,
+) -> PyResult<&PyDict> {
+    let pydict = PyDict::new(py);
+
+    for (key, value) in input {
+        pydict.set_item(key, value)?;
+    }
+
+    Ok(pydict)
+}
+
+#[cfg(not(test))]
+/// {
+///    "node/1": {property_key: property_value},
+///    ...
+/// }
+pub fn construct_node_dict(
+    input: HashMap<String, Map<String, Value>>,
+    py: Python,
+) -> PyResult<&PyDict> {
+    let pydict = PyDict::new(py);
+
+    for (key, properties) in input.iter() {
+        let inner_dict = PyDict::new(py);
+        for (property_key, property_value) in properties {
+            let py_value = construct_py_object(property_value, py)?;
+            inner_dict.set_item(property_key, py_value)?;
+        }
+        pydict.set_item(key, inner_dict)?;
+    }
+
+    Ok(pydict)
+}
+
+#[cfg(not(test))]
+/// {
+///     "node/1": {
+///         "node/2": {property_key: property_value},
+///         ...
+///     },
+///     ...
+/// }
+pub fn construct_graph_adj_dict(
+    input: HashMap<String, HashMap<String, Map<String, Value>>>,
+    py: Python,
+) -> PyResult<&PyDict> {
+    let pydict = PyDict::new(py);
+
+    for (key, properties) in input.iter() {
+        let inner_dict = PyDict::new(py);
+        for (property_key, property_value) in properties.iter() {
+            let inner_inner_dict = PyDict::new(py);
+            for (inner_property_key, inner_property_value) in property_value {
+                let py_value = construct_py_object(inner_property_value, py)?;
+                inner_inner_dict.set_item(inner_property_key, py_value)?;
+            }
+            inner_dict.set_item(property_key, inner_inner_dict)?;
+        }
+        pydict.set_item(key, inner_dict)?;
+    }
+
+    Ok(pydict)
+}
+
+#[cfg(not(test))]
+/// {
+///     "succ": {
+///         "node/1": {
+///             "node/2": {property_key: property_value},
+///             ...
+///         },
+///         ...
+///     },
+///    "pred": {
+///         "node/2": {...},
+///         ...
+///     }
+/// }
+pub fn construct_digraph_adj_dict(
+    input: HashMap<String, HashMap<String, HashMap<String, Map<String, Value>>>>,
+    py: Python,
+) -> PyResult<&PyDict> {
+    let pydict = PyDict::new(py);
+
+    for (key, properties) in input.iter() {
+        let inner_dict = PyDict::new(py);
+        for (property_key, property_value) in properties.iter() {
+            let inner_inner_dict = PyDict::new(py);
+            for (inner_property_key, inner_property_value) in property_value.iter() {
+                let inner_inner_inner_dict = PyDict::new(py);
+                for (inner_inner_property_key, inner_inner_property_value) in inner_property_value {
+                    let py_value = construct_py_object(inner_inner_property_value, py)?;
+                    inner_inner_inner_dict.set_item(inner_inner_property_key, py_value)?;
+                }
+                inner_inner_dict.set_item(inner_property_key, inner_inner_inner_dict)?;
+            }
+            inner_dict.set_item(property_key, inner_inner_dict)?;
+        }
+        pydict.set_item(key, inner_dict)?;
+    }
+
+    Ok(pydict)
+}
+
+#[cfg(not(test))]
+/// {
+///     "node/1": {
+///         "node/2": {
+///             0: {property_key: property_value}}},
+///             1: {...},
+///             ...
+///         },
+///         ...
+///     },
+///     ...
+/// }
+pub fn construct_multigraph_adj_dict(
+    input: HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>,
+    py: Python,
+) -> PyResult<&PyDict> {
+    let pydict = PyDict::new(py);
+
+    for (key, properties) in input.iter() {
+        let inner_dict = PyDict::new(py);
+        for (property_key, property_value) in properties.iter() {
+            let inner_inner_dict = PyDict::new(py);
+            for (inner_property_key, inner_property_value) in property_value.iter() {
+                let inner_inner_inner_dict = PyDict::new(py);
+                for (inner_inner_property_key, inner_inner_property_value) in inner_property_value {
+                    let py_value = construct_py_object(inner_inner_property_value, py)?;
+                    inner_inner_inner_dict.set_item(inner_inner_property_key, py_value)?;
+                }
+                inner_inner_dict.set_item(inner_property_key, inner_inner_inner_dict)?;
+            }
+            inner_dict.set_item(property_key, inner_inner_dict)?;
+        }
+        pydict.set_item(key, inner_dict)?;
+    }
+
+    Ok(pydict)
+}
+
+#[cfg(not(test))]
+/// {
+///     "succ": {
+///         "node/1": {
+///            "node/2": {
+///                 0: {property_key: property_value}}},
+///                 1: {...},
+///                 ...,
+///            },
+///            ...
+///        },
+///        ...
+///     },
+///    "pred": {
+///         "node/2": {...},
+///         ...
+///     }
+/// }
+pub fn construct_multidigraph_adj_dict(
+    input: HashMap<String, HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>>,
+    py: Python,
+) -> PyResult<&PyDict> {
+    let pydict = PyDict::new(py);
+
+    for (key, properties) in input.iter() {
+        let inner_dict = PyDict::new(py);
+        for (property_key, property_value) in properties.iter() {
+            let inner_inner_dict = PyDict::new(py);
+            for (inner_property_key, inner_property_value) in property_value.iter() {
+                let inner_inner_inner_dict = PyDict::new(py);
+                for (inner_inner_property_key, inner_inner_property_value) in
+                    inner_property_value.iter()
+                {
+                    let inner_inner_inner_inner_dict = PyDict::new(py);
+                    for (inner_inner_inner_property_key, inner_inner_inner_property_value) in
+                        inner_inner_property_value
+                    {
+                        let py_value = construct_py_object(inner_inner_inner_property_value, py)?;
+                        inner_inner_inner_inner_dict
+                            .set_item(inner_inner_inner_property_key, py_value)?;
+                    }
+                    inner_inner_inner_dict
+                        .set_item(inner_inner_property_key, inner_inner_inner_inner_dict)?;
+                }
+                inner_inner_dict.set_item(inner_property_key, inner_inner_inner_dict)?;
+            }
+            inner_dict.set_item(property_key, inner_inner_dict)?;
+        }
+        pydict.set_item(key, inner_dict)?;
+    }
+
+    Ok(pydict)
+}
+
+#[cfg(not(test))]
+// Construct a Python object from a serde_json Value
+fn construct_py_object(value: &Value, py: Python) -> PyResult<PyObject> {
+    match value {
+        Value::Null => Ok(py.None()),
+        Value::String(s) => Ok(s.to_object(py)),
+        Value::Bool(b) => Ok(b.to_object(py)),
+        Value::Number(num) => {
+            if let Some(i) = num.as_i64() {
+                Ok(i.to_object(py))
+            } else if let Some(u) = num.as_u64() {
+                Ok(u.to_object(py))
+            } else {
+                Ok(num.as_f64().unwrap().to_object(py))
+            }
+        }
+        Value::Array(arr) => {
+            let py_list = PyList::empty(py);
+            for item in arr {
+                py_list.append(construct_py_object(item, py)?)?;
+            }
+            Ok(py_list.to_object(py))
+        }
+        Value::Object(obj) => {
+            let py_dict = PyDict::new(py);
+            for (key, value) in obj {
+                py_dict.set_item(key, construct_py_object(value, py)?)?;
+            }
+            Ok(py_dict.to_object(py))
+        }
+    }
 }
