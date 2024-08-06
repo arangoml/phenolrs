@@ -99,22 +99,8 @@ jobs:
           name: Build builder image
           command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
       - run:
-          name: Add SSH Key & Build 3.10 package
-          command: |
-            docker run --rm -v $(pwd):/io \
-            -v ~/.ssh:/root/.ssh \
-            --entrypoint /bin/bash \
-            phenolrs-builder:latest -c "
-            chmod 700 /root/.ssh && \
-            chmod 600 /root/.ssh/* && \
-            chown root:root ~/.ssh/config && \
-            chmod 644 ~/.ssh/config && \
-            ls -l /root/.ssh && \
-            cat /root/.ssh/config && \
-            sed -i 's|/home/circleci/.ssh|/root/.ssh|g' /root/.ssh/config && \
-            cat /root/.ssh/config && \
-            maturin build --interpreter python3.10
-            "
+          name: Build 3.10 package
+          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter python3.10
       - persist_to_workspace:
           root: ~/project/target
           paths:
