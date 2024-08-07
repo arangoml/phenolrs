@@ -1,4 +1,4 @@
-use lightning::{CollectionInfo, DataLoadConfiguration, DatabaseConfiguration};
+use arangors_graph_exporter::{CollectionInfo, DataLoadConfiguration, DatabaseConfiguration};
 
 pub struct DataLoadRequest {
     pub vertex_collections: Vec<CollectionInfo>,

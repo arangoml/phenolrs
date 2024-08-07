@@ -1,7 +1,7 @@
 use crate::graph::Graph;
 use crate::input::load_request::DataLoadRequest;
-use lightning::errors::GraphLoaderError;
-use lightning::{CollectionInfo, GraphLoader};
+use arangors_graph_exporter::errors::GraphLoaderError;
+use arangors_graph_exporter::{CollectionInfo, GraphLoader};
 use serde_json::Value;
 use std::error::Error;
 use std::sync::{Arc, RwLock};
