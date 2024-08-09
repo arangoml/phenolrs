@@ -72,13 +72,13 @@ fn graph_to_networkx_format(
     request: DataLoadRequest,
     graph_config: NetworkXGraphConfig,
 ) -> PyResult<(
-    &PyDict, // node_dict
-    &PyDict, // adj_dict
+    &PyDict,          // node_dict
+    &PyDict,          // adj_dict
     &PyArray1<usize>, // src_indices
     &PyArray1<usize>, // dst_indices
     &PyArray1<usize>, // edge_indices
-    &PyDict, // vertex_id_to_index
-    &PyDict, // edge_values
+    &PyDict,          // vertex_id_to_index
+    &PyDict,          // edge_values
 )> {
     let load_all_vertex_attributes = request.load_config.load_all_vertex_attributes;
     let load_all_edge_attributes = request.load_config.load_all_edge_attributes;
@@ -133,7 +133,7 @@ fn graph_to_networkx_format(
         dst_indices,
         edge_indices,
         vertex_id_to_index,
-        edge_values
+        edge_values,
     );
 
     Ok(res)
