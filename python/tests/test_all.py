@@ -439,7 +439,7 @@ def test_karate_networkx(
         is_multigraph=False,
     )
 
-    _, adj_dict, src_indices, dst_indices, edge_indices, _, edge_values = res
+    _, _, _, _, _, _, edge_values = res
 
     assert isinstance(edge_values, dict)
     assert "weight" in edge_values
@@ -447,7 +447,29 @@ def test_karate_networkx(
     assert len(edge_values["weight"]) == 78
     assert all(isinstance(x, (int, float)) for x in edge_values["weight"])
 
-    # TODO: Add test that reads invalid (non-numeric) edge data
+    # Test that non-numeric read of edge values will fail
+    # catch a failure in this call  res = NetworkXLoader.load_into_networkx(
+    try:
+        res = NetworkXLoader.load_into_networkx(
+            karate_db_name,
+            {
+                "vertexCollections": {"person": {"club"}},
+                # Selecting _key here as this is guaranteed to be a string
+                "edgeCollections": {"knows": {"_key"}},
+            },
+            [connection_information["url"]],
+            username=connection_information["username"],
+            password=connection_information["password"],
+            load_adj_dict=True,
+            load_coo=True,
+            load_all_vertex_attributes=False,
+            load_all_edge_attributes=False,
+            is_directed=False,
+            is_multigraph=False,
+        )
+    except PhenolError as e:
+        # expect that the error message contains string "Computation failed: thread failed - poisoned lock"
+        assert "Computation failed: thread failed - poisoned lock" in str(e)
 
 
 def test_multigraph_networkx(
