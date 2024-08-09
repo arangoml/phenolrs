@@ -471,8 +471,12 @@ def test_karate_networkx(
         )
         assert "Could not insert edge" in str(e)
         assert "Edge data must be a numeric value" in str(e)
+
+
 def test_coo_edge_values_networkx(
-        load_line_graph: None, custom_graph_db_name: str, connection_information: dict[str, str]
+    load_line_graph: None,
+    custom_graph_db_name: str,
+    connection_information: dict[str, str],
 ) -> None:
     # Non-numeric: Booleans
     with pytest.raises(PhenolError) as e:

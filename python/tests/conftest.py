@@ -59,12 +59,16 @@ def load_abide(abide_db_name: str, connection_information: Dict[str, Any]) -> No
 def abide_db_name() -> str:
     return "abide"
 
+
 @pytest.fixture(scope="module")
 def custom_graph_db_name() -> str:
     return "custom_graph"
 
+
 @pytest.fixture(scope="module")
-def load_line_graph(custom_graph_db_name: str, connection_information: Dict[str, Any]) -> None:
+def load_line_graph(
+    custom_graph_db_name: str, connection_information: Dict[str, Any]
+) -> None:
     client = arango.ArangoClient(connection_information["url"])
     sys_db = client.db(
         "_system",
@@ -98,6 +102,7 @@ def load_line_graph(custom_graph_db_name: str, connection_information: Dict[str,
         ADBNX_Adapter(custom_graph_db).networkx_to_arangodb(
             custom_graph_db_name, G, edge_def
         )
+
 
 @pytest.fixture(scope="module")
 def load_karate(karate_db_name: str, connection_information: Dict[str, Any]) -> None:
