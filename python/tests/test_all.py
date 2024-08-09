@@ -449,7 +449,7 @@ def test_karate_networkx(
 
     # Test that non-numeric read of edge values will fail
     with pytest.raises(PhenolError) as e:
-        res = NetworkXLoader.load_into_networkx(
+        NetworkXLoader.load_into_networkx(
             karate_db_name,
             {
                 "vertexCollections": {"person": {"club"}},
