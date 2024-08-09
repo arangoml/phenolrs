@@ -421,6 +421,34 @@ def test_karate_networkx(
             assert isinstance(v2, dict)
             assert list(v2.keys()) == ["weight"]
 
+    # Test that numeric values out of edges can be read
+    res = NetworkXLoader.load_into_networkx(
+        karate_db_name,
+        {
+            "vertexCollections": {"person": {"club"}},
+            "edgeCollections": {"knows": {"weight"}},
+        },
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        load_adj_dict=True,
+        load_coo=True,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        is_directed=False,
+        is_multigraph=False,
+    )
+
+    _, adj_dict, src_indices, dst_indices, edge_indices, _, edge_values = res
+
+    assert isinstance(edge_values, dict)
+    assert "weight" in edge_values
+    assert isinstance(edge_values["weight"], list)
+    assert len(edge_values["weight"]) == 78
+    assert all(isinstance(x, (int, float)) for x in edge_values["weight"])
+
+    # TODO: Add test that reads invalid (non-numeric) edge data
+
 
 def test_multigraph_networkx(
     load_multigraph: None,
