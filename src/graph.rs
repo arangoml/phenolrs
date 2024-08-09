@@ -82,7 +82,7 @@ pub struct NetworkXGraph {
     pub vertex_id_to_index: HashMap<String, usize>, // e.g {'user/1': 0, 'user/2': 1, ...}
     pub edge_indices: Vec<usize>,      //only for multi(di)graph
     pub edge_index_map: HashMap<(String, String), usize>, //only for multi(di)graph
-    pub edge_values: HashMap<String, Vec<u64>>, // {'weight': [4, 5, 1], ...)}
+    pub edge_values: HashMap<String, Vec<f64>>, // {'weight': [4, 5, 1], ...)}
 
     // pre-defined functions
     get_vertex_properties_fn:
@@ -91,7 +91,7 @@ pub struct NetworkXGraph {
     get_edge_properties_fn:
         fn(&mut NetworkXGraph, String, String, Vec<Value>, &Vec<String>) -> Map<String, Value>,
 
-    insert_coo_fn: fn(&mut NetworkXGraph, String, String, HashMap<String, u64>),
+    insert_coo_fn: fn(&mut NetworkXGraph, String, String, HashMap<String, f64>),
     insert_adj_fn: fn(&mut NetworkXGraph, String, String, Map<String, Value>),
 }
 
@@ -302,7 +302,7 @@ impl NetworkXGraph {
         (from_id_index, to_id_index)
     }
 
-    fn store_edge_properties(&mut self, properties: HashMap<String, u64>) {
+    fn store_edge_properties(&mut self, properties: HashMap<String, f64>) {
         for (key, value) in properties {
             if !self.edge_values.contains_key(&key) {
                 self.edge_values.insert(key.clone(), vec![]);
@@ -315,7 +315,7 @@ impl NetworkXGraph {
         &mut self,
         from_id_str: String,
         to_id_str: String,
-        properties: HashMap<String, u64>,
+        properties: HashMap<String, f64>,
     ) {
         let (from_id_index, to_id_index) = self.get_from_and_to_id_index(from_id_str, to_id_str);
 
@@ -332,7 +332,7 @@ impl NetworkXGraph {
         &mut self,
         from_id_str: String,
         to_id_str: String,
-        properties: HashMap<String, u64>,
+        properties: HashMap<String, f64>,
     ) {
         let (from_id_index, to_id_index) = self.get_from_and_to_id_index(from_id_str, to_id_str);
 
@@ -345,7 +345,7 @@ impl NetworkXGraph {
         &mut self,
         from_id_str: String,
         to_id_str: String,
-        properties: HashMap<String, u64>,
+        properties: HashMap<String, f64>,
     ) {
         let (from_id_index, to_id_index) =
             self.get_from_and_to_id_index(from_id_str.clone(), to_id_str.clone());
@@ -385,7 +385,7 @@ impl NetworkXGraph {
         &mut self,
         from_id_str: String,
         to_id_str: String,
-        properties: HashMap<String, u64>,
+        properties: HashMap<String, f64>,
     ) {
         let (from_id_index, to_id_index) =
             self.get_from_and_to_id_index(from_id_str.clone(), to_id_str.clone());
@@ -738,21 +738,21 @@ impl Graph for NetworkXGraph {
     ) -> Result<()> {
         let from_id_str: String = String::from_utf8(from_id.clone()).unwrap();
         let to_id_str: String = String::from_utf8(to_id.clone()).unwrap();
-        let mut properties: HashMap<String, u64> = HashMap::new();
-
-        for (field_position, field_name) in field_names.iter().enumerate() {
-            if field_name == "@collection_name" {
-                continue;
-            }
-            let field_vec = match columns[field_position].as_u64() {
-                Some(v) => v,
-                _ => return Err(anyhow!("Edge data must be a numeric value")),
-            };
-
-            properties.insert(field_name.clone(), field_vec);
-        }
 
         if self.load_coo {
+            let mut properties: HashMap<String, f64> = HashMap::new();
+            for (field_position, field_name) in field_names.iter().enumerate() {
+                if field_name == "@collection_name" {
+                    continue;
+                }
+                let field_vec = match columns[field_position].as_f64() {
+                    Some(v) => v,
+                    _ => return Err(anyhow!("Edge data must be a numeric value")),
+                };
+
+                properties.insert(field_name.clone(), field_vec);
+            }
+
             (self.insert_coo_fn)(self, from_id_str.clone(), to_id_str.clone(), properties);
         }
 

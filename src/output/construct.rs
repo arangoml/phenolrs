@@ -76,7 +76,7 @@ pub fn construct_vertex_id_to_index(
 }
 
 pub fn construct_edge_value_dict(
-    input: HashMap<String, Vec<u64>>,
+    input: HashMap<String, Vec<f64>>,
     py: Python,
 ) -> PyResult<&PyDict> {
     let pydict = PyDict::new(py);
