@@ -113,7 +113,7 @@ class NetworkXLoader:
             for e_col_name, entries in metagraph["edgeCollections"].items()
         ]
 
-        node_dict, adj_dict, src_indices, dst_indices, edge_indices, id_to_index_map = (
+        node_dict, adj_dict, src_indices, dst_indices, edge_indices, id_to_index_map, edge_values = (
             graph_to_networkx_format(
                 request={
                     "vertex_collections": vertex_collections,
@@ -132,4 +132,5 @@ class NetworkXLoader:
             dst_indices,
             edge_indices,
             id_to_index_map,
+            edge_values
         )

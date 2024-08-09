@@ -741,6 +741,9 @@ impl Graph for NetworkXGraph {
         let mut properties: HashMap<String, u64> = HashMap::new();
 
         for (field_position, field_name) in field_names.iter().enumerate() {
+            if field_name == "@collection_name" {
+                continue;
+            }
             let field_vec = match columns[field_position].as_u64() {
                 Some(v) => v,
                 _ => return Err(anyhow!("Edge data must be a numeric value")),

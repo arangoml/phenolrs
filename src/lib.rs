@@ -96,7 +96,11 @@ fn graph_to_networkx_format(
     };
 
     println!("Retrieving NetworkX Graph...");
-    let graph = load::retrieve::get_arangodb_graph(request, graph_factory).unwrap();
+    let graph_res = load::retrieve::get_arangodb_graph(request, graph_factory);
+    if let Err(e) = graph_res {
+        return Err(PhenolError::new_err(e.to_string()));
+    }
+    let graph = graph_res.unwrap();
     println!("Retrieved. Building python objects...");
 
     let node_dict = construct::construct_node_dict(graph.node_map, py)?;

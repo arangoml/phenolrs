@@ -1,6 +1,5 @@
 use crate::graph::Graph;
 use crate::input::load_request::DataLoadRequest;
-use arangors_graph_exporter::errors::GraphLoaderError;
 use arangors_graph_exporter::{CollectionInfo, GraphLoader};
 use serde_json::Value;
 use std::error::Error;
@@ -130,10 +129,14 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
                     edge_field_names,
                 );
                 if insertion_result.is_err() {
-                    return Err(GraphLoaderError::from(format!(
-                        "Could not insert edge: {:?}",
-                        insertion_result.err()
-                    )));
+                    //println!("Could not insert edge: {:?}", insertion_result.clone().err());
+                    panic!("Could not insert edge: {:?}", insertion_result.err());
+                    // TODO: This error is not caught properly. We should return an error here.
+                    // And we need to identify why this error is not handled properly.
+                    //return Err(GraphLoaderError::from(format!(
+                    //    "Could not insert edge: {:?}",
+                    //    insertion_result.err()
+                    //)));
                 }
             }
         }
