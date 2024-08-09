@@ -468,7 +468,7 @@ def test_karate_networkx(
             is_multigraph=False,
         )
     except PhenolError as e:
-        # expect that the error message contains string "Computation failed: thread failed - poisoned lock"
+        # TODO: Propagate the real error message from the loader
         assert "Computation failed: thread failed - poisoned lock" in str(e)
 
 
