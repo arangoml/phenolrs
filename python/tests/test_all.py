@@ -132,6 +132,8 @@ def test_karate_networkx(
     adj_dict: Any
     from_key = "person/1"
     to_key = "person/2"
+    # TODO: This value is actually never used. This var
+    # is going to be overwritten.
 
     # MultiDiGraph
     res = NetworkXLoader.load_into_networkx(
@@ -366,7 +368,7 @@ def test_karate_networkx(
 
     # Graph (custom vertex/edge attributes)
     with pytest.raises(PhenolError):
-        res = NetworkXLoader.load_into_networkx(
+        NetworkXLoader.load_into_networkx(
             karate_db_name,
             {
                 "vertexCollections": {"person": {"club"}},
@@ -379,7 +381,7 @@ def test_karate_networkx(
         )
 
     with pytest.raises(PhenolError):
-        res = NetworkXLoader.load_into_networkx(
+        NetworkXLoader.load_into_networkx(
             karate_db_name,
             {
                 "vertexCollections": {"person": {"club"}},
@@ -448,6 +450,7 @@ def test_karate_networkx(
     assert all(isinstance(x, (int, float)) for x in edge_values["weight"])
 
     # Test that non-numeric read of edge values will fail
+    # -> In this case, strings are being tested.
     with pytest.raises(PhenolError) as e:
         NetworkXLoader.load_into_networkx(
             karate_db_name,
@@ -468,6 +471,79 @@ def test_karate_networkx(
         )
         assert "Could not insert edge" in str(e)
         assert "Edge data must be a numeric value" in str(e)
+def test_coo_edge_values_networkx(
+        load_line_graph: None, custom_graph_db_name: str, connection_information: dict[str, str]
+) -> None:
+    # Non-numeric: Booleans
+    with pytest.raises(PhenolError) as e:
+        NetworkXLoader.load_into_networkx(
+            custom_graph_db_name,
+            {
+                "vertexCollections": {"line_graph_vertices": set()},
+                "edgeCollections": {"line_graph_edges": {"boolean_weight"}},
+            },
+            [connection_information["url"]],
+            username=connection_information["username"],
+            password=connection_information["password"],
+            load_adj_dict=False,
+            load_coo=True,
+            load_all_vertex_attributes=False,
+            load_all_edge_attributes=False,
+            is_directed=False,
+            is_multigraph=False,
+        )
+        assert "Could not insert edge" in str(e)
+        assert "Edge data must be a numeric value" in str(e)
+
+    # Numeric: Ints
+    res = NetworkXLoader.load_into_networkx(
+        custom_graph_db_name,
+        {
+            "vertexCollections": {"line_graph_vertices": set()},
+            "edgeCollections": {"line_graph_edges": {"int_value"}},
+        },
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        load_adj_dict=False,
+        load_coo=True,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        is_directed=False,
+        is_multigraph=False,
+    )
+    _, _, _, _, _, _, edge_values = res
+
+    assert isinstance(edge_values, dict)
+    assert "int_value" in edge_values
+    assert isinstance(edge_values["int_value"], list)
+    assert len(edge_values["int_value"]) == 4
+    assert all(isinstance(x, float) for x in edge_values["int_value"])
+
+    # Numeric: Floats
+    res = NetworkXLoader.load_into_networkx(
+        custom_graph_db_name,
+        {
+            "vertexCollections": {"line_graph_vertices": set()},
+            "edgeCollections": {"line_graph_edges": {"float_value"}},
+        },
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        load_adj_dict=False,
+        load_coo=True,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        is_directed=False,
+        is_multigraph=False,
+    )
+    _, _, _, _, _, _, edge_values = res
+
+    assert isinstance(edge_values, dict)
+    assert "float_value" in edge_values
+    assert isinstance(edge_values["float_value"], list)
+    assert len(edge_values["float_value"]) == 4
+    assert all(isinstance(x, float) for x in edge_values["float_value"])
 
 
 def test_multigraph_networkx(
