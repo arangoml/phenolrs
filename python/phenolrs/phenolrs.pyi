@@ -13,7 +13,7 @@ from .networkx.typings import (
     MultiGraphAdjDict,
     NodeDict,
     SrcIndices,
-    EdgeValuesDict
+    EdgeValuesDict,
 )
 from .numpy.typings import (
     ArangoCollectionToArangoKeyToIndex,
@@ -37,7 +37,7 @@ def graph_to_networkx_format(
     DstIndices,
     EdgeIndices,
     ArangoIDtoIndex,
-    EdgeValuesDict
+    EdgeValuesDict,
 ]: ...
 
 class PhenolError(Exception): ...
