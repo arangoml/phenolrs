@@ -448,7 +448,7 @@ def test_karate_networkx(
     assert all(isinstance(x, (int, float)) for x in edge_values["weight"])
 
     # Test that non-numeric read of edge values will fail
-    try:
+    with pytest.raises(PhenolError) as e:
         res = NetworkXLoader.load_into_networkx(
             karate_db_name,
             {
@@ -466,7 +466,6 @@ def test_karate_networkx(
             is_directed=False,
             is_multigraph=False,
         )
-    except PhenolError as e:
         assert "Could not insert edge" in str(e)
         assert "Edge data must be a numeric value" in str(e)
 
