@@ -344,7 +344,15 @@ def test_karate_networkx(
         is_directed=False,
         is_multigraph=False,
     )
-    node_dict, adj_dict, _, _, _, _, _, = res
+    (
+        node_dict,
+        adj_dict,
+        _,
+        _,
+        _,
+        _,
+        _,
+    ) = res
 
     assert len(node_dict) == len(adj_dict) > 0
     for v in node_dict.values():
@@ -441,7 +449,7 @@ def test_multigraph_networkx(
         dst_indices,
         edge_indices,
         _,
-        _, # edge_values
+        _,  # edge_values
     ) = res
 
     assert list(src_indices) == [0, 1, 0, 1, 1, 2, 2, 3, 2, 3]
@@ -470,7 +478,7 @@ def test_multigraph_networkx(
         dst_indices,
         edge_indices,
         _,
-        _, # edge_values
+        _,  # edge_values
     ) = res
 
     assert list(src_indices) == [0, 0, 1, 2, 2]
