@@ -467,7 +467,6 @@ def test_karate_networkx(
             is_multigraph=False,
         )
     except PhenolError as e:
-        # TODO: Propagate the real error message from the loader
         assert "Could not insert edge" in str(e)
         assert "Edge data must be a numeric value" in str(e)
 
