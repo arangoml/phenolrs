@@ -1,10 +1,10 @@
 use crate::graph::Graph;
 use crate::input::load_request::DataLoadRequest;
+use arangors_graph_exporter::errors::GraphLoaderError;
 use arangors_graph_exporter::{CollectionInfo, GraphLoader};
 use serde_json::Value;
 use std::error::Error;
 use std::sync::{Arc, RwLock};
-use arangors_graph_exporter::errors::GraphLoaderError;
 
 pub fn get_arangodb_graph<G: Graph + Send + Sync + 'static>(
     req: DataLoadRequest,
