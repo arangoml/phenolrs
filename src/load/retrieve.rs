@@ -4,6 +4,7 @@ use arangors_graph_exporter::{CollectionInfo, GraphLoader};
 use serde_json::Value;
 use std::error::Error;
 use std::sync::{Arc, RwLock};
+use arangors_graph_exporter::errors::GraphLoaderError;
 
 pub fn get_arangodb_graph<G: Graph + Send + Sync + 'static>(
     req: DataLoadRequest,
@@ -129,14 +130,10 @@ pub async fn fetch_graph_from_arangodb_local_variant<G: Graph + Send + Sync + 's
                     edge_field_names,
                 );
                 if insertion_result.is_err() {
-                    //println!("Could not insert edge: {:?}", insertion_result.clone().err());
-                    panic!("Could not insert edge: {:?}", insertion_result.err());
-                    // TODO: This error is not caught properly. We should return an error here.
-                    // And we need to identify why this error is not handled properly.
-                    //return Err(GraphLoaderError::from(format!(
-                    //    "Could not insert edge: {:?}",
-                    //    insertion_result.err()
-                    //)));
+                    return Err(GraphLoaderError::from(format!(
+                        "Could not insert edge: {:?}",
+                        insertion_result.err()
+                    )));
                 }
             }
         }

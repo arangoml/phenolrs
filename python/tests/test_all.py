@@ -448,7 +448,6 @@ def test_karate_networkx(
     assert all(isinstance(x, (int, float)) for x in edge_values["weight"])
 
     # Test that non-numeric read of edge values will fail
-    # catch a failure in this call  res = NetworkXLoader.load_into_networkx(
     try:
         res = NetworkXLoader.load_into_networkx(
             karate_db_name,
@@ -469,7 +468,8 @@ def test_karate_networkx(
         )
     except PhenolError as e:
         # TODO: Propagate the real error message from the loader
-        assert "Computation failed: thread failed - poisoned lock" in str(e)
+        assert "Could not insert edge" in str(e)
+        assert "Edge data must be a numeric value" in str(e)
 
 
 def test_multigraph_networkx(
