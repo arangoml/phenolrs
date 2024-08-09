@@ -9,6 +9,7 @@ GraphAdjDict = dict[str, dict[str, Json]]
 DiGraphAdjDict = dict[str, GraphAdjDict]
 MultiGraphAdjDict = dict[str, dict[str, dict[int, Json]]]
 MultiDiGraphAdjDict = dict[str, MultiGraphAdjDict]
+EdgeValuesDict = dict[str, Json]
 
 SrcIndices = npt.NDArray[np.int64]
 DstIndices = npt.NDArray[np.int64]

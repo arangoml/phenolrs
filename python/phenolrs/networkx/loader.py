@@ -12,6 +12,7 @@ from .typings import (
     MultiGraphAdjDict,
     NodeDict,
     SrcIndices,
+    EdgeValuesDict
 )
 
 
@@ -41,6 +42,7 @@ class NetworkXLoader:
         DstIndices,
         EdgeIndices,
         ArangoIDtoIndex,
+        EdgeValuesDict
     ]:
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
