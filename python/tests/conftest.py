@@ -61,6 +61,50 @@ def abide_db_name() -> str:
 
 
 @pytest.fixture(scope="module")
+def custom_graph_db_name() -> str:
+    return "custom_graph"
+
+
+@pytest.fixture(scope="module")
+def load_line_graph(
+    custom_graph_db_name: str, connection_information: Dict[str, Any]
+) -> None:
+    client = arango.ArangoClient(connection_information["url"])
+    sys_db = client.db(
+        "_system",
+        username=connection_information["username"],
+        password=connection_information["password"],
+    )
+
+    if not sys_db.has_database(custom_graph_db_name):
+        sys_db.delete_database(custom_graph_db_name, ignore_missing=True)
+        sys_db.create_database(custom_graph_db_name)
+        custom_graph_db = client.db(
+            custom_graph_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        edge_def = [
+            {
+                "edge_collection": "line_graph_edges",
+                "from_vertex_collections": ["line_graph_vertices"],
+                "to_vertex_collections": ["line_graph_vertices"],
+            }
+        ]
+
+        G = nx.Graph()
+        G.add_edge(0, 1, boolean_weight=True, int_value=1, float_value=1.1)
+        G.add_edge(1, 2, boolean_weight=False, int_value=2, float_value=2.2)
+        G.add_edge(2, 3, boolean_weight=True, int_value=3, float_value=3.3)
+        G.add_edge(3, 4, boolean_weight=False, int_value=4, float_value=4.4)
+
+        ADBNX_Adapter(custom_graph_db).networkx_to_arangodb(
+            custom_graph_db_name, G, edge_def
+        )
+
+
+@pytest.fixture(scope="module")
 def load_karate(karate_db_name: str, connection_information: Dict[str, Any]) -> None:
     client = arango.ArangoClient(connection_information["url"])
     sys_db = client.db(

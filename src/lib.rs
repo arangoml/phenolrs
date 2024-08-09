@@ -72,12 +72,13 @@ fn graph_to_networkx_format(
     request: DataLoadRequest,
     graph_config: NetworkXGraphConfig,
 ) -> PyResult<(
-    &PyDict,
-    &PyDict,
-    &PyArray1<usize>,
-    &PyArray1<usize>,
-    &PyArray1<usize>,
-    &PyDict,
+    &PyDict,          // node_dict
+    &PyDict,          // adj_dict
+    &PyArray1<usize>, // src_indices
+    &PyArray1<usize>, // dst_indices
+    &PyArray1<usize>, // edge_indices
+    &PyDict,          // vertex_id_to_index
+    &PyDict,          // edge_values
 )> {
     let load_all_vertex_attributes = request.load_config.load_all_vertex_attributes;
     let load_all_edge_attributes = request.load_config.load_all_edge_attributes;
@@ -95,7 +96,11 @@ fn graph_to_networkx_format(
     };
 
     println!("Retrieving NetworkX Graph...");
-    let graph = load::retrieve::get_arangodb_graph(request, graph_factory).unwrap();
+    let graph_res = load::retrieve::get_arangodb_graph(request, graph_factory);
+    if let Err(e) = graph_res {
+        return Err(PhenolError::new_err(e.to_string()));
+    }
+    let graph = graph_res.unwrap();
     println!("Retrieved. Building python objects...");
 
     let node_dict = construct::construct_node_dict(graph.node_map, py)?;
@@ -119,6 +124,7 @@ fn graph_to_networkx_format(
     let dst_indices = PyArray1::from_vec(py, coo.1);
     let edge_indices = PyArray1::from_vec(py, graph.edge_indices);
     let vertex_id_to_index = construct::construct_vertex_id_to_index(graph.vertex_id_to_index, py)?;
+    let edge_values = construct::construct_edge_value_dict(graph.edge_values, py)?;
 
     let res = (
         node_dict,
@@ -127,6 +133,7 @@ fn graph_to_networkx_format(
         dst_indices,
         edge_indices,
         vertex_id_to_index,
+        edge_values,
     );
 
     Ok(res)

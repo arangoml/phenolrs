@@ -75,6 +75,20 @@ pub fn construct_vertex_id_to_index(
     Ok(pydict)
 }
 
+pub fn construct_edge_value_dict(
+    input: HashMap<String, Vec<f64>>,
+    py: Python,
+) -> PyResult<&PyDict> {
+    let pydict = PyDict::new(py);
+
+    for (key, value) in input.iter() {
+        let py_value = value;
+        pydict.set_item(key, py_value)?;
+    }
+
+    Ok(pydict)
+}
+
 #[cfg(not(test))]
 /// {
 ///    "node/1": {property_key: property_value},

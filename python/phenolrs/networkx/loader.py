@@ -12,6 +12,7 @@ from .typings import (
     MultiGraphAdjDict,
     NodeDict,
     SrcIndices,
+    EdgeValuesDict,
 )
 
 
@@ -41,6 +42,7 @@ class NetworkXLoader:
         DstIndices,
         EdgeIndices,
         ArangoIDtoIndex,
+        EdgeValuesDict,
     ]:
         if "vertexCollections" not in metagraph:
             raise PhenolError("vertexCollections not found in metagraph")
@@ -113,16 +115,22 @@ class NetworkXLoader:
             for e_col_name, entries in metagraph["edgeCollections"].items()
         ]
 
-        node_dict, adj_dict, src_indices, dst_indices, edge_indices, id_to_index_map = (
-            graph_to_networkx_format(
-                request={
-                    "vertex_collections": vertex_collections,
-                    "edge_collections": edge_collections,
-                    "database_config": db_config_options,
-                    "load_config": load_config_options,
-                },
-                graph_config=graph_config,  # TODO Anthony: Move into request
-            )
+        (
+            node_dict,
+            adj_dict,
+            src_indices,
+            dst_indices,
+            edge_indices,
+            id_to_index_map,
+            edge_values,
+        ) = graph_to_networkx_format(
+            request={
+                "vertex_collections": vertex_collections,
+                "edge_collections": edge_collections,
+                "database_config": db_config_options,
+                "load_config": load_config_options,
+            },
+            graph_config=graph_config,  # TODO Anthony: Move into request
         )
 
         return (
@@ -132,4 +140,5 @@ class NetworkXLoader:
             dst_indices,
             edge_indices,
             id_to_index_map,
+            edge_values,
         )

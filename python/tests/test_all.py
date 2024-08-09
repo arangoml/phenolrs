@@ -132,6 +132,8 @@ def test_karate_networkx(
     adj_dict: Any
     from_key = "person/1"
     to_key = "person/2"
+    # TODO: This value is actually never used. This var
+    # is going to be overwritten.
 
     # MultiDiGraph
     res = NetworkXLoader.load_into_networkx(
@@ -154,6 +156,7 @@ def test_karate_networkx(
         dst_indices,
         edge_indices,
         vertex_ids_to_indices,
+        edge_values,
     ) = res
 
     assert isinstance(node_dict, dict)
@@ -161,8 +164,10 @@ def test_karate_networkx(
     assert isinstance(src_indices, numpy.ndarray)
     assert isinstance(dst_indices, numpy.ndarray)
     assert isinstance(vertex_ids_to_indices, dict)
+    assert isinstance(edge_values, dict)
     assert len(node_dict) == len(vertex_ids_to_indices) == 34
     assert len(src_indices) == len(dst_indices) == len(edge_indices) == 78
+    assert len(edge_values) == 0
 
     assert set(adj_dict.keys()) == {"succ", "pred"}
     succ = adj_dict["succ"]
@@ -213,10 +218,13 @@ def test_karate_networkx(
         dst_indices,
         edge_indices,
         vertex_ids_to_indices,
+        edge_values,
     ) = res
     assert from_key in adj_dict["succ"][to_key]
     assert to_key in adj_dict["pred"][from_key]
     assert len(src_indices) == len(dst_indices) == len(edge_indices) == 156
+    assert isinstance(edge_values, dict)
+    assert len(edge_values) == 0
 
     # DiGraph
     res = NetworkXLoader.load_into_networkx(
@@ -239,6 +247,7 @@ def test_karate_networkx(
         dst_indices,
         edge_indices,
         vertex_ids_to_indices,
+        edge_values,
     ) = res
 
     assert len(src_indices) == len(dst_indices) == 78
@@ -247,6 +256,8 @@ def test_karate_networkx(
         for to_id, edge in adj.items():
             assert isinstance(edge, dict)
             assert edge == adj_dict["pred"][to_id][from_id]
+    assert isinstance(edge_values, dict)
+    assert len(edge_values) == 0
 
     # MultiGraph
     res = NetworkXLoader.load_into_networkx(
@@ -269,6 +280,7 @@ def test_karate_networkx(
         dst_indices,
         edge_indices,
         vertex_ids_to_indices,
+        edge_values,
     ) = res
 
     assert (
@@ -283,6 +295,8 @@ def test_karate_networkx(
     assert len(adj_dict[from_key][to_key]) == 1
     assert type(next(iter(adj_dict[from_key][to_key].keys()))) is int
     assert isinstance(adj_dict[from_key][to_key][0], dict)  # type: ignore
+    assert isinstance(edge_values, dict)
+    assert len(edge_values) == 0
 
     # Graph
     res = NetworkXLoader.load_into_networkx(
@@ -305,12 +319,15 @@ def test_karate_networkx(
         dst_indices,
         edge_indices,
         vertex_ids_to_indices,
+        edge_values,
     ) = res
 
     assert len(edge_indices) == 0
     assert len(adj_dict[from_key][to_key]) > 1
     for key in adj_dict[from_key][to_key].keys():
         assert isinstance(key, str)
+    assert isinstance(edge_values, dict)
+    assert len(edge_values) == 0
 
     # Graph (no vertex/edge attributes)
     res = NetworkXLoader.load_into_networkx(
@@ -329,7 +346,15 @@ def test_karate_networkx(
         is_directed=False,
         is_multigraph=False,
     )
-    node_dict, adj_dict, _, _, _, _ = res
+    (
+        node_dict,
+        adj_dict,
+        _,
+        _,
+        _,
+        _,
+        _,
+    ) = res
 
     assert len(node_dict) == len(adj_dict) > 0
     for v in node_dict.values():
@@ -343,7 +368,7 @@ def test_karate_networkx(
 
     # Graph (custom vertex/edge attributes)
     with pytest.raises(PhenolError):
-        res = NetworkXLoader.load_into_networkx(
+        NetworkXLoader.load_into_networkx(
             karate_db_name,
             {
                 "vertexCollections": {"person": {"club"}},
@@ -356,7 +381,7 @@ def test_karate_networkx(
         )
 
     with pytest.raises(PhenolError):
-        res = NetworkXLoader.load_into_networkx(
+        NetworkXLoader.load_into_networkx(
             karate_db_name,
             {
                 "vertexCollections": {"person": {"club"}},
@@ -386,7 +411,7 @@ def test_karate_networkx(
         is_multigraph=False,
     )
 
-    node_dict, adj_dict, _, _, _, _ = res
+    node_dict, adj_dict, _, _, _, _, _ = res
 
     assert len(node_dict) == len(adj_dict) > 0
     for v in node_dict.values():
@@ -397,6 +422,132 @@ def test_karate_networkx(
         for v2 in v1.values():
             assert isinstance(v2, dict)
             assert list(v2.keys()) == ["weight"]
+
+    # Test that numeric values out of edges can be read
+    res = NetworkXLoader.load_into_networkx(
+        karate_db_name,
+        {
+            "vertexCollections": {"person": {"club"}},
+            "edgeCollections": {"knows": {"weight"}},
+        },
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        load_adj_dict=True,
+        load_coo=True,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        is_directed=False,
+        is_multigraph=False,
+    )
+
+    _, _, _, _, _, _, edge_values = res
+
+    assert isinstance(edge_values, dict)
+    assert "weight" in edge_values
+    assert isinstance(edge_values["weight"], list)
+    assert len(edge_values["weight"]) == 78
+    assert all(isinstance(x, (int, float)) for x in edge_values["weight"])
+
+    # Test that non-numeric read of edge values will fail
+    # -> In this case, strings are being tested.
+    with pytest.raises(PhenolError) as e:
+        NetworkXLoader.load_into_networkx(
+            karate_db_name,
+            {
+                "vertexCollections": {"person": {"club"}},
+                # Selecting _key here as this is guaranteed to be a string
+                "edgeCollections": {"knows": {"_key"}},
+            },
+            [connection_information["url"]],
+            username=connection_information["username"],
+            password=connection_information["password"],
+            load_adj_dict=True,
+            load_coo=True,
+            load_all_vertex_attributes=False,
+            load_all_edge_attributes=False,
+            is_directed=False,
+            is_multigraph=False,
+        )
+        assert "Could not insert edge" in str(e)
+        assert "Edge data must be a numeric value" in str(e)
+
+
+def test_coo_edge_values_networkx(
+    load_line_graph: None,
+    custom_graph_db_name: str,
+    connection_information: dict[str, str],
+) -> None:
+    # Non-numeric: Booleans
+    with pytest.raises(PhenolError) as e:
+        NetworkXLoader.load_into_networkx(
+            custom_graph_db_name,
+            {
+                "vertexCollections": {"line_graph_vertices": set()},
+                "edgeCollections": {"line_graph_edges": {"boolean_weight"}},
+            },
+            [connection_information["url"]],
+            username=connection_information["username"],
+            password=connection_information["password"],
+            load_adj_dict=False,
+            load_coo=True,
+            load_all_vertex_attributes=False,
+            load_all_edge_attributes=False,
+            is_directed=False,
+            is_multigraph=False,
+        )
+        assert "Could not insert edge" in str(e)
+        assert "Edge data must be a numeric value" in str(e)
+
+    # Numeric: Ints
+    res = NetworkXLoader.load_into_networkx(
+        custom_graph_db_name,
+        {
+            "vertexCollections": {"line_graph_vertices": set()},
+            "edgeCollections": {"line_graph_edges": {"int_value"}},
+        },
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        load_adj_dict=False,
+        load_coo=True,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        is_directed=False,
+        is_multigraph=False,
+    )
+    _, _, _, _, _, _, edge_values = res
+
+    assert isinstance(edge_values, dict)
+    assert "int_value" in edge_values
+    assert isinstance(edge_values["int_value"], list)
+    assert len(edge_values["int_value"]) == 4
+    assert all(isinstance(x, float) for x in edge_values["int_value"])
+
+    # Numeric: Floats
+    res = NetworkXLoader.load_into_networkx(
+        custom_graph_db_name,
+        {
+            "vertexCollections": {"line_graph_vertices": set()},
+            "edgeCollections": {"line_graph_edges": {"float_value"}},
+        },
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        load_adj_dict=False,
+        load_coo=True,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        is_directed=False,
+        is_multigraph=False,
+    )
+    _, _, _, _, _, _, edge_values = res
+
+    assert isinstance(edge_values, dict)
+    assert "float_value" in edge_values
+    assert isinstance(edge_values["float_value"], list)
+    assert len(edge_values["float_value"]) == 4
+    assert all(isinstance(x, float) for x in edge_values["float_value"])
 
 
 def test_multigraph_networkx(
@@ -426,6 +577,7 @@ def test_multigraph_networkx(
         dst_indices,
         edge_indices,
         _,
+        _,  # edge_values
     ) = res
 
     assert list(src_indices) == [0, 1, 0, 1, 1, 2, 2, 3, 2, 3]
@@ -454,6 +606,7 @@ def test_multigraph_networkx(
         dst_indices,
         edge_indices,
         _,
+        _,  # edge_values
     ) = res
 
     assert list(src_indices) == [0, 0, 1, 2, 2]
