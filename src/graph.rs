@@ -611,13 +611,19 @@ impl NetworkXGraph {
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) -> Result<()> {
-        let _ = self.insert_edge_as_coo(
+        let res = self.insert_edge_as_coo(
             from_id_str.clone(),
             to_id_str.clone(),
             &columns,
             field_names,
         );
-        let _ = self.insert_edge_as_adj(from_id_str, to_id_str, columns, field_names)?;
+
+        if let Err(e) = res {
+            return Err(e);
+        }
+
+        self.insert_edge_as_adj(from_id_str, to_id_str, columns, field_names)?;
+
         Ok(())
     }
 
@@ -628,7 +634,11 @@ impl NetworkXGraph {
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) -> Result<()> {
-        let _ = self.insert_edge_as_coo(from_id_str, to_id_str, &columns, field_names);
+        let res = self.insert_edge_as_coo(from_id_str, to_id_str, &columns, field_names);
+        if let Err(e) = res {
+            return Err(e);
+        }
+
         Ok(())
     }
 
@@ -639,7 +649,8 @@ impl NetworkXGraph {
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) -> Result<()> {
-        let _ = self.insert_edge_as_adj(from_id_str, to_id_str, columns, field_names)?;
+        self.insert_edge_as_adj(from_id_str, to_id_str, columns, field_names)?;
+
         Ok(())
     }
 }
