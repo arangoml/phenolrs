@@ -155,19 +155,3 @@ jobs:
             conda activate phenolrs
             export RUST_BACKTRACE=1
             pytest --url http://172.28.0.1:8529 python/tests
-  publish:
-    executor: generate-executor
-    steps:
-      - checkout
-      - run:
-          name: Build builder image
-          command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
-      - run:
-          name: Build package
-          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --release --interpreter python3.10 python3.11 python3.12 --sdist
-      - run:
-          name: Install release packages
-          command: pip install twine
-      - run:
-          name: Publish Package
-          command: twine upload --verbose --repository "${PYTHON_REPO_ID}" target/wheels/*
