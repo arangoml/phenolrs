@@ -32,25 +32,12 @@ workflows:
             branches:
               ignore: /.*/
 
-commands:
-  setup_ssh:
-    steps:
-      - add_ssh_keys:
-          fingerprints:
-            - "SHA256:XsmQvjXDygXfd3z0ynvv6lcOEHjO4iJBGHFtZkk753Q"
-      - run:
-          name: Add GitHub to known_hosts
-          command: |
-            mkdir -p ~/.ssh
-            ssh-keyscan github.com >> ~/.ssh/known_hosts
-
 jobs:
   lint-python:
     docker:
       - image: cimg/python:3.10
     steps:
       - checkout
-      - setup_ssh
       - restore_cache:
           key: py_lint_cache
       - run: |
@@ -77,7 +64,6 @@ jobs:
       - image: cimg/rust:1.75
     steps:
       - checkout
-      - setup_ssh
       - run:
           name: Install clippy
           command: rustup component add clippy
@@ -94,7 +80,6 @@ jobs:
     executor: generate-executor
     steps:
       - checkout
-      - setup_ssh
       - run:
           name: Build builder image
           command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
@@ -111,7 +96,6 @@ jobs:
       - image: cimg/rust:1.75
     steps:
       - checkout
-      - setup_ssh
       - run:
           name: Setup lib
           command: |
@@ -131,7 +115,6 @@ jobs:
     executor: generate-executor
     steps:
       - checkout
-      - setup_ssh
       - attach_workspace:
           at: ~/project/target
       - run:
@@ -176,7 +159,6 @@ jobs:
     executor: generate-executor
     steps:
       - checkout
-      - setup_ssh
       - run:
           name: Build builder image
           command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
