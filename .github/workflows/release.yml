@@ -1,21 +1,15 @@
-name: Release phenolrs
-
-# on:
-#   push:
-#     tags:
-#       - 'v*.*.*'
+name: Build Phenolrs Wheel
 
 on:
   pull_request:
 
 jobs:
-  build:
+  build-linux-windows:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12"]
-        architecture: [x86_64, arm64] # ARM64 is relevant for macOS
 
     steps:
       - uses: actions/checkout@v4
@@ -29,29 +23,47 @@ jobs:
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             sudo apt-get update
-            sudo apt-get install -y libssl-dev
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            brew install openssl
+            sudo apt-get install -y openssl-devel
           fi
           pip install build maturin twine
 
       - name: Build the package
-        run: |
-          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            if [[ "${{ matrix.architecture }}" == "x86_64" ]]; then
-              CFLAGS="-arch x86_64" python -m build
-            elif [[ "${{ matrix.architecture }}" == "arm64" ]]; then
-              CFLAGS="-arch arm64" python -m build
-            fi
-          else
-            python -m build
-          fi
+        run: python -m build
 
-      - name: Install release packages
-        run: pip install build maturin twine
+      - name: ls
+        run: ls dist/*
+
+      - name: Pip install from wheel
+        run: pip install dist/*.whl
+
+  build-macos:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+        architecture: [x86_64, arm64] # Only applied to macOS
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          brew install openssl
+          pip install build maturin twine
 
       - name: Build the package
-        run: python -m build
+        run: |
+          if [[ "${{ matrix.architecture }}" == "x86_64" ]]; then
+            CFLAGS="-arch x86_64" python -m build
+          elif [[ "${{ matrix.architecture }}" == "arm64" ]]; then
+            CFLAGS="-arch arm64" python -m build
+          fi
 
       - name: ls
         run: ls dist/*
