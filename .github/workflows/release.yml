@@ -61,11 +61,11 @@ jobs:
         shell: powershell
 
   build-macos:
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [macos-latest, macos-12]
         python-version: ["3.10", "3.11", "3.12"]
-        architecture: [x86_64] # [x86_64, arm64] # Only applied to macOS
 
     steps:
       - uses: actions/checkout@v4
@@ -74,7 +74,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-          architecture: x64
 
       - name: Install dependencies
         run: |
@@ -83,11 +82,11 @@ jobs:
 
       - name: Build the package
         run: |
-          if [[ "${{ matrix.architecture }}" == "x86_64" ]]; then
+          if [[ "${{ matrix.os }}" == "macos-12" ]]; then
             rustup target add x86_64-apple-darwin
             RUSTFLAGS="-C target-cpu=x86-64" cargo build --release --target x86_64-apple-darwin
             maturin build --release --strip --target x86_64-apple-darwin --out dist
-          elif [[ "${{ matrix.architecture }}" == "arm64" ]]; then
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             rustup target add aarch64-apple-darwin
             RUSTFLAGS="-C target-cpu=apple-m1" cargo build --release --target aarch64-apple-darwin
             maturin build --release --strip --target aarch64-apple-darwin --out dist
