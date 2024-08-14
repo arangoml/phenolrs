@@ -57,7 +57,8 @@ jobs:
         run: ls dist/*
 
       - name: Pip install from wheel
-        run: pip install dist/*.whl
+        run: Get-ChildItem -Path dist -Filter *.whl | ForEach-Object { pip install $_.FullName }
+        shell: powershell
 
   build-macos:
     runs-on: ${{ matrix.os }}
