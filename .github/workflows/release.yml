@@ -1,11 +1,12 @@
-name: Build Phenolrs Wheel
+name: Release Phenolrs
 
 on:
-  pull_request:
   workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
-  build-linux:
+  release-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +43,7 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
         run: twine upload --verbose --repository pypi dist/*.whl
 
-  build-windows:
+  release-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,7 +74,7 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
         run: twine upload --verbose --repository pypi dist\*.whl
 
-  build-macos:
+  release-macos:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
