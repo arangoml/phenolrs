@@ -15,6 +15,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12"]
+        architecture: [x86_64, arm64] # ARM64 is relevant for macOS
 
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +25,28 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install dependencies
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y libssl-dev
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            brew install openssl
+          fi
+          pip install build maturin twine
+
+      - name: Build the package
+        run: |
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            if [[ "${{ matrix.architecture }}" == "x86_64" ]]; then
+              CFLAGS="-arch x86_64" python -m build
+            elif [[ "${{ matrix.architecture }}" == "arm64" ]]; then
+              CFLAGS="-arch arm64" python -m build
+            fi
+          else
+            python -m build
+          fi
+
       - name: Install release packages
         run: pip install build maturin twine
 
@@ -32,3 +55,6 @@ jobs:
 
       - name: ls
         run: ls dist/*
+
+      - name: Pip install from wheel
+        run: pip install dist/*.whl
