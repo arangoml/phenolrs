@@ -26,25 +26,22 @@ jobs:
           pip install build maturin twine
 
       - name: Build the package
-        run: python -m build
+        run: maturin build --out dist --release --sdist --manylinux 2014 --interpreter python3.10 python3.11 python3.12 
 
       - name: ls
         run: ls dist/*
-
-      - name: Pip install from wheel
-        run: pip install dist/*.whl
 
       - name: Publish to Test PyPi
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
-        run: twine upload --verbose --repository testpypi dist/*
+        run: twine upload --verbose --repository testpypi dist/*.whl
 
       # - name: Publish to PyPi
       #   env:
       #     TWINE_USERNAME: __token__
       #     TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
-      #   run: twine upload --repository pypi dist/*
+      #   run: twine upload --verbose --repository pypi dist/*.whl
 
   build-windows:
     runs-on: windows-latest
@@ -64,26 +61,22 @@ jobs:
         run: pip install build maturin twine
 
       - name: Build the package
-        run: python -m build
+        run: maturin build --out dist --release --sdist --interpreter python3.10 python3.11 python3.12 
 
       - name: ls
         run: ls dist/*
-
-      - name: Pip install from wheel
-        run: Get-ChildItem -Path dist -Filter *.whl | ForEach-Object { pip install $_.FullName }
-        shell: powershell
 
       - name: Publish to Test PyPi
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
-        run: twine upload --verbose --repository testpypi dist/*
+        run: twine upload --verbose --repository testpypi dist\*.whl
 
       # - name: Publish to PyPi
       #   env:
       #     TWINE_USERNAME: __token__
       #     TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
-      #   run: twine upload --repository pypi dist/*
+      #   run: twine upload --verbose --repository pypi dist\*.whl
 
   build-macos:
     runs-on: ${{ matrix.os }}
@@ -108,25 +101,22 @@ jobs:
       - name: Build the package
         run: |
           if [[ "${{ matrix.os }}" == "macos-13" ]]; then
-            CFLAGS="-arch x86_64" python -m build
+            maturin build --out dist --release --sdist --target x86_64-apple-darwin --interpreter python3.10 python3.11 python3.12 
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            CFLAGS="-arch arm64" python -m build
+            maturin build --out dist --release --sdist --target aarch64-apple-darwin --interpreter python3.10 python3.11 python3.12
           fi
 
       - name: ls
         run: ls dist/*
 
-      - name: Pip install from wheel
-        run: pip install dist/*.whl
-
       - name: Publish to Test PyPi
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
-        run: twine upload --verbose --repository testpypi dist/*
+        run: twine upload --verbose --repository testpypi dist/*.whl
 
       # - name: Publish to PyPi
       #   env:
       #     TWINE_USERNAME: __token__
       #     TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
-      #   run: twine upload --repository pypi dist/*
+      #   run: twine upload --verbose --repository pypi dist/*.whl

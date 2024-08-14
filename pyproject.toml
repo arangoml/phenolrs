@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "phenolrs"
-version = "0.5.1"
+version = "0.5.2"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Rust",
@@ -13,7 +13,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Operating System :: OS Independent",
     "Typing :: Typed",
 ]
 dependencies = [
