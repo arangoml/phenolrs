@@ -4,11 +4,16 @@ build-backend = "maturin"
 
 [project]
 name = "phenolrs"
-requires-python = ">=3.8"
+version = "0.5.4"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
 ]
 dependencies = [
     "numpy~=1.26",

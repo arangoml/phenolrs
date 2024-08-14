@@ -1,0 +1,117 @@
+name: Release Phenolrs
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  release-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev
+          pip install build maturin twine
+
+      - name: Build builder image
+        run: docker build -t phenolrs-builder:latest -f Dockerfile-build .
+
+      - name: Build the package
+        run: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --out dist --release  --sdist --interpreter python3.10 python3.11 python3.12
+
+      - name: ls
+        run: ls dist/*
+
+      - name: Publish to Test PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
+        run: twine upload --verbose --repository testpypi dist/*.whl
+
+      - name: Publish to PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+        run: twine upload --verbose --repository pypi dist/*.whl
+
+  release-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install build maturin twine
+
+      - name: Build the package
+        run: maturin build --out dist --release --sdist --interpreter python3.10 python3.11 python3.12 
+
+      - name: ls
+        run: ls dist/*
+
+      - name: Publish to Test PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
+        run: twine upload --verbose --repository testpypi dist\*.whl
+
+      - name: Publish to PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+        run: twine upload --verbose --repository pypi dist\*.whl
+
+  release-macos:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, macos-13]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          brew install openssl
+          pip install build maturin twine
+
+      - name: Build the package
+        run: |
+          if [[ "${{ matrix.os }}" == "macos-13" ]]; then
+            maturin build --out dist --release --sdist --target x86_64-apple-darwin --interpreter python3.10 python3.11 python3.12 
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            maturin build --out dist --release --sdist --target aarch64-apple-darwin --interpreter python3.10 python3.11 python3.12
+          fi
+
+      - name: ls
+        run: ls dist/*
+
+      - name: Publish to Test PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
+        run: twine upload --verbose --repository testpypi dist/*.whl
+
+      - name: Publish to PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+        run: twine upload --verbose --repository pypi dist/*.whl
