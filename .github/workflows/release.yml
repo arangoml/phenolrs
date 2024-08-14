@@ -65,7 +65,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-        # architecture: [x86_64, arm64] # Only applied to macOS
+        architecture: [x86_64, arm64] # Only applied to macOS
 
     steps:
       - uses: actions/checkout@v4
@@ -80,10 +80,15 @@ jobs:
           brew install openssl
           pip install build maturin twine
 
-      - name: Build universal2 package
+      - name: Build the package
         run: |
-          RUSTFLAGS="-C target-cpu=apple-m1 -C target-cpu=x86-64" cargo build --release
-          python -m maturin build --release --universal2
+          if [[ "${{ matrix.architecture }}" == "x86_64" ]]; then
+            RUSTFLAGS="-C target-cpu=x86-64" cargo build --release --target x86_64-apple-darwin
+            maturin build --release --strip --target x86_64-apple-darwin --out dist
+          elif [[ "${{ matrix.architecture }}" == "arm64" ]]; then
+            RUSTFLAGS="-C target-cpu=apple-m1" cargo build --release --target aarch64-apple-darwin
+            maturin build --release --strip --target aarch64-apple-darwin --out dist
+          fi
 
       - name: ls
         run: ls dist/*
