@@ -1,7 +1,7 @@
 name: Build Phenolrs Wheel
 
 on:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   build-linux:
@@ -33,6 +33,18 @@ jobs:
       - name: Pip install from wheel
         run: pip install dist/*.whl
 
+      - name: Publish to Test PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
+        run: twine upload --repository testpypi dist/*
+
+      # - name: Publish to PyPi
+      #   env:
+      #     TWINE_USERNAME: __token__
+      #     TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+      #   run: twine upload --repository pypi dist/*
+
   build-windows:
     runs-on: windows-latest
     strategy:
@@ -59,6 +71,18 @@ jobs:
       - name: Pip install from wheel
         run: Get-ChildItem -Path dist -Filter *.whl | ForEach-Object { pip install $_.FullName }
         shell: powershell
+
+      - name: Publish to Test PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
+        run: twine upload --repository testpypi dist/*
+
+      # - name: Publish to PyPi
+      #   env:
+      #     TWINE_USERNAME: __token__
+      #     TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+      #   run: twine upload --repository pypi dist/*
 
   build-macos:
     runs-on: ${{ matrix.os }}
@@ -93,3 +117,15 @@ jobs:
 
       - name: Pip install from wheel
         run: pip install dist/*.whl
+
+      - name: Publish to Test PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
+        run: twine upload --repository testpypi dist/*
+
+      # - name: Publish to PyPi
+      #   env:
+      #     TWINE_USERNAME: __token__
+      #     TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+      #   run: twine upload --repository pypi dist/*
