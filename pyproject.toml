@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "phenolrs"
 requires-python = ">=3.8"
-dynamic = ["version"]
+version = "0.4.2"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
