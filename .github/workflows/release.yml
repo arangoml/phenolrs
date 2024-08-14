@@ -25,8 +25,11 @@ jobs:
           sudo apt-get install -y libssl-dev
           pip install build maturin twine
 
+      - name: Build builder image
+        run: docker build -t phenolrs-builder:latest -f Dockerfile-build .
+
       - name: Build the package
-        run: maturin build --out dist --release --sdist --manylinux 2014 --interpreter python3.10 python3.11 python3.12 
+        run: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --out dist --release  --sdist --interpreter python3.10 python3.11 python3.12
 
       - name: ls
         run: ls dist/*
