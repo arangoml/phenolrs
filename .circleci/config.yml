@@ -21,16 +21,6 @@ workflows:
             parameters:
               db-mode: ["single", "cluster"]
               db-version: ["3.10", "3.11", "3.12"]
-  release_package:
-    jobs:
-      - publish:
-          context: agml-pypi
-          filters:
-            tags:
-              only:
-                - /^v.*/
-            branches:
-              ignore: /.*/
 
 jobs:
   lint-python:
