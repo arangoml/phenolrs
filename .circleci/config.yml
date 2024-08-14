@@ -169,8 +169,5 @@ jobs:
           name: Install release packages
           command: pip install twine
       - run:
-          name: Setup SA
-          command: ./setup_sa.sh "${PYTHON_REPO_ID}" "${PYTHON_REPO_URL}" "${PYPI_ACCOUNT_USER}" "${PYPI_ACCOUNT_KEY}" "${PYTHON_INDEX_URL}"
-      - run:
           name: Publish Package
           command: twine upload --verbose --repository "${PYTHON_REPO_ID}" target/wheels/*
