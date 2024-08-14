@@ -7,17 +7,13 @@ on:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10"] # ["3.10", "3.11", "3.12"]
-
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.10
 
       - name: Install dependencies
         run: |
@@ -40,25 +36,21 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
         run: twine upload --verbose --repository testpypi dist/*.whl
 
-      # - name: Publish to PyPi
-      #   env:
-      #     TWINE_USERNAME: __token__
-      #     TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
-      #   run: twine upload --verbose --repository pypi dist/*.whl
+      - name: Publish to PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+        run: twine upload --verbose --repository pypi dist/*.whl
 
   build-windows:
     runs-on: windows-latest
-    strategy:
-      matrix:
-        python-version: ["3.10"] # ["3.10", "3.11", "3.12"]
-
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.10
 
       - name: Install dependencies
         run: pip install build maturin twine
@@ -75,18 +67,17 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
         run: twine upload --verbose --repository testpypi dist\*.whl
 
-      # - name: Publish to PyPi
-      #   env:
-      #     TWINE_USERNAME: __token__
-      #     TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
-      #   run: twine upload --verbose --repository pypi dist\*.whl
+      - name: Publish to PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+        run: twine upload --verbose --repository pypi dist\*.whl
 
   build-macos:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [macos-latest, macos-13]
-        python-version: ["3.10"] # ["3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
@@ -94,7 +85,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.10
 
       - name: Install dependencies
         run: |
@@ -118,8 +109,8 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
         run: twine upload --verbose --repository testpypi dist/*.whl
 
-      # - name: Publish to PyPi
-      #   env:
-      #     TWINE_USERNAME: __token__
-      #     TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
-      #   run: twine upload --verbose --repository pypi dist/*.whl
+      - name: Publish to PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+        run: twine upload --verbose --repository pypi dist/*.whl
