@@ -83,13 +83,9 @@ jobs:
       - name: Build the package
         run: |
           if [[ "${{ matrix.os }}" == "macos-12" ]]; then
-            rustup target add x86_64-apple-darwin
-            RUSTFLAGS="-C target-cpu=x86-64" cargo build --release --target x86_64-apple-darwin
-            maturin build --release --strip --target x86_64-apple-darwin --out dist
+            CFLAGS="-arch x86_64" python -m build
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            rustup target add aarch64-apple-darwin
-            RUSTFLAGS="-C target-cpu=apple-m1" cargo build --release --target aarch64-apple-darwin
-            maturin build --release --strip --target aarch64-apple-darwin --out dist
+            CFLAGS="-arch arm64" python -m build
           fi
 
       - name: ls
