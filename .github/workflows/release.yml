@@ -1,0 +1,31 @@
+name: Release phenolrs
+
+# on:
+#   push:
+#     tags:
+#       - 'v*.*.*'
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install release packages
+        run: pip install build maturin twine
+
+      - name: Build the package
+        run: python -m build
