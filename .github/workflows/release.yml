@@ -1,6 +1,7 @@
 name: Build Phenolrs Wheel
 
 on:
+  pull_request:
   workflow_dispatch:
 
 jobs:
