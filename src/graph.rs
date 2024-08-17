@@ -12,6 +12,11 @@ pub struct VertexHash(u64);
 pub struct VertexIndex(u64);
 
 fn panic_if_edge_exists<X>(map: &HashMap<String, X>, from_id_str: String, to_id_str: String) {
+    // Self-loops can be ignored
+    if from_id_str == to_id_str {
+        return;
+    }
+
     if map.contains_key(&to_id_str) {
         panic!("ERROR: Edge '{}' to '{}' already exists in Adjacency Dictionary. Consider switching to Multi(Di)Graph instead.", from_id_str, to_id_str);
     }
