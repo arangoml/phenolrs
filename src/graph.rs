@@ -12,11 +12,6 @@ pub struct VertexHash(u64);
 pub struct VertexIndex(u64);
 
 fn panic_if_edge_exists<X>(map: &HashMap<String, X>, from_id_str: String, to_id_str: String) {
-    // Self-loops can be ignored
-    if from_id_str == to_id_str {
-        return;
-    }
-
     if map.contains_key(&to_id_str) {
         panic!("ERROR: Edge '{}' to '{}' already exists in Adjacency Dictionary. Consider switching to Multi(Di)Graph instead.", from_id_str, to_id_str);
     }
@@ -438,8 +433,11 @@ impl NetworkXGraph {
         from_map.insert(to_id_str.clone(), properties.clone());
 
         let to_map = self.adj_map_graph.get_mut(&to_id_str).unwrap();
-        panic_if_edge_exists(to_map, to_id_str.clone(), from_id_str.clone());
-        to_map.insert(from_id_str.clone(), properties.clone());
+        if from_id_str != to_id_str {
+            panic_if_edge_exists(to_map, to_id_str, from_id_str.clone());
+        }
+
+        to_map.insert(from_id_str, properties);
     }
 
     fn insert_adj_digraph(
@@ -465,7 +463,9 @@ impl NetworkXGraph {
 
         if self.symmetrize_edges_if_directed {
             let succ_to_map = _succ.get_mut(&to_id_str).unwrap();
-            panic_if_edge_exists(succ_to_map, to_id_str.clone(), from_id_str.clone());
+            if from_id_str != to_id_str {
+                panic_if_edge_exists(succ_to_map, to_id_str.clone(), from_id_str.clone());
+            }
             succ_to_map.insert(from_id_str.clone(), properties.clone());
         }
 
@@ -486,8 +486,10 @@ impl NetworkXGraph {
 
         if self.symmetrize_edges_if_directed {
             let pred_from_map = _pred.get_mut(&from_id_str).unwrap();
-            panic_if_edge_exists(pred_from_map, from_id_str.clone(), to_id_str.clone());
-            pred_from_map.insert(to_id_str.clone(), properties.clone());
+            if from_id_str != to_id_str {
+                panic_if_edge_exists(pred_from_map, from_id_str, to_id_str.clone());
+            }
+            pred_from_map.insert(to_id_str, properties);
         }
     }
 
@@ -513,8 +515,8 @@ impl NetworkXGraph {
         from_to_map.insert(index, properties.clone());
 
         let to_map = self.adj_map_multigraph.get_mut(&to_id_str).unwrap();
-        let to_from_map = to_map.entry(from_id_str.clone()).or_default();
-        to_from_map.insert(index, properties.clone());
+        let to_from_map = to_map.entry(from_id_str).or_default();
+        to_from_map.insert(index, properties);
     }
 
     fn insert_adj_multidigraph(
@@ -557,14 +559,15 @@ impl NetworkXGraph {
         }
 
         let pred_to_map = _pred.get_mut(&to_id_str).unwrap();
-        let pred_to_from_map = pred_to_map.entry(from_id_str.clone()).or_default();
+        let pred_to_from_map: &mut HashMap<usize, Map<String, Value>> =
+            pred_to_map.entry(from_id_str.clone()).or_default();
         let index = pred_to_from_map.len();
         pred_to_from_map.insert(index, properties.clone());
 
         if self.symmetrize_edges_if_directed {
             let pred_from_map = _pred.get_mut(&from_id_str).unwrap();
-            let pred_from_to_map = pred_from_map.entry(to_id_str.clone()).or_default();
-            pred_from_to_map.insert(index, properties.clone());
+            let pred_from_to_map = pred_from_map.entry(to_id_str).or_default();
+            pred_from_to_map.insert(index, properties);
         }
     }
 }
