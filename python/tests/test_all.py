@@ -10,7 +10,7 @@ from phenolrs.numpy import NumpyLoader
 from phenolrs.pyg import PygLoader
 
 
-@pytest.parametrize(
+@pytest.mark.parametrize(
     "pyg_load_function, datatype",
     [
         (PygLoader.load_into_pyg_data, Data),
@@ -50,19 +50,23 @@ def test_abide_pyg(
 
         data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
         assert isinstance(data, datatype)
-        assert data["Subjects"]["x"].shape == (871, 2000)
+
+        nodes = edges = data
+        if isinstance(data, HeteroData):
+            nodes = data["Subjects"]
+            edges = data[("Subjects", "medical_affinity_graph", "Subjects")]
+
+        assert nodes["x"].shape == (871, 2000)
         assert (
             len(col_to_adb_key_to_ind["Subjects"])
             == len(col_to_ind_to_adb_key["Subjects"])
             == 871
         )
 
-        assert data[("Subjects", "medical_affinity_graph", "Subjects")][
-            "edge_index"
-        ].shape == (2, 606770)
+        assert edges["edge_index"].shape == (2, 606770)
 
 
-@pytest.parametrize(
+@pytest.mark.parametrize(
     "pyg_load_function, datatype",
     [
         (PygLoader.load_into_pyg_data, Data),
@@ -96,15 +100,20 @@ def test_imdb_pyg(
 
         data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
         assert isinstance(data, datatype)
-        assert data["MOVIE"]["x"].shape != (0, 0)
+        nodes = edges = data
+        if isinstance(data, HeteroData):
+            nodes = data["MOVIE"]
+            edges = data[("MOVIE", "VIEWS", "MOVIE")]
+
+        assert nodes["x"].shape != (0, 0)
         assert (
             len(col_to_adb_key_to_ind["MOVIE"])
             == len(col_to_ind_to_adb_key["MOVIE"])
-            == data["MOVIE"]["x"].shape[0]
+            == nodes["x"].shape[0]
         )
 
-        assert data[("MOVIE", "VIEWS", "MOVIE")]["edge_index"].shape[0] == 2
-        assert data[("MOVIE", "VIEWS", "MOVIE")]["edge_index"].shape[1] > 0
+        assert edges["edge_index"].shape[0] == 2
+        assert edges["edge_index"].shape[1] > 0
 
 
 def test_abide_numpy(
