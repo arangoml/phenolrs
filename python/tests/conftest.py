@@ -56,8 +56,34 @@ def load_abide(abide_db_name: str, connection_information: Dict[str, Any]) -> No
 
 
 @pytest.fixture(scope="module")
+def load_imdb(imdb_db_name: str, connection_information: Dict[str, Any]) -> None:
+    client = arango.ArangoClient(connection_information["url"])
+    sys_db = client.db(
+        "_system",
+        username=connection_information["username"],
+        password=connection_information["password"],
+    )
+
+    if not sys_db.has_database(imdb_db_name):
+        sys_db.delete_database(imdb_db_name, ignore_missing=True)
+        sys_db.create_database(imdb_db_name)
+        imdb_db = client.db(
+            imdb_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+        dsets = Datasets(imdb_db)
+        dsets.load("IMDB_PLATFORM")
+
+
+@pytest.fixture(scope="module")
 def abide_db_name() -> str:
     return "abide"
+
+
+@pytest.fixture(scope="module")
+def imdb_db_name() -> str:
+    return "imdb"
 
 
 @pytest.fixture(scope="module")

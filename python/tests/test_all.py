@@ -1,8 +1,8 @@
-from typing import Any
+from typing import Any, Callable
 
 import numpy
 import pytest
-from torch_geometric.data import HeteroData
+from torch_geometric.data import Data, HeteroData
 
 from phenolrs import PhenolError
 from phenolrs.networkx import NetworkXLoader
@@ -10,61 +10,101 @@ from phenolrs.numpy import NumpyLoader
 from phenolrs.pyg import PygLoader
 
 
-def test_abide_hetero(
-    load_abide: None, abide_db_name: str, connection_information: dict[str, str]
+@pytest.parametrize(
+    "pyg_load_function, datatype",
+    [
+        (PygLoader.load_into_pyg_data, Data),
+        (PygLoader.load_into_pyg_heterodata, HeteroData),
+    ],
+)
+def test_abide_pyg(
+    pyg_load_function: Callable[..., Any],
+    datatype: type[Data],
+    load_abide: None,
+    abide_db_name: str,
+    connection_information: dict[str, str],
 ) -> None:
-    result = PygLoader.load_into_pyg_heterodata(
-        abide_db_name,
+    metagraphs = [
         {
             "vertexCollections": {
                 "Subjects": {"x": "brain_fmri_features", "y": "label"}
             },
             "edgeCollections": {"medical_affinity_graph": {}},
         },
-        [connection_information["url"]],
-        username=connection_information["username"],
-        password=connection_information["password"],
-    )
-
-    data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
-    assert isinstance(data, HeteroData)
-    assert data["Subjects"]["x"].shape == (871, 2000)
-    assert (
-        len(col_to_adb_key_to_ind["Subjects"])
-        == len(col_to_ind_to_adb_key["Subjects"])
-        == 871
-    )
-
-    assert data[("Subjects", "medical_affinity_graph", "Subjects")][
-        "edge_index"
-    ].shape == (2, 606770)
-
-    # Metagraph variation
-    result = PygLoader.load_into_pyg_heterodata(
-        abide_db_name,
         {
             "vertexCollections": {
                 "Subjects": {"x": {"brain_fmri_features": None}, "y": "label"}
             },
             "edgeCollections": {"medical_affinity_graph": {}},
         },
-        [connection_information["url"]],
-        username=connection_information["username"],
-        password=connection_information["password"],
-    )
+    ]
 
-    data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
-    assert isinstance(data, HeteroData)
-    assert data["Subjects"]["x"].shape == (871, 2000)
-    assert (
-        len(col_to_adb_key_to_ind["Subjects"])
-        == len(col_to_ind_to_adb_key["Subjects"])
-        == 871
-    )
+    for metagraph in metagraphs:
+        result = pyg_load_function(
+            abide_db_name,
+            metagraph,
+            [connection_information["url"]],
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
 
-    assert data[("Subjects", "medical_affinity_graph", "Subjects")][
-        "edge_index"
-    ].shape == (2, 606770)
+        data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
+        assert isinstance(data, datatype)
+        assert data["Subjects"]["x"].shape == (871, 2000)
+        assert (
+            len(col_to_adb_key_to_ind["Subjects"])
+            == len(col_to_ind_to_adb_key["Subjects"])
+            == 871
+        )
+
+        assert data[("Subjects", "medical_affinity_graph", "Subjects")][
+            "edge_index"
+        ].shape == (2, 606770)
+
+
+@pytest.parametrize(
+    "pyg_load_function, datatype",
+    [
+        (PygLoader.load_into_pyg_data, Data),
+        (PygLoader.load_into_pyg_heterodata, HeteroData),
+    ],
+)
+def test_imdb(
+    pyg_load_function: Callable[..., Any],
+    datatype: type[Data],
+    load_imdb: None,
+    imdb_db_name: str,
+    connection_information: dict[str, str],
+) -> None:
+    metagraphs = [
+        {
+            "vertexCollections": {
+                "MOVIE": {"x": "features", "y": "should_recommend"},
+            },
+            "edgeCollections": {"VIEWS": {}},
+        },
+    ]
+
+    for metagraph in metagraphs:
+        result = pyg_load_function(
+            imdb_db_name,
+            metagraph,
+            [connection_information["url"]],
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
+        assert isinstance(data, datatype)
+        assert data["MOVIE"]["x"].shape != (0, 0)
+        assert (
+            len(col_to_adb_key_to_ind["MOVIE"])
+            == len(col_to_ind_to_adb_key["MOVIE"])
+            == data["MOVIE"]["x"].shape[0]
+        )
+
+        assert data[("MOVIE", "VIEWS", "MOVIE")]["edge_index"].shape[0] == 2
+        assert data[("MOVIE", "VIEWS", "MOVIE")]["edge_index"].shape[1] > 0
 
 
 def test_abide_numpy(
