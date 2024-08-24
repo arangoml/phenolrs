@@ -8,12 +8,12 @@ from .networkx.typings import (
     DiGraphAdjDict,
     DstIndices,
     EdgeIndices,
+    EdgeValuesDict,
     GraphAdjDict,
     MultiDiGraphAdjDict,
     MultiGraphAdjDict,
     NodeDict,
     SrcIndices,
-    EdgeValuesDict,
 )
 from .numpy.typings import (
     ArangoCollectionToArangoKeyToIndex,
@@ -22,7 +22,9 @@ from .numpy.typings import (
     COOByEdgeType,
 )
 
-def graph_to_numpy_format(request: dict[str, typing.Any]) -> typing.Tuple[
+def graph_to_numpy_format(
+    request: dict[str, typing.Any]
+) -> typing.Tuple[
     ArangoCollectionToNodeFeatures,
     COOByEdgeType,
     ArangoCollectionToArangoKeyToIndex,
