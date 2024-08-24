@@ -121,16 +121,15 @@ def test_imdb_pyg(
     )
 
     data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
-    breakpoint()
     assert isinstance(data, HeteroData)
     assert set(data.node_types) == {"MOVIE", "USER"}
     assert data.edge_types == [("USER", "VIEWS", "MOVIE")]
 
-    if metagraph["vertexCollections"]["MOVIE"] != {}:
-        if "y" in metagraph["vertexCollections"]["MOVIE"]:
+    if movie := metagraph["vertexCollections"].get("MOVIE"):
+        if "y" in movie:
             assert data["MOVIE"]["y"].shape == (1682, 1)
 
-        if "x" in metagraph["vertexCollections"]["MOVIE"]:
+        if "x" in movie:
             assert data["MOVIE"]["x"].shape == (1682, 403)
 
         assert (
@@ -139,8 +138,8 @@ def test_imdb_pyg(
             == 1682
         )
 
-    if metagraph["vertexCollections"]["USER"] != {}:
-        if "x" in metagraph["vertexCollections"]["USER"]:
+    if user := metagraph["vertexCollections"].get("USER"):
+        if "x" in user:
             assert data["USER"]["x"].shape == (943, 385)
 
         assert (
