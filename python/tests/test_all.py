@@ -753,5 +753,4 @@ def test_imdb_networkx(
 
     assert adj_dict["succ"]["USER/1"]["MOVIE/1"] == {0: {"timestamp": 874965758}}
     assert node_dict["MOVIE/1"] == {"title": "Toy Story (1995)"}
-    assert node_dict["USER/1"] == {}  # NOTE: This is failing
-    # assert node_dict["USER/1"] == {"title": None} # NOTE: This is passing...
+    assert node_dict["USER/1"] == {}

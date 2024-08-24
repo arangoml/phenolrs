@@ -229,6 +229,11 @@ impl NetworkXGraph {
             if field_name == "@collection_name" || field_name == "_id" {
                 continue;
             }
+
+            if columns[i].is_null() {
+                continue;
+            }
+
             properties.insert(field_name.clone(), columns[i].clone());
         }
 
@@ -270,6 +275,11 @@ impl NetworkXGraph {
             if field_name == "@collection_name" {
                 continue;
             }
+
+            if columns[i].is_null() {
+                continue;
+            }
+
             properties.insert(field_name.clone(), columns[i].clone());
         }
 
