@@ -697,3 +697,61 @@ def test_multigraph_networkx(
     assert list(src_indices) == [0, 0, 1, 2, 2]
     assert list(dst_indices) == [1, 1, 2, 3, 3]
     assert list(edge_indices) == [0, 1, 0, 0, 1]
+
+
+def test_imdb_networkx(
+    load_imdb: None,
+    imdb_db_name: str,
+    connection_information: dict[str, str],
+) -> None:
+    metagraph = {
+        "vertexCollections": {
+            "MOVIE": {},
+            "USER": {},
+        },
+        "edgeCollections": {"VIEWS": {}},
+    }
+
+    node_dict, adj_dict, *_ = NetworkXLoader.load_into_networkx(
+        imdb_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        is_directed=True,
+        is_multigraph=True,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        load_coo=False,
+    )
+
+    assert len(adj_dict["succ"]) == len(adj_dict["pred"]) == len(node_dict) == 2625
+    assert len(adj_dict["succ"]["USER/1"]) == 272
+    assert node_dict["USER/1"] == {}
+    assert adj_dict["succ"]["USER/1"]["MOVIE/1"] == {0: {}}
+
+    metagraph = {
+        "vertexCollections": {
+            "MOVIE": {"title"},
+            "USER": {},
+        },
+        "edgeCollections": {"VIEWS": {"timestamp"}},
+    }
+
+    node_dict, adj_dict, *_ = NetworkXLoader.load_into_networkx(
+        imdb_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        is_directed=True,
+        is_multigraph=True,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        load_coo=False,
+    )
+
+    assert adj_dict["succ"]["USER/1"]["MOVIE/1"] == {0: {"timestamp": 874965758}}
+    assert node_dict["MOVIE/1"] == {"title": "Toy Story (1995)"}
+    assert node_dict["USER/1"] == {}  # NOTE: This is failing
+    # assert node_dict["USER/1"] == {"title": None} # NOTE: This is passing...
