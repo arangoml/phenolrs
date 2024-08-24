@@ -69,7 +69,7 @@ def test_abide_pyg(
         (PygLoader.load_into_pyg_heterodata, HeteroData),
     ],
 )
-def test_imdb(
+def test_imdb_pyg(
     pyg_load_function: Callable[..., Any],
     datatype: type[Data],
     load_imdb: None,
