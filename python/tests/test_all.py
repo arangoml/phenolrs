@@ -67,19 +67,9 @@ def test_abide_pyg(
 
 
 @pytest.mark.parametrize(
-    "pyg_load_function, datatype",
+    "metagraph",
     [
-        (PygLoader.load_into_pyg_heterodata, HeteroData),
-    ],
-)
-def test_imdb_pyg(
-    pyg_load_function: Callable[..., Any],
-    datatype: type[Data],
-    load_imdb: None,
-    imdb_db_name: str,
-    connection_information: dict[str, str],
-) -> None:
-    metagraphs = [
+        # 1. Regular Metagraph
         {
             "vertexCollections": {
                 "MOVIE": {"x": "features", "y": "should_recommend"},
@@ -87,29 +77,80 @@ def test_imdb_pyg(
             },
             "edgeCollections": {"VIEWS": {}},
         },
-    ]
+        # 2. Metagraph without features in USER
+        # NOTE: FAILING
+        {
+            "vertexCollections": {
+                "MOVIE": {"x": "features", "y": "should_recommend"},
+                "USER": {},  # This is somehow still fetching "features"...
+            },
+            "edgeCollections": {"VIEWS": {}},
+        },
+        # 3. Metagraph without features in MOVIE and USER
+        # NOTE: FAILING
+        {
+            "vertexCollections": {
+                "MOVIE": {"y": "should_recommend"},
+                "USER": {},
+            },
+            "edgeCollections": {"VIEWS": {}},
+        },
+        # 4. Metagraph without attributes in MOVIE and USER
+        # NOTE: FAILING
+        {
+            "vertexCollections": {
+                "MOVIE": {},
+                "USER": {},
+            },
+            "edgeCollections": {"VIEWS": {}},
+        },
+    ],
+)
+def test_imdb_pyg(
+    metagraph: dict[str, Any],
+    load_imdb: None,
+    imdb_db_name: str,
+    connection_information: dict[str, str],
+) -> None:
+    result = PygLoader.load_into_pyg_heterodata(
+        imdb_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+    )
 
-    for metagraph in metagraphs:
-        result = pyg_load_function(
-            imdb_db_name,
-            metagraph,
-            [connection_information["url"]],
-            username=connection_information["username"],
-            password=connection_information["password"],
-        )
+    data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
+    breakpoint()
+    assert isinstance(data, HeteroData)
+    assert set(data.node_types) == {"MOVIE", "USER"}
+    assert data.edge_types == [("USER", "VIEWS", "MOVIE")]
 
-        data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
-        assert isinstance(data, datatype)
-        nodes = data["MOVIE"]
-        edges = data[("USER", "VIEWS", "MOVIE")]
+    if metagraph["vertexCollections"]["MOVIE"] != {}:
+        if "y" in metagraph["vertexCollections"]["MOVIE"]:
+            assert data["MOVIE"]["y"].shape == (1682, 1)
 
-        assert nodes["x"].shape == (1682, 403)
+        if "x" in metagraph["vertexCollections"]["MOVIE"]:
+            assert data["MOVIE"]["x"].shape == (1682, 403)
+
         assert (
             len(col_to_adb_key_to_ind["MOVIE"])
             == len(col_to_ind_to_adb_key["MOVIE"])
-            == nodes["x"].shape[0]
+            == 1682
         )
-        assert edges["edge_index"].shape == (2, 100000)
+
+    if metagraph["vertexCollections"]["USER"] != {}:
+        if "x" in metagraph["vertexCollections"]["USER"]:
+            assert data["USER"]["x"].shape == (943, 385)
+
+        assert (
+            len(col_to_adb_key_to_ind["USER"])
+            == len(col_to_ind_to_adb_key["USER"])
+            == 943
+        )
+
+    edges = data[("USER", "VIEWS", "MOVIE")]
+    assert edges["edge_index"].shape == (2, 100000)
 
 
 def test_abide_numpy(
