@@ -69,7 +69,6 @@ def test_abide_pyg(
 @pytest.mark.parametrize(
     "pyg_load_function, datatype",
     [
-        (PygLoader.load_into_pyg_data, Data),
         (PygLoader.load_into_pyg_heterodata, HeteroData),
     ],
 )
@@ -84,6 +83,7 @@ def test_imdb_pyg(
         {
             "vertexCollections": {
                 "MOVIE": {"x": "features", "y": "should_recommend"},
+                "USER": {"x": "features"},
             },
             "edgeCollections": {"VIEWS": {}},
         },
@@ -100,20 +100,16 @@ def test_imdb_pyg(
 
         data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
         assert isinstance(data, datatype)
-        nodes = edges = data
-        if isinstance(data, HeteroData):
-            nodes = data["MOVIE"]
-            edges = data[("MOVIE", "VIEWS", "MOVIE")]
+        nodes = data["MOVIE"]
+        edges = data[("USER", "VIEWS", "MOVIE")]
 
-        assert nodes["x"].shape != (0, 0)
+        assert nodes["x"].shape == (1682, 403)
         assert (
             len(col_to_adb_key_to_ind["MOVIE"])
             == len(col_to_ind_to_adb_key["MOVIE"])
             == nodes["x"].shape[0]
         )
-
-        assert edges["edge_index"].shape[0] == 2
-        assert edges["edge_index"].shape[1] > 0
+        assert edges["edge_index"].shape == (2, 100000)
 
 
 def test_abide_numpy(
