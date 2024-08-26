@@ -101,9 +101,7 @@ def test_imdb_pyg(
 
     assert data["USER"]["x"].shape == (943, 385)
     assert (
-        len(col_to_adb_key_to_ind["USER"])
-        == len(col_to_ind_to_adb_key["USER"])
-        == 943
+        len(col_to_adb_key_to_ind["USER"]) == len(col_to_ind_to_adb_key["USER"]) == 943
     )
 
     edges = data[("USER", "VIEWS", "MOVIE")]
