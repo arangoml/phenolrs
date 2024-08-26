@@ -660,7 +660,7 @@ def test_imdb_networkx(
     imdb_db_name: str,
     connection_information: dict[str, str],
 ) -> None:
-    metagraph = {
+    metagraph: dict[str, Any] = {
         "vertexCollections": {
             "MOVIE": {},
             "USER": {},
@@ -681,10 +681,11 @@ def test_imdb_networkx(
         load_coo=False,
     )
 
+    assert isinstance(adj_dict, dict)
     assert len(adj_dict["succ"]) == len(adj_dict["pred"]) == len(node_dict) == 2625
     assert len(adj_dict["succ"]["USER/1"]) == 272
     assert node_dict["USER/1"] == {}
-    assert adj_dict["succ"]["USER/1"]["MOVIE/1"] == {0: {}}
+    assert adj_dict["succ"]["USER/1"]["MOVIE/1"] == {0: {}}  # type: ignore
 
     metagraph = {
         "vertexCollections": {
@@ -707,6 +708,6 @@ def test_imdb_networkx(
         load_coo=False,
     )
 
-    assert adj_dict["succ"]["USER/1"]["MOVIE/1"] == {0: {"timestamp": 874965758}}
+    assert adj_dict["succ"]["USER/1"]["MOVIE/1"] == {0: {"timestamp": 874965758}}  # type: ignore  # noqa: E501
     assert node_dict["MOVIE/1"] == {"title": "Toy Story (1995)"}
     assert node_dict["USER/1"] == {}
