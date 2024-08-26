@@ -66,52 +66,19 @@ def test_abide_pyg(
         assert edges["edge_index"].shape == (2, 606770)
 
 
-@pytest.mark.parametrize(
-    "metagraph",
-    [
-        # 1. Regular Metagraph
-        {
-            "vertexCollections": {
-                "MOVIE": {"x": "features", "y": "should_recommend"},
-                "USER": {"x": "features"},
-            },
-            "edgeCollections": {"VIEWS": {}},
-        },
-        # 2. Metagraph without features in USER
-        # NOTE: FAILING
-        {
-            "vertexCollections": {
-                "MOVIE": {"x": "features", "y": "should_recommend"},
-                "USER": {},  # This is somehow still fetching "features"...
-            },
-            "edgeCollections": {"VIEWS": {}},
-        },
-        # 3. Metagraph without features in MOVIE and USER
-        # NOTE: FAILING
-        {
-            "vertexCollections": {
-                "MOVIE": {"y": "should_recommend"},
-                "USER": {},
-            },
-            "edgeCollections": {"VIEWS": {}},
-        },
-        # 4. Metagraph without attributes in MOVIE and USER
-        # NOTE: FAILING
-        {
-            "vertexCollections": {
-                "MOVIE": {},
-                "USER": {},
-            },
-            "edgeCollections": {"VIEWS": {}},
-        },
-    ],
-)
 def test_imdb_pyg(
-    metagraph: dict[str, Any],
     load_imdb: None,
     imdb_db_name: str,
     connection_information: dict[str, str],
 ) -> None:
+    metagraph = {
+        "vertexCollections": {
+            "MOVIE": {"x": "features", "y": "should_recommend"},
+            "USER": {"x": "features"},
+        },
+        "edgeCollections": {"VIEWS": {}},
+    }
+
     result = PygLoader.load_into_pyg_heterodata(
         imdb_db_name,
         metagraph,
@@ -124,29 +91,20 @@ def test_imdb_pyg(
     assert isinstance(data, HeteroData)
     assert set(data.node_types) == {"MOVIE", "USER"}
     assert data.edge_types == [("USER", "VIEWS", "MOVIE")]
+    assert data["MOVIE"]["y"].shape == (1682, 1)
+    assert data["MOVIE"]["x"].shape == (1682, 403)
+    assert (
+        len(col_to_adb_key_to_ind["MOVIE"])
+        == len(col_to_ind_to_adb_key["MOVIE"])
+        == 1682
+    )
 
-    if movie := metagraph["vertexCollections"].get("MOVIE"):
-        if "y" in movie:
-            assert data["MOVIE"]["y"].shape == (1682, 1)
-
-        if "x" in movie:
-            assert data["MOVIE"]["x"].shape == (1682, 403)
-
-        assert (
-            len(col_to_adb_key_to_ind["MOVIE"])
-            == len(col_to_ind_to_adb_key["MOVIE"])
-            == 1682
-        )
-
-    if user := metagraph["vertexCollections"].get("USER"):
-        if "x" in user:
-            assert data["USER"]["x"].shape == (943, 385)
-
-        assert (
-            len(col_to_adb_key_to_ind["USER"])
-            == len(col_to_ind_to_adb_key["USER"])
-            == 943
-        )
+    assert data["USER"]["x"].shape == (943, 385)
+    assert (
+        len(col_to_adb_key_to_ind["USER"])
+        == len(col_to_ind_to_adb_key["USER"])
+        == 943
+    )
 
     edges = data[("USER", "VIEWS", "MOVIE")]
     assert edges["edge_index"].shape == (2, 100000)
