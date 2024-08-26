@@ -714,6 +714,33 @@ def test_imdb_networkx(
 
     metagraph = {
         "vertexCollections": {
+            "MOVIE": {"title", "release_date"},
+            "USER": {"occupation"},
+        },
+        "edgeCollections": {"VIEWS": {"timestamp"}},
+    }
+
+    node_dict, adj_dict, *_ = NetworkXLoader.load_into_networkx(
+        imdb_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        is_directed=True,
+        is_multigraph=True,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        load_coo=False,
+    )
+
+    assert node_dict["MOVIE/1"] == {
+        "release_date": "01-Jan-1995",
+        "title": "Toy Story (1995)",
+    }
+    assert node_dict["USER/1"] == {"occupation": "technician"}
+
+    metagraph = {
+        "vertexCollections": {
             "MOVIE": {},
             "USER": {},
         },
