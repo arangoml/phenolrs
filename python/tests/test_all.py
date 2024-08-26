@@ -711,3 +711,47 @@ def test_imdb_networkx(
     assert adj_dict["succ"]["USER/1"]["MOVIE/1"] == {0: {"timestamp": 874965758}}  # type: ignore  # noqa: E501
     assert node_dict["MOVIE/1"] == {"title": "Toy Story (1995)"}
     assert node_dict["USER/1"] == {}
+
+    metagraph = {
+        "vertexCollections": {
+            "MOVIE": {},
+            "USER": {},
+        },
+        "edgeCollections": {"VIEWS": {}},
+    }
+
+    node_dict, adj_dict, *_ = NetworkXLoader.load_into_networkx(
+        imdb_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        is_directed=True,
+        is_multigraph=True,
+        load_all_vertex_attributes=True,
+        load_all_edge_attributes=True,
+        load_coo=False,
+    )
+
+    for node_id, node in node_dict.items():
+        assert isinstance(node_id, str)
+        assert isinstance(node, dict)
+        for key, value in node.items():
+            assert isinstance(key, str)
+            assert value is not None
+
+    for adj_key, adj in adj_dict.items():
+        assert isinstance(adj_key, str)
+        assert isinstance(adj, dict)
+        for from_node_id, from_node_adj in adj.items():
+            assert isinstance(from_node_id, str)
+            assert isinstance(from_node_adj, dict)
+            for to_node_id, edges in from_node_adj.items():
+                assert isinstance(to_node_id, str)
+                assert isinstance(edges, dict)
+                for edge_id, edge in edges.items():
+                    assert isinstance(edge_id, int)  # TODO: Switch to str?
+                    assert isinstance(edge, dict)
+                    for key, value in edge.items():
+                        assert isinstance(key, str)
+                        assert value is not None
