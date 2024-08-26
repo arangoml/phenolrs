@@ -80,6 +80,8 @@ fn graph_to_networkx_format(
     &PyDict,          // vertex_id_to_index
     &PyDict,          // edge_values
 )> {
+    panic!("Temp");
+
     let load_all_vertex_attributes = request.load_config.load_all_vertex_attributes;
     let load_all_edge_attributes = request.load_config.load_all_edge_attributes;
 
