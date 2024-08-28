@@ -8,12 +8,12 @@ from .networkx.typings import (
     DiGraphAdjDict,
     DstIndices,
     EdgeIndices,
+    EdgeValuesDict,
     GraphAdjDict,
     MultiDiGraphAdjDict,
     MultiGraphAdjDict,
     NodeDict,
     SrcIndices,
-    EdgeValuesDict,
 )
 from .numpy.typings import (
     ArangoCollectionToArangoKeyToIndex,

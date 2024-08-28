@@ -229,6 +229,11 @@ impl NetworkXGraph {
             if field_name == "@collection_name" || field_name == "_id" {
                 continue;
             }
+
+            if columns[i].is_null() {
+                continue;
+            }
+
             properties.insert(field_name.clone(), columns[i].clone());
         }
 
@@ -270,6 +275,11 @@ impl NetworkXGraph {
             if field_name == "@collection_name" {
                 continue;
             }
+
+            if columns[i].is_null() {
+                continue;
+            }
+
             properties.insert(field_name.clone(), columns[i].clone());
         }
 
@@ -598,7 +608,6 @@ impl Graph for NumpyGraph {
             }
             let feature_vec = parse_value_to_vec(&columns[i]);
             if feature_vec.is_none() {
-                println!("Feature {} is not a vector. Skipping.", feature_name);
                 continue;
             }
             feature_res.insert(feature_name.clone(), feature_vec.unwrap());

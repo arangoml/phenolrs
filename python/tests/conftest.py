@@ -34,8 +34,9 @@ def connection_information() -> Dict[str, Any]:
     }
 
 
-@pytest.fixture(scope="module")
-def load_abide(abide_db_name: str, connection_information: Dict[str, Any]) -> None:
+def load_dataset(
+    dataset: str, db_name: str, connection_information: Dict[str, Any]
+) -> None:
     client = arango.ArangoClient(connection_information["url"])
     sys_db = client.db(
         "_system",
@@ -43,21 +44,35 @@ def load_abide(abide_db_name: str, connection_information: Dict[str, Any]) -> No
         password=connection_information["password"],
     )
 
-    if not sys_db.has_database(abide_db_name):
-        sys_db.delete_database(abide_db_name, ignore_missing=True)
-        sys_db.create_database(abide_db_name)
-        abide_db = client.db(
-            abide_db_name,
+    if not sys_db.has_database(db_name):
+        sys_db.create_database(db_name)
+        db = client.db(
+            db_name,
             username=connection_information["username"],
             password=connection_information["password"],
         )
-        dsets = Datasets(abide_db)
-        dsets.load("ABIDE")
+        dsets = Datasets(db)
+        dsets.load(dataset)
+
+
+@pytest.fixture(scope="module")
+def load_abide(abide_db_name: str, connection_information: Dict[str, Any]) -> None:
+    load_dataset("ABIDE", abide_db_name, connection_information)
+
+
+@pytest.fixture(scope="module")
+def load_imdb(imdb_db_name: str, connection_information: Dict[str, Any]) -> None:
+    load_dataset("IMDB_PLATFORM", imdb_db_name, connection_information)
 
 
 @pytest.fixture(scope="module")
 def abide_db_name() -> str:
     return "abide"
+
+
+@pytest.fixture(scope="module")
+def imdb_db_name() -> str:
+    return "imdb"
 
 
 @pytest.fixture(scope="module")
@@ -77,7 +92,6 @@ def load_line_graph(
     )
 
     if not sys_db.has_database(custom_graph_db_name):
-        sys_db.delete_database(custom_graph_db_name, ignore_missing=True)
         sys_db.create_database(custom_graph_db_name)
         custom_graph_db = client.db(
             custom_graph_db_name,
@@ -114,7 +128,6 @@ def load_karate(karate_db_name: str, connection_information: Dict[str, Any]) -> 
     )
 
     if not sys_db.has_database(karate_db_name):
-        sys_db.delete_database(karate_db_name, ignore_missing=True)
         sys_db.create_database(karate_db_name)
         karate_db = client.db(
             karate_db_name,
@@ -152,7 +165,6 @@ def load_multigraph(
     )
 
     if not sys_db.has_database(multigraph_db_name):
-        sys_db.delete_database(multigraph_db_name, ignore_missing=True)
         sys_db.create_database(multigraph_db_name)
         multigraph_db = client.db(
             multigraph_db_name,

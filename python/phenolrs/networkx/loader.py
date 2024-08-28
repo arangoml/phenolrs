@@ -7,12 +7,12 @@ from .typings import (
     DiGraphAdjDict,
     DstIndices,
     EdgeIndices,
+    EdgeValuesDict,
     GraphAdjDict,
     MultiDiGraphAdjDict,
     MultiGraphAdjDict,
     NodeDict,
     SrcIndices,
-    EdgeValuesDict,
 )
 
 
