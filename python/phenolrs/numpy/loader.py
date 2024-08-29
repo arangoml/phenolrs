@@ -91,15 +91,18 @@ class NumpyLoader:
                 for e_col_name, entries in metagraph["edgeCollections"].items()
             ]
 
-        features_by_col, coo_map, col_to_adb_key_to_ind, col_to_ind_to_adb_key = (
-            graph_to_numpy_format(
-                {
-                    "vertex_collections": vertex_collections,
-                    "edge_collections": edge_collections,
-                    "database_config": db_config_options,
-                    "load_config": load_config_options,
-                }
-            )
+        (
+            features_by_col,
+            coo_map,
+            col_to_adb_key_to_ind,
+            col_to_ind_to_adb_key,
+        ) = graph_to_numpy_format(
+            {
+                "vertex_collections": vertex_collections,
+                "edge_collections": edge_collections,
+                "database_config": db_config_options,
+                "load_config": load_config_options,
+            }
         )
 
         return (

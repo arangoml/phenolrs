@@ -49,13 +49,11 @@ class PygLoader:
             raise PhenolError("edgeCollections must map to non-empty dictionary")
 
         if len(metagraph["vertexCollections"]) > 1:
-            raise PhenolError(
-                "More than one vertex collection specified for homogeneous dataset"
-            )
+            m = "More than one vertex collection specified for homogeneous dataset"
+            raise PhenolError(m)
         if len(metagraph["edgeCollections"]) > 1:
-            raise PhenolError(
-                "More than one edge collection specified for homogeneous dataset"
-            )
+            m = "More than one edge collection specified for homogeneous dataset"
+            raise PhenolError(m)
 
         v_col_spec_name = list(metagraph["vertexCollections"].keys())[0]
         v_col_spec = list(metagraph["vertexCollections"].values())[0]

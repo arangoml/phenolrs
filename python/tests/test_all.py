@@ -1,8 +1,8 @@
-from typing import Any
+from typing import Any, Callable
 
 import numpy
 import pytest
-from torch_geometric.data import HeteroData
+from torch_geometric.data import Data, HeteroData
 
 from phenolrs import PhenolError
 from phenolrs.networkx import NetworkXLoader
@@ -10,44 +10,78 @@ from phenolrs.numpy import NumpyLoader
 from phenolrs.pyg import PygLoader
 
 
-def test_abide_hetero(
-    load_abide: None, abide_db_name: str, connection_information: dict[str, str]
+@pytest.mark.parametrize(
+    "pyg_load_function, datatype",
+    [
+        (PygLoader.load_into_pyg_data, Data),
+        (PygLoader.load_into_pyg_heterodata, HeteroData),
+    ],
+)
+def test_abide_pyg(
+    pyg_load_function: Callable[..., Any],
+    datatype: type[Data],
+    load_abide: None,
+    abide_db_name: str,
+    connection_information: dict[str, str],
 ) -> None:
-    result = PygLoader.load_into_pyg_heterodata(
-        abide_db_name,
+    metagraphs = [
         {
             "vertexCollections": {
                 "Subjects": {"x": "brain_fmri_features", "y": "label"}
             },
             "edgeCollections": {"medical_affinity_graph": {}},
         },
-        [connection_information["url"]],
-        username=connection_information["username"],
-        password=connection_information["password"],
-    )
-
-    data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
-    assert isinstance(data, HeteroData)
-    assert data["Subjects"]["x"].shape == (871, 2000)
-    assert (
-        len(col_to_adb_key_to_ind["Subjects"])
-        == len(col_to_ind_to_adb_key["Subjects"])
-        == 871
-    )
-
-    assert data[("Subjects", "medical_affinity_graph", "Subjects")][
-        "edge_index"
-    ].shape == (2, 606770)
-
-    # Metagraph variation
-    result = PygLoader.load_into_pyg_heterodata(
-        abide_db_name,
         {
             "vertexCollections": {
                 "Subjects": {"x": {"brain_fmri_features": None}, "y": "label"}
             },
             "edgeCollections": {"medical_affinity_graph": {}},
         },
+    ]
+
+    for metagraph in metagraphs:
+        result = pyg_load_function(
+            abide_db_name,
+            metagraph,
+            [connection_information["url"]],
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
+        assert isinstance(data, datatype)
+
+        nodes = edges = data
+        if isinstance(data, HeteroData):
+            nodes = data["Subjects"]
+            edges = data[("Subjects", "medical_affinity_graph", "Subjects")]
+
+        assert nodes["x"].shape == (871, 2000)
+        assert (
+            len(col_to_adb_key_to_ind["Subjects"])
+            == len(col_to_ind_to_adb_key["Subjects"])
+            == 871
+        )
+
+        assert edges["edge_index"].shape == (2, 606770)
+
+
+def test_imdb_pyg(
+    load_imdb: None,
+    imdb_db_name: str,
+    connection_information: dict[str, str],
+) -> None:
+    metagraph = {
+        "vertexCollections": {
+            "MOVIE": {"x": "features", "y": "should_recommend"},
+            "USER": {"x": "features"},
+        },
+        "edgeCollections": {"VIEWS": {}},
+    }
+
+    result = PygLoader.load_into_pyg_heterodata(
+        imdb_db_name,
+        metagraph,
         [connection_information["url"]],
         username=connection_information["username"],
         password=connection_information["password"],
@@ -55,16 +89,23 @@ def test_abide_hetero(
 
     data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
     assert isinstance(data, HeteroData)
-    assert data["Subjects"]["x"].shape == (871, 2000)
+    assert set(data.node_types) == {"MOVIE", "USER"}
+    assert data.edge_types == [("USER", "VIEWS", "MOVIE")]
+    assert data["MOVIE"]["y"].shape == (1682, 1)
+    assert data["MOVIE"]["x"].shape == (1682, 403)
     assert (
-        len(col_to_adb_key_to_ind["Subjects"])
-        == len(col_to_ind_to_adb_key["Subjects"])
-        == 871
+        len(col_to_adb_key_to_ind["MOVIE"])
+        == len(col_to_ind_to_adb_key["MOVIE"])
+        == 1682
     )
 
-    assert data[("Subjects", "medical_affinity_graph", "Subjects")][
-        "edge_index"
-    ].shape == (2, 606770)
+    assert data["USER"]["x"].shape == (943, 385)
+    assert (
+        len(col_to_adb_key_to_ind["USER"]) == len(col_to_ind_to_adb_key["USER"]) == 943
+    )
+
+    edges = data[("USER", "VIEWS", "MOVIE")]
+    assert edges["edge_index"].shape == (2, 100000)
 
 
 def test_abide_numpy(
@@ -612,3 +653,132 @@ def test_multigraph_networkx(
     assert list(src_indices) == [0, 0, 1, 2, 2]
     assert list(dst_indices) == [1, 1, 2, 3, 3]
     assert list(edge_indices) == [0, 1, 0, 0, 1]
+
+
+def test_imdb_networkx(
+    load_imdb: None,
+    imdb_db_name: str,
+    connection_information: dict[str, str],
+) -> None:
+    metagraph: dict[str, Any] = {
+        "vertexCollections": {
+            "MOVIE": {},
+            "USER": {},
+        },
+        "edgeCollections": {"VIEWS": {}},
+    }
+
+    node_dict, adj_dict, *_ = NetworkXLoader.load_into_networkx(
+        imdb_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        is_directed=True,
+        is_multigraph=True,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        load_coo=False,
+    )
+
+    assert isinstance(adj_dict, dict)
+    assert len(adj_dict["succ"]) == len(adj_dict["pred"]) == len(node_dict) == 2625
+    assert len(adj_dict["succ"]["USER/1"]) == 272
+    assert node_dict["USER/1"] == {}
+    assert adj_dict["succ"]["USER/1"]["MOVIE/1"] == {0: {}}  # type: ignore
+
+    metagraph = {
+        "vertexCollections": {
+            "MOVIE": {"title"},
+            "USER": {},
+        },
+        "edgeCollections": {"VIEWS": {"timestamp"}},
+    }
+
+    node_dict, adj_dict, *_ = NetworkXLoader.load_into_networkx(
+        imdb_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        is_directed=True,
+        is_multigraph=True,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        load_coo=False,
+    )
+
+    assert adj_dict["succ"]["USER/1"]["MOVIE/1"] == {0: {"timestamp": 874965758}}  # type: ignore  # noqa: E501
+    assert node_dict["MOVIE/1"] == {"title": "Toy Story (1995)"}
+    assert node_dict["USER/1"] == {}
+
+    metagraph = {
+        "vertexCollections": {
+            "MOVIE": {"title", "release_date"},
+            "USER": {"occupation"},
+        },
+        "edgeCollections": {"VIEWS": {"timestamp"}},
+    }
+
+    node_dict, adj_dict, *_ = NetworkXLoader.load_into_networkx(
+        imdb_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        is_directed=True,
+        is_multigraph=True,
+        load_all_vertex_attributes=False,
+        load_all_edge_attributes=False,
+        load_coo=False,
+    )
+
+    assert node_dict["MOVIE/1"] == {
+        "release_date": "01-Jan-1995",
+        "title": "Toy Story (1995)",
+    }
+    assert node_dict["USER/1"] == {"occupation": "technician"}
+
+    metagraph = {
+        "vertexCollections": {
+            "MOVIE": {},
+            "USER": {},
+        },
+        "edgeCollections": {"VIEWS": {}},
+    }
+
+    node_dict, adj_dict, *_ = NetworkXLoader.load_into_networkx(
+        imdb_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        is_directed=True,
+        is_multigraph=True,
+        load_all_vertex_attributes=True,
+        load_all_edge_attributes=True,
+        load_coo=False,
+    )
+
+    for node_id, node in node_dict.items():
+        assert isinstance(node_id, str)
+        assert isinstance(node, dict)
+        for key, value in node.items():
+            assert isinstance(key, str)
+            assert value is not None
+
+    for adj_key, adj in adj_dict.items():
+        assert isinstance(adj_key, str)
+        assert isinstance(adj, dict)
+        for from_node_id, from_node_adj in adj.items():
+            assert isinstance(from_node_id, str)
+            assert isinstance(from_node_adj, dict)
+            for to_node_id, edges in from_node_adj.items():
+                assert isinstance(to_node_id, str)
+                assert isinstance(edges, dict)
+                for edge_id, edge in edges.items():
+                    assert isinstance(edge_id, int)  # TODO: Switch to str?
+                    assert isinstance(edge, dict)
+                    for key, value in edge.items():
+                        assert isinstance(key, str)
+                        assert value is not None

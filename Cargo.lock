@@ -40,9 +40,9 @@ checksum = "5ad32ce52e4161730f7098c077cd2ed6229b5804ccf99e5366be1ab72a98b4e1"
 
 [[package]]
 name = "arangors-graph-exporter"
-version = "0.0.7"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d073d5151e27cf0d3a1c51a5f088e24d4ded0353e714469c4963c2aba72bab8"
+checksum = "a9a3807c1c74dafb1f3ad701c6ff51e0a9b3cb2d54c5e83ad82eb53fbe9a0606"
 dependencies = [
  "bytes",
  "log",
@@ -823,7 +823,7 @@ checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
 name = "phenolrs"
-version = "0.5.4"
+version = "0.5.6"
 dependencies = [
  "anyhow",
  "arangors-graph-exporter",
