@@ -922,7 +922,7 @@ checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
 name = "phenolrs"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "anyhow",
  "arangors-graph-exporter",
