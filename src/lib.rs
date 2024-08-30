@@ -2,6 +2,7 @@ mod graph;
 mod input;
 mod load;
 mod output;
+use log::info;
 
 use input::load_request::{DataLoadRequest, NetworkXGraphConfig};
 use numpy::PyArray1;
@@ -31,13 +32,18 @@ create_exception!(phenolrs, PhenolError, PyException);
 #[pyfunction]
 #[cfg(not(test))]
 fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCompatible> {
+    let _ = env_logger::try_init();
+
     let graph_factory = NumpyGraph::new;
 
-    println!("Retrieving Numpy Graph...");
+    info!("Retrieving Numpy Graph...");
+    let start_time = std::time::Instant::now();
     let graph =
         load::retrieve::get_arangodb_graph(request, graph_factory).map_err(PhenolError::new_err)?;
-    println!("Retrieved. Building python objects...");
+    info!("Retrieved. Took: {:?}", start_time.elapsed());
 
+    info!("Building python objects...");
+    let start_time = std::time::Instant::now();
     let col_to_features = construct::construct_col_to_features(
         convert_nested_features_map(graph.cols_to_features),
         py,
@@ -53,7 +59,7 @@ fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCo
 
     let cols_to_inds_to_keys =
         construct::construct_cols_to_inds_to_keys(graph.cols_to_inds_to_keys, py)?;
-    println!("Built python objects.");
+    info!("Built. Took: {:?}", start_time.elapsed());
 
     let res = (
         col_to_features,
@@ -80,6 +86,8 @@ fn graph_to_networkx_format(
     &PyDict,          // vertex_id_to_index
     &PyDict,          // edge_values
 )> {
+    let _ = env_logger::try_init();
+
     let load_all_vertex_attributes = request.load_config.load_all_vertex_attributes;
     let load_all_edge_attributes = request.load_config.load_all_edge_attributes;
 
@@ -95,14 +103,14 @@ fn graph_to_networkx_format(
         )
     };
 
-    println!("Retrieving NetworkX Graph...");
-    let graph_res = load::retrieve::get_arangodb_graph(request, graph_factory);
-    if let Err(e) = graph_res {
-        return Err(PhenolError::new_err(e.to_string()));
-    }
-    let graph = graph_res.unwrap();
-    println!("Retrieved. Building python objects...");
+    info!("Retrieving NetworkX Graph...");
+    let start_time = std::time::Instant::now();
+    let graph =
+        load::retrieve::get_arangodb_graph(request, graph_factory).map_err(PhenolError::new_err)?;
+    info!("Retrieved. Took: {:?}", start_time.elapsed());
 
+    info!("Building python objects...");
+    let start_time = std::time::Instant::now();
     let node_dict = construct::construct_node_dict(graph.node_map, py)?;
     let adj_dict = if graph_config.is_multigraph {
         if graph_config.is_directed {
@@ -117,7 +125,7 @@ fn graph_to_networkx_format(
             construct::construct_graph_adj_dict(graph.adj_map_graph, py)?
         }
     };
-    println!("Built python objects.");
+    info!("Built. Took: {:?}", start_time.elapsed());
 
     let coo = graph.coo;
     let src_indices = PyArray1::from_vec(py, coo.0);
