@@ -108,6 +108,94 @@ def test_imdb_pyg(
     assert edges["edge_index"].shape == (2, 100000)
 
 
+def test_dblp_pyg(
+    load_dblp: None,
+    dblp_db_name: str,
+    connection_information: dict[str, str],
+) -> None:
+    metagraph_1 = {
+        "vertexCollections": {
+            "author": {"x": "x"},
+            "paper": {"x": "x"},
+            "term": {"x": "x"},
+            "conference": {},
+        },
+        "edgeCollections": {
+            "to": {},
+        },
+    }
+
+    result_1 = PygLoader.load_into_pyg_heterodata(
+        dblp_db_name,
+        metagraph_1,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+    )
+
+    metagraph_2 = {
+        "vertexCollections": {
+            "author": {"x": "x"},
+            "paper": {"x": "x"},
+            "term": {"x": "x"},
+        },
+        "edgeCollections": {
+            "to": {},
+        },
+    }
+
+    result_2 = PygLoader.load_into_pyg_heterodata(
+        dblp_db_name,
+        metagraph_2,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+    )
+
+    for result in [result_1, result_2]:
+        data, col_to_adb_key_to_ind, col_to_ind_to_adb_key = result
+
+        assert isinstance(data, HeteroData)
+        assert set(data.node_types) == {"author", "paper", "term"}
+        assert set(data.edge_types) == {
+            ("term", "to", "paper"),
+            ("author", "to", "paper"),
+            ("paper", "to", "term"),
+            ("paper", "to", "author"),
+        }
+        assert data["author"]["x"].shape == (4057, 334)
+        assert data["paper"]["x"].shape == (14328, 4231)
+        assert data["term"]["x"].shape == (7723, 50)
+
+        assert (
+            len(col_to_adb_key_to_ind["author"])
+            == len(col_to_ind_to_adb_key["author"])
+            == 4057
+        )
+        assert (
+            len(col_to_adb_key_to_ind["paper"])
+            == len(col_to_ind_to_adb_key["paper"])
+            == 14328
+        )
+        assert (
+            len(col_to_adb_key_to_ind["term"])
+            == len(col_to_ind_to_adb_key["term"])
+            == 7723
+        )
+
+        edges = data[("author", "to", "paper")]
+        assert edges["edge_index"].shape == (2, 19645)
+
+        edges = data[("paper", "to", "author")]
+        assert edges["edge_index"].shape == (2, 19645)
+
+        edges = data[("term", "to", "paper")]
+        assert edges["edge_index"].shape == (2, 85810)
+
+        edges = data[("paper", "to", "term")]
+        assert edges["edge_index"].shape == (2, 85810)
+
+
 def test_abide_numpy(
     load_abide: None, abide_db_name: str, connection_information: dict[str, str]
 ) -> None:
