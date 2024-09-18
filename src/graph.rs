@@ -789,11 +789,17 @@ impl Graph for NumpyGraph {
         // if either from_col or to_col is not part of the metagraph definition,
         // we will not add it as an edge
         if !self.cols_to_keys_to_inds.contains_key(&from_col) {
-            warn!("Skipping edge from {} to {} as {} is not part of the metagraph", from_col, to_col, from_col);
+            warn!(
+                "Skipping edge from {} to {} as {} is not part of the metagraph",
+                from_col, to_col, from_col
+            );
             return Ok(());
         }
         if !self.cols_to_keys_to_inds.contains_key(&to_col) {
-            warn!("Skipping edge from {} to {} as {} is not part of the metagraph", from_col, to_col, to_col);
+            warn!(
+                "Skipping edge from {} to {} as {} is not part of the metagraph",
+                from_col, to_col, to_col
+            );
             return Ok(());
         }
 
