@@ -66,6 +66,11 @@ def load_imdb(imdb_db_name: str, connection_information: Dict[str, Any]) -> None
 
 
 @pytest.fixture(scope="module")
+def load_dblp(dblp_db_name: str, connection_information: Dict[str, Any]) -> None:
+    load_dataset("DBLP", dblp_db_name, connection_information)
+
+
+@pytest.fixture(scope="module")
 def abide_db_name() -> str:
     return "abide"
 
@@ -73,6 +78,11 @@ def abide_db_name() -> str:
 @pytest.fixture(scope="module")
 def imdb_db_name() -> str:
     return "imdb"
+
+
+@pytest.fixture(scope="module")
+def dblp_db_name() -> str:
+    return "dblp"
 
 
 @pytest.fixture(scope="module")
