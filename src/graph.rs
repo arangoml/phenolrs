@@ -4,6 +4,7 @@ use std::hash::Hash;
 use std::sync::{Arc, RwLock};
 
 use anyhow::{anyhow, Result};
+use log::warn;
 
 #[derive(Eq, Hash, PartialEq, Clone, Copy, Ord, PartialOrd, Debug)]
 pub struct VertexHash(u64);
@@ -785,6 +786,17 @@ impl Graph for NumpyGraph {
             (col.to_string(), key[1..].to_string())
         };
 
+        // if either from_col or to_col is not part of the metagraph definition,
+        // we will not add it as an edge
+        if !self.cols_to_keys_to_inds.contains_key(&from_col) {
+            warn!("Skipping edge from {} to {} as {} is not part of the metagraph", from_col, to_col, from_col);
+            return Ok(());
+        }
+        if !self.cols_to_keys_to_inds.contains_key(&to_col) {
+            warn!("Skipping edge from {} to {} as {} is not part of the metagraph", from_col, to_col, to_col);
+            return Ok(());
+        }
+
         debug_assert!(field_names.contains(&String::from("@collection_name")));
         let col_name_position = field_names
             .iter()
@@ -803,11 +815,11 @@ impl Graph for NumpyGraph {
         let from_col_keys = self
             .cols_to_keys_to_inds
             .get(&from_col)
-            .ok_or_else(|| anyhow!("Unable to get keys from for {:?}", &from_col))?;
+            .ok_or_else(|| anyhow!("Unable to get keys `from` for {:?}", &from_col))?;
         let to_col_keys = self
             .cols_to_keys_to_inds
             .get(&to_col)
-            .ok_or_else(|| anyhow!("Unable to get keys to for {:?}", &to_col))?;
+            .ok_or_else(|| anyhow!("Unable to get keys `to` for {:?}", &to_col))?;
         let cur_coo = self
             .coo_by_from_edge_to
             .get_mut(&key_tup)

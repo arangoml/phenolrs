@@ -154,6 +154,9 @@ class PygLoader:
         for col in features_by_col.keys():
             col_mapping = vertex_cols_source_to_output[col]
             for feature in features_by_col[col].keys():
+                if feature == "@collection_name":
+                    continue
+
                 target_name = col_mapping[feature]
                 result = torch.from_numpy(
                     features_by_col[col][feature].astype(np.float64)
