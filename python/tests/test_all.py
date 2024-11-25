@@ -898,9 +898,9 @@ def test_empty_vertex_networkx(
     # Insert Empty Vertex
     sys_db.collection("node").insert({"_key": "1"})
 
-    metagraph = {
-        "vertexCollections": {"node": set()},
-        "edgeCollections": {"edge": set()},
+    metagraph: dict[str, Any] = {
+        "vertexCollections": {"node": {}},
+        "edgeCollections": {"edge": {}},
     }
 
     res = NetworkXLoader.load_into_networkx(
