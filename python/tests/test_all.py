@@ -1,5 +1,6 @@
 from typing import Any, Callable
 
+import arango
 import numpy
 import pytest
 from torch_geometric.data import Data, HeteroData
@@ -870,3 +871,50 @@ def test_imdb_networkx(
                     for key, value in edge.items():
                         assert isinstance(key, str)
                         assert value is not None
+
+
+def test_empty_vertex_networkx(
+    connection_information: dict[str, str],
+) -> None:
+    client = arango.ArangoClient(connection_information["url"])
+    sys_db = client.db(
+        "_system",
+        username=connection_information["username"],
+        password=connection_information["password"],
+    )
+
+    sys_db.delete_graph("Graph", drop_collections=True, ignore_missing=True)
+    sys_db.create_graph(
+        "Graph",
+        edge_definitions=[
+            {
+                "edge_collection": "edge",
+                "from_vertex_collections": ["node"],
+                "to_vertex_collections": ["node"],
+            }
+        ],
+    )
+
+    # Insert Empty Vertex
+    sys_db.collection("node").insert({"_key": "1"})
+
+    metagraph = {
+        "vertexCollections": {"node": set()},
+        "edgeCollections": {"edge": set()},
+    }
+
+    res = NetworkXLoader.load_into_networkx(
+        "_system",
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        load_all_vertex_attributes=False,
+    )
+
+    node_dict, adj_dict, *_ = res
+    assert len(node_dict) == 1
+    assert node_dict == {"node/1": {}}
+    assert len(adj_dict) == 2
+
+    sys_db.delete_graph("Graph", drop_collections=True)
