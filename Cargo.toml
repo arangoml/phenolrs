@@ -1,6 +1,6 @@
 [package]
 name = "phenolrs"
-version = "0.5.8"
+version = "0.5.10"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,7 +15,7 @@ lto = "fat"
 
 [dependencies]
 arangors-graph-exporter = "0.0.9"
-numpy = "0.20.0"
+numpy = "0.23.0"
 tokio = { version = "1", features = ["full"] }
 bytes = "1.5.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -29,7 +29,7 @@ ndarray = "0.15.6"
 anyhow = "1.0.80"
 
 [dependencies.pyo3]
-version = "0.20.2"
+version = "0.23.3"
 
 [features]
 extension-module = ["pyo3/extension-module"]
