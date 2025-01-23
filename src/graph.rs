@@ -86,6 +86,7 @@ pub struct NetworkXGraph {
         fn(&mut NetworkXGraph, String, String, Vec<Value>, &Vec<String>) -> Map<String, Value>,
     insert_coo_fn: fn(&mut NetworkXGraph, String, String, HashMap<String, f64>),
     insert_adj_fn: fn(&mut NetworkXGraph, String, String, Map<String, Value>),
+    insert_adj_top_level_fn: fn(&mut NetworkXGraph, String),
     insert_edge_fn: fn(&mut NetworkXGraph, String, String, Vec<Value>, &Vec<String>) -> Result<()>,
 }
 
@@ -166,6 +167,20 @@ impl NetworkXGraph {
             }
         };
 
+        let insert_adj_top_level_fn = if is_multigraph {
+            if is_directed {
+                NetworkXGraph::insert_adj_multidigraph_top_level
+            } else {
+                NetworkXGraph::insert_adj_multigraph_top_level
+            }
+        } else {
+            if is_directed {
+                NetworkXGraph::insert_adj_digraph_top_level
+            } else {
+                NetworkXGraph::insert_adj_graph_top_level
+            }
+        };
+
         let insert_edge_fn = if load_coo && load_adj_dict {
             NetworkXGraph::insert_edge_as_coo_and_adj
         } else if load_coo {
@@ -190,6 +205,7 @@ impl NetworkXGraph {
             get_edge_properties_fn,
             insert_coo_fn,
             insert_adj_fn,
+            insert_adj_top_level_fn,
             insert_edge_fn,
         }))
     }
@@ -426,14 +442,8 @@ impl NetworkXGraph {
         to_id_str: String,
         properties: Map<String, Value>,
     ) {
-        if !self.adj_map_graph.contains_key(&from_id_str) {
-            self.adj_map_graph
-                .insert(from_id_str.clone(), HashMap::new());
-        }
-
-        if !self.adj_map_graph.contains_key(&to_id_str) {
-            self.adj_map_graph.insert(to_id_str.clone(), HashMap::new());
-        }
+        self.insert_adj_graph_top_level(from_id_str.clone());
+        self.insert_adj_graph_top_level(to_id_str.clone());
 
         let from_map = self.adj_map_graph.get_mut(&from_id_str).unwrap();
         panic_if_edge_exists(from_map, from_id_str.clone(), to_id_str.clone());
@@ -447,6 +457,12 @@ impl NetworkXGraph {
         to_map.insert(from_id_str, properties);
     }
 
+    fn insert_adj_graph_top_level(&mut self, id_str: String) {
+        if !self.adj_map_graph.contains_key(&id_str) {
+            self.adj_map_graph.insert(id_str.clone(), HashMap::new());
+        }
+    }
+
     fn insert_adj_digraph(
         &mut self,
         from_id_str: String,
@@ -454,15 +470,9 @@ impl NetworkXGraph {
         properties: Map<String, Value>,
     ) {
         // 1) Add [from, to] in _succ adjacency list
+        self.insert_adj_digraph_top_level(from_id_str.clone());
+
         let _succ = self.adj_map_digraph.get_mut("succ").unwrap();
-
-        if !_succ.contains_key(&from_id_str) {
-            _succ.insert(from_id_str.clone(), HashMap::new());
-        }
-
-        if !_succ.contains_key(&to_id_str) {
-            _succ.insert(to_id_str.clone(), HashMap::new());
-        }
 
         let succ_from_map = _succ.get_mut(&from_id_str).unwrap();
         panic_if_edge_exists(succ_from_map, from_id_str.clone(), to_id_str.clone());
@@ -477,6 +487,8 @@ impl NetworkXGraph {
         }
 
         // 2) Add [to, from] in _pred adjacency list
+        self.insert_adj_digraph_top_level(to_id_str.clone());
+
         let _pred = self.adj_map_digraph.get_mut("pred").unwrap();
 
         if !_pred.contains_key(&to_id_str) {
@@ -500,21 +512,28 @@ impl NetworkXGraph {
         }
     }
 
+    fn insert_adj_digraph_top_level(&mut self, id_str: String) {
+        let _succ = self.adj_map_digraph.get_mut("succ").unwrap();
+
+        if !_succ.contains_key(&id_str) {
+            _succ.insert(id_str.clone(), HashMap::new());
+        }
+
+        let _pred = self.adj_map_digraph.get_mut("pred").unwrap();
+
+        if !_pred.contains_key(&id_str) {
+            _pred.insert(id_str.clone(), HashMap::new());
+        }
+    }
+
     fn insert_adj_multigraph(
         &mut self,
         from_id_str: String,
         to_id_str: String,
         properties: Map<String, Value>,
     ) {
-        if !self.adj_map_multigraph.contains_key(&from_id_str) {
-            self.adj_map_multigraph
-                .insert(from_id_str.clone(), HashMap::new());
-        }
-
-        if !self.adj_map_multigraph.contains_key(&to_id_str) {
-            self.adj_map_multigraph
-                .insert(to_id_str.clone(), HashMap::new());
-        }
+        self.insert_adj_multigraph_top_level(from_id_str.clone());
+        self.insert_adj_multigraph_top_level(to_id_str.clone());
 
         let from_map = self.adj_map_multigraph.get_mut(&from_id_str).unwrap();
         let from_to_map = from_map.entry(to_id_str.clone()).or_default();
@@ -526,6 +545,13 @@ impl NetworkXGraph {
         to_from_map.insert(index, properties);
     }
 
+    fn insert_adj_multigraph_top_level(&mut self, id_str: String) {
+        if !self.adj_map_multigraph.contains_key(&id_str) {
+            self.adj_map_multigraph
+                .insert(id_str.clone(), HashMap::new());
+        }
+    }
+
     fn insert_adj_multidigraph(
         &mut self,
         from_id_str: String,
@@ -533,7 +559,10 @@ impl NetworkXGraph {
         properties: Map<String, Value>,
     ) {
         // 1) Add [from, to] in _succ adjacency list
-        let _succ = self.adj_map_multidigraph.get_mut("succ").unwrap();
+        self.insert_adj_multidigraph_top_level(from_id_str.clone());
+
+        let _succ: &mut HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>> =
+            self.adj_map_multidigraph.get_mut("succ").unwrap();
 
         if !_succ.contains_key(&from_id_str) {
             _succ.insert(from_id_str.clone(), HashMap::new());
@@ -555,6 +584,8 @@ impl NetworkXGraph {
         }
 
         // 2) Add [to, from] in _pred adjacency list
+        self.insert_adj_multidigraph_top_level(to_id_str.clone());
+
         let _pred = self.adj_map_multidigraph.get_mut("pred").unwrap();
 
         if !_pred.contains_key(&to_id_str) {
@@ -575,6 +606,20 @@ impl NetworkXGraph {
             let pred_from_map = _pred.get_mut(&from_id_str).unwrap();
             let pred_from_to_map = pred_from_map.entry(to_id_str).or_default();
             pred_from_to_map.insert(index, properties);
+        }
+    }
+
+    fn insert_adj_multidigraph_top_level(&mut self, id_str: String) {
+        let _succ = self.adj_map_multidigraph.get_mut("succ").unwrap();
+
+        if !_succ.contains_key(&id_str) {
+            _succ.insert(id_str.clone(), HashMap::new());
+        }
+
+        let _pred = self.adj_map_multidigraph.get_mut("pred").unwrap();
+
+        if !_pred.contains_key(&id_str) {
+            _pred.insert(id_str.clone(), HashMap::new());
         }
     }
 
@@ -852,7 +897,8 @@ impl Graph for NetworkXGraph {
         let properties =
             (self.get_vertex_properties_fn)(self, vertex_id.clone(), columns, field_names);
 
-        self.node_map.insert(vertex_id, properties.clone());
+        self.node_map.insert(vertex_id.clone(), properties.clone());
+        (self.insert_adj_top_level_fn)(self, vertex_id);
     }
 
     fn insert_edge(
