@@ -4,6 +4,7 @@ import arango
 import networkx as nx
 import pytest
 from adbnx_adapter import ADBNX_Adapter
+from arango.database import StandardDatabase
 from arango_datasets import Datasets
 
 connection_config: Dict[str, Any]
@@ -34,9 +35,7 @@ def connection_information() -> Dict[str, Any]:
     }
 
 
-def load_dataset(
-    dataset: str, db_name: str, connection_information: Dict[str, Any]
-) -> None:
+def get_db(db_name: str, connection_information: Dict[str, Any]) -> StandardDatabase:
     client = arango.ArangoClient(connection_information["url"])
     sys_db = client.db(
         "_system",
@@ -46,28 +45,61 @@ def load_dataset(
 
     if not sys_db.has_database(db_name):
         sys_db.create_database(db_name)
-        db = client.db(
-            db_name,
-            username=connection_information["username"],
-            password=connection_information["password"],
-        )
-        dsets = Datasets(db)
-        dsets.load(dataset)
+
+    return client.db(
+        db_name,
+        username=connection_information["username"],
+        password=connection_information["password"],
+    )
 
 
 @pytest.fixture(scope="module")
 def load_abide(abide_db_name: str, connection_information: Dict[str, Any]) -> None:
-    load_dataset("ABIDE", abide_db_name, connection_information)
+    db = get_db(abide_db_name, connection_information)
+
+    if not db.has_graph("ABIDE"):
+        Datasets(db).load("ABIDE")
 
 
 @pytest.fixture(scope="module")
 def load_imdb(imdb_db_name: str, connection_information: Dict[str, Any]) -> None:
-    load_dataset("IMDB_PLATFORM", imdb_db_name, connection_information)
+    db = get_db(imdb_db_name, connection_information)
+
+    if not db.has_graph("IMDB_PLATFORM"):
+        Datasets(db).load("IMDB_PLATFORM")
 
 
 @pytest.fixture(scope="module")
 def load_dblp(dblp_db_name: str, connection_information: Dict[str, Any]) -> None:
-    load_dataset("DBLP", dblp_db_name, connection_information)
+    db = get_db(dblp_db_name, connection_information)
+
+    if not db.has_graph("DBLP"):
+        Datasets(db).load("DBLP")
+
+
+@pytest.fixture(scope="module")
+def load_isolated_node(
+    isolated_node_db_name: str, connection_information: Dict[str, Any]
+) -> None:
+    db = get_db(isolated_node_db_name, connection_information)
+
+    if not db.has_graph("ISOLATED_NODE"):
+        db.create_graph(
+            "ISOLATED_NODE",
+            edge_definitions=[
+                {
+                    "edge_collection": "edge",
+                    "from_vertex_collections": ["node"],
+                    "to_vertex_collections": ["node"],
+                }
+            ],
+        )
+
+        db.collection("node").insert({"_key": "0"})
+        db.collection("node").insert({"_key": "1"})
+        db.collection("node").insert({"_key": "2"})  # isolated node
+
+        db.collection("edge").insert({"_from": "node/0", "_to": "node/1"})
 
 
 @pytest.fixture(scope="module")
@@ -83,6 +115,11 @@ def imdb_db_name() -> str:
 @pytest.fixture(scope="module")
 def dblp_db_name() -> str:
     return "dblp"
+
+
+@pytest.fixture(scope="module")
+def isolated_node_db_name() -> str:
+    return "isolated_node"
 
 
 @pytest.fixture(scope="module")

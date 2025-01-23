@@ -870,3 +870,86 @@ def test_imdb_networkx(
                     for key, value in edge.items():
                         assert isinstance(key, str)
                         assert value is not None
+
+
+def test_isolated_node_networkx(
+    load_isolated_node: None,
+    isolated_node_db_name: str,
+    connection_information: dict[str, str],
+) -> None:
+    metagraph: dict[str, Any] = {
+        "vertexCollections": {"node": set()},
+        "edgeCollections": {"edge": set()},
+    }
+
+    node_dict, adj_dict, *_ = NetworkXLoader.load_into_networkx(
+        isolated_node_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        is_directed=False,
+        is_multigraph=False,
+    )
+
+    assert len(node_dict) == 3
+    assert len(adj_dict) == 3
+    assert len(adj_dict["node/0"]) == 1
+    assert len(adj_dict["node/1"]) == 1
+    assert len(adj_dict["node/2"]) == 0
+
+    node_dict, adj_dict, *_ = NetworkXLoader.load_into_networkx(
+        isolated_node_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        is_directed=True,
+        is_multigraph=False,
+    )
+
+    assert len(node_dict) == 3
+    assert len(adj_dict["succ"]) == 3
+    assert len(adj_dict["pred"]) == 3
+    assert len(adj_dict["succ"]["node/0"]) == 1
+    assert len(adj_dict["succ"]["node/1"]) == 0
+    assert len(adj_dict["succ"]["node/2"]) == 0
+    assert len(adj_dict["pred"]["node/0"]) == 0
+    assert len(adj_dict["pred"]["node/1"]) == 1
+    assert len(adj_dict["pred"]["node/2"]) == 0
+
+    node_dict, adj_dict, *_ = NetworkXLoader.load_into_networkx(
+        isolated_node_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        is_directed=False,
+        is_multigraph=True,
+    )
+
+    assert len(node_dict) == 3
+    assert len(adj_dict) == 3
+    assert len(adj_dict["node/0"]) == 1
+    assert len(adj_dict["node/1"]) == 1
+    assert len(adj_dict["node/2"]) == 0
+
+    node_dict, adj_dict, *_ = NetworkXLoader.load_into_networkx(
+        isolated_node_db_name,
+        metagraph,
+        [connection_information["url"]],
+        username=connection_information["username"],
+        password=connection_information["password"],
+        is_directed=True,
+        is_multigraph=True,
+    )
+
+    assert len(node_dict) == 3
+    assert len(adj_dict["succ"]) == 3
+    assert len(adj_dict["pred"]) == 3
+    assert len(adj_dict["succ"]["node/0"]) == 1
+    assert len(adj_dict["succ"]["node/1"]) == 0
+    assert len(adj_dict["succ"]["node/2"]) == 0
+    assert len(adj_dict["pred"]["node/0"]) == 0
+    assert len(adj_dict["pred"]["node/1"]) == 1
+    assert len(adj_dict["pred"]["node/2"]) == 0
