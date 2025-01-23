@@ -877,7 +877,7 @@ def test_isolated_node_networkx(
     isolated_node_db_name: str,
     connection_information: dict[str, str],
 ) -> None:
-    metagraph = {
+    metagraph: dict[str, Any] = {
         "vertexCollections": {"node": set()},
         "edgeCollections": {"edge": set()},
     }
