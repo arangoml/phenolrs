@@ -57,7 +57,7 @@ jobs:
         run: pip install build maturin twine
 
       - name: Build the package
-        run: maturin build --out dist --release --sdist --interpreter python3.10 python3.11 python3.12 
+        run: maturin build --out dist --release --sdist --interpreter python 3.9 python3.10 python3.11 python3.12 
 
       - name: ls
         run: ls dist/*
@@ -96,9 +96,9 @@ jobs:
       - name: Build the package
         run: |
           if [[ "${{ matrix.os }}" == "macos-13" ]]; then
-            maturin build --out dist --release --sdist --target x86_64-apple-darwin --interpreter python3.10 python3.11 python3.12 
+            maturin build --out dist --release --sdist --target x86_64-apple-darwin --interpreter python3.9 python3.10 python3.11 python3.12 
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            maturin build --out dist --release --sdist --target aarch64-apple-darwin --interpreter python3.10 python3.11 python3.12
+            maturin build --out dist --release --sdist --target aarch64-apple-darwin --interpreter python3.9 python3.10 python3.11 python3.12
           fi
 
       - name: ls
