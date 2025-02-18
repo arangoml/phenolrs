@@ -25,7 +25,7 @@ workflows:
 jobs:
   lint-python:
     docker:
-      - image: cimg/python:3.10
+      - image: cimg/python:3.9
     steps:
       - checkout
       - restore_cache:
@@ -74,8 +74,8 @@ jobs:
           name: Build builder image
           command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
       - run:
-          name: Build 3.10 package
-          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter python3.10
+          name: Build 3.9 package
+          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter python3.9
       - persist_to_workspace:
           root: ~/project/target
           paths:
@@ -89,7 +89,7 @@ jobs:
       - run:
           name: Setup lib
           command: |
-            sudo apt update -y && sudo apt install python3-pip python3.10-venv && python -m venv ./venv
+            sudo apt update -y && sudo apt install python3-pip python3.9-venv && python -m venv ./venv
             source ./venv/bin/activate
             pip install maturin
             maturin develop
@@ -108,14 +108,14 @@ jobs:
       - attach_workspace:
           at: ~/project/target
       - run:
-          name: Set up python 3.10
+          name: Set up python 3.9
           command: |
             mkdir -p ~/miniconda3
             wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
             bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
             ~/miniconda3/bin/conda init bash
             source ~/.bashrc
-            conda create -n phenolrs python=3.10 -y
+            conda create -n phenolrs python=3.9 -y
             conda activate phenolrs
       - run:
           name: Install Phenol deps
