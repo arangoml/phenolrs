@@ -12,7 +12,10 @@ workflows:
     jobs:
       - lint-python
       - lint-rust
-      - build
+      - build:
+          matrix:
+            parameters:
+              python-version: ["3.10", "3.13"]
       - test-rust
       - test-python:
           requires:
