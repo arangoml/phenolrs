@@ -27,7 +27,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
 @pytest.fixture(scope="session")
 def connection_information() -> Dict[str, Any]:
-    global connection_config  # noqa: F821
+    global connection_config
     return {
         "url": connection_config.get("url"),
         "username": connection_config.get("username"),
