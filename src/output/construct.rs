@@ -1,6 +1,8 @@
 use ndarray::{Array, Ix2};
 use numpy::ToPyArray;
+use pyo3::types::PyDictMethods;
 use pyo3::types::{PyDict, PyList};
+use pyo3::Bound;
 use pyo3::{PyResult, Python};
 use std::collections::HashMap;
 
@@ -13,7 +15,7 @@ use pyo3::prelude::*;
 pub fn construct_col_to_features(
     input: HashMap<String, HashMap<String, Array<f64, Ix2>>>,
     py: Python,
-) -> PyResult<&PyDict> {
+) -> PyResult<Bound<'_, PyDict>> {
     let dict = PyDict::new(py);
     input.iter().for_each(|(col_name, feature_map)| {
         let col_dict = PyDict::new(py);
@@ -29,7 +31,7 @@ pub fn construct_col_to_features(
 pub fn construct_coo_by_from_edge_to(
     input: HashMap<(String, String, String), Array<usize, Ix2>>,
     py: Python,
-) -> PyResult<&PyDict> {
+) -> PyResult<Bound<'_, PyDict>> {
     let dict = PyDict::new(py);
     input
         .iter()
@@ -41,7 +43,7 @@ pub fn construct_coo_by_from_edge_to(
 pub fn construct_cols_to_keys_to_inds(
     input: HashMap<String, HashMap<String, usize>>,
     py: Python,
-) -> PyResult<&PyDict> {
+) -> PyResult<Bound<'_, PyDict>> {
     let dict = PyDict::new(py);
     input
         .iter()
@@ -53,7 +55,7 @@ pub fn construct_cols_to_keys_to_inds(
 pub fn construct_cols_to_inds_to_keys(
     input: HashMap<String, HashMap<usize, String>>,
     py: Python,
-) -> PyResult<&PyDict> {
+) -> PyResult<Bound<'_, PyDict>> {
     let dict = PyDict::new(py);
     input
         .iter()
@@ -65,27 +67,23 @@ pub fn construct_cols_to_inds_to_keys(
 pub fn construct_vertex_id_to_index(
     input: HashMap<String, usize>,
     py: Python,
-) -> PyResult<&PyDict> {
+) -> PyResult<Bound<'_, PyDict>> {
     let pydict = PyDict::new(py);
-
     for (key, value) in input {
         pydict.set_item(key, value)?;
     }
-
     Ok(pydict)
 }
 
 pub fn construct_edge_value_dict(
     input: HashMap<String, Vec<f64>>,
     py: Python,
-) -> PyResult<&PyDict> {
+) -> PyResult<Bound<'_, PyDict>> {
     let pydict = PyDict::new(py);
-
     for (key, value) in input.iter() {
         let py_value = value;
         pydict.set_item(key, py_value)?;
     }
-
     Ok(pydict)
 }
 
@@ -97,7 +95,7 @@ pub fn construct_edge_value_dict(
 pub fn construct_node_dict(
     input: HashMap<String, Map<String, Value>>,
     py: Python,
-) -> PyResult<&PyDict> {
+) -> PyResult<Bound<'_, PyDict>> {
     let pydict = PyDict::new(py);
 
     for (key, properties) in input.iter() {
@@ -123,7 +121,7 @@ pub fn construct_node_dict(
 pub fn construct_graph_adj_dict(
     input: HashMap<String, HashMap<String, Map<String, Value>>>,
     py: Python,
-) -> PyResult<&PyDict> {
+) -> PyResult<Bound<'_, PyDict>> {
     let pydict = PyDict::new(py);
 
     for (key, properties) in input.iter() {
@@ -159,7 +157,7 @@ pub fn construct_graph_adj_dict(
 pub fn construct_digraph_adj_dict(
     input: HashMap<String, HashMap<String, HashMap<String, Map<String, Value>>>>,
     py: Python,
-) -> PyResult<&PyDict> {
+) -> PyResult<Bound<'_, PyDict>> {
     let pydict = PyDict::new(py);
 
     for (key, properties) in input.iter() {
@@ -197,7 +195,7 @@ pub fn construct_digraph_adj_dict(
 pub fn construct_multigraph_adj_dict(
     input: HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>,
     py: Python,
-) -> PyResult<&PyDict> {
+) -> PyResult<Bound<'_, PyDict>> {
     let pydict = PyDict::new(py);
 
     for (key, properties) in input.iter() {
@@ -241,7 +239,7 @@ pub fn construct_multigraph_adj_dict(
 pub fn construct_multidigraph_adj_dict(
     input: HashMap<String, HashMap<String, HashMap<String, HashMap<usize, Map<String, Value>>>>>,
     py: Python,
-) -> PyResult<&PyDict> {
+) -> PyResult<Bound<'_, PyDict>> {
     let pydict = PyDict::new(py);
 
     for (key, properties) in input.iter() {

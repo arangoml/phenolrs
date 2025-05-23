@@ -17,6 +17,9 @@ use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 #[cfg(not(test))]
 use pyo3::types::PyDict;
+use pyo3::IntoPy;
+use pyo3::Py;
+use pyo3::ToPyObject;
 
 use graph::{NetworkXGraph, NumpyGraph};
 
@@ -30,8 +33,10 @@ create_exception!(phenolrs, PhenolError, PyException);
 /// Requires numpy as a runtime dependency
 #[cfg(not(test))]
 #[pyfunction]
-#[cfg(not(test))]
-fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCompatible> {
+fn graph_to_numpy_format(
+    py: Python,
+    request: DataLoadRequest,
+) -> PyResult<(PyObject, PyObject, PyObject, PyObject)> {
     let _ = env_logger::try_init();
 
     let graph_factory = NumpyGraph::new;
@@ -62,10 +67,10 @@ fn graph_to_numpy_format(py: Python, request: DataLoadRequest) -> PyResult<PygCo
     info!("Built. Took: {:?}", start_time.elapsed());
 
     let res = (
-        col_to_features,
-        coo_by_from_edge_to,
-        cols_to_keys_to_inds,
-        cols_to_inds_to_keys,
+        col_to_features.into_py(py),
+        coo_by_from_edge_to.into_py(py),
+        cols_to_keys_to_inds.into_py(py),
+        cols_to_inds_to_keys.into_py(py),
     );
 
     Ok(res)
@@ -78,13 +83,13 @@ fn graph_to_networkx_format(
     request: DataLoadRequest,
     graph_config: NetworkXGraphConfig,
 ) -> PyResult<(
-    &PyDict,          // node_dict
-    &PyDict,          // adj_dict
-    &PyArray1<usize>, // src_indices
-    &PyArray1<usize>, // dst_indices
-    &PyArray1<usize>, // edge_indices
-    &PyDict,          // vertex_id_to_index
-    &PyDict,          // edge_values
+    PyObject,
+    PyObject,
+    PyObject,
+    PyObject,
+    PyObject,
+    PyObject,
+    PyObject,
 )> {
     let _ = env_logger::try_init();
 
@@ -135,13 +140,13 @@ fn graph_to_networkx_format(
     let edge_values = construct::construct_edge_value_dict(graph.edge_values, py)?;
 
     let res = (
-        node_dict,
-        adj_dict,
-        src_indices,
-        dst_indices,
-        edge_indices,
-        vertex_id_to_index,
-        edge_values,
+        node_dict.into_py(py),
+        adj_dict.into_py(py),
+        src_indices.into_py(py),
+        dst_indices.into_py(py),
+        edge_indices.into_py(py),
+        vertex_id_to_index.into_py(py),
+        edge_values.into_py(py),
     );
 
     Ok(res)
@@ -150,8 +155,7 @@ fn graph_to_networkx_format(
 /// A Python module implemented in Rust.
 #[cfg(not(test))]
 #[pymodule]
-#[cfg(not(test))]
-fn phenolrs(py: Python, m: &PyModule) -> PyResult<()> {
+fn phenolrs(py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(graph_to_numpy_format, m)?)?;
     m.add_function(wrap_pyfunction!(graph_to_networkx_format, m)?)?;
     m.add("PhenolError", py.get_type::<PhenolError>())?;

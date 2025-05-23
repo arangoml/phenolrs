@@ -3,7 +3,7 @@ use arangors_graph_exporter::graph_loader::CollectionInfo;
 use arangors_graph_exporter::{DataLoadConfiguration, DatabaseConfiguration};
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyDict;
-use pyo3::{FromPyObject, PyAny, PyResult};
+use pyo3::{FromPyObject, PyAny, PyResult, Bound, prelude::*};
 
 #[derive(Default)]
 pub struct LocalDataLoadConfiguration(pub DataLoadConfiguration);
@@ -30,8 +30,8 @@ pub fn create_collection_info_vec(
 }
 
 impl FromPyObject<'_> for DataLoadRequest {
-    fn extract(ob: &PyAny) -> PyResult<Self> {
-        let input_dict: &PyDict = ob.downcast()?;
+    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.downcast::<PyDict>()?;
         let db_config: LocalDatabaseConfiguration = input_dict
             .get_item("database_config")?
             .map_or(Ok(LocalDatabaseConfiguration::default()), |c| c.extract())?;
@@ -58,8 +58,8 @@ impl FromPyObject<'_> for DataLoadRequest {
 }
 
 impl FromPyObject<'_> for LocalDataLoadConfiguration {
-    fn extract(ob: &PyAny) -> PyResult<Self> {
-        let input_dict: &PyDict = ob.downcast()?;
+    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.downcast::<PyDict>()?;
         let parallelism: u32 = input_dict
             .get_item("parallelism")?
             .map_or(Ok(8), |v| v.extract())?;
@@ -86,8 +86,8 @@ impl FromPyObject<'_> for LocalDataLoadConfiguration {
 }
 
 impl FromPyObject<'_> for LocalDatabaseConfiguration {
-    fn extract(ob: &'_ PyAny) -> PyResult<Self> {
-        let input_dict: &PyDict = ob.downcast()?;
+    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.downcast::<PyDict>()?;
         let database: String = input_dict
             .get_item("database")?
             .map_or_else(|| Ok("_system".into()), |c| c.extract())?;
@@ -118,25 +118,25 @@ impl FromPyObject<'_> for LocalDatabaseConfiguration {
 }
 
 impl FromPyObject<'_> for LocalCollectionInfo {
-    fn extract(ob: &'_ PyAny) -> PyResult<Self> {
-        let input_dict: &PyDict = ob.downcast()?;
-        let name: &str = input_dict.get_item("name")?.map_or_else(
+    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.downcast::<PyDict>()?;
+        let name: String = input_dict.get_item("name")?.map_or_else(
             || Err(PyValueError::new_err("Collection name not set")),
-            |s| s.extract(),
+            |s| s.extract::<String>(),
         )?;
-        let fields: Vec<&str> = input_dict
+        let fields: Vec<String> = input_dict
             .get_item("fields")?
             .map_or_else(|| Ok(vec![]), |s| s.extract())?;
         Ok(LocalCollectionInfo(CollectionInfo {
             name: name.into(),
-            fields: fields.iter().map(|s| String::from(*s)).collect(),
+            fields,
         }))
     }
 }
 
 impl FromPyObject<'_> for NetworkXGraphConfig {
-    fn extract(ob: &'_ PyAny) -> PyResult<Self> {
-        let input_dict: &PyDict = ob.downcast()?;
+    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.downcast::<PyDict>()?;
         let load_adj_dict: bool = input_dict
             .get_item("load_adj_dict")?
             .map_or_else(|| Ok(true), |c| c.extract())?;

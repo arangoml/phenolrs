@@ -15,7 +15,7 @@ lto = "fat"
 
 [dependencies]
 arangors-graph-exporter = "0.0.9"
-numpy = "0.20.0"
+numpy = "0.24.0"
 tokio = { version = "1", features = ["full"] }
 bytes = "1.5.0"
 serde = { version = "1.0", features = ["derive"] }
