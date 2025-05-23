@@ -3,7 +3,7 @@ use arangors_graph_exporter::graph_loader::CollectionInfo;
 use arangors_graph_exporter::{DataLoadConfiguration, DatabaseConfiguration};
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyDict;
-use pyo3::{FromPyObject, PyAny, PyResult, Bound, prelude::*};
+use pyo3::{prelude::*, Bound, FromPyObject, PyAny, PyResult};
 
 #[derive(Default)]
 pub struct LocalDataLoadConfiguration(pub DataLoadConfiguration);
