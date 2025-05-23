@@ -61,13 +61,13 @@ class NetworkXLoader:
         if load_all_vertex_attributes:
             for entries in metagraph["vertexCollections"].values():
                 if len(entries) > 0:
-                    m = f"load_all_vertex_attributes is True, but a vertexCollections entry contains attributes: {entries}"
+                    m = f"load_all_vertex_attributes is True, but a vertexCollections entry contains attributes: {entries}"  # noqa
                     raise PhenolError(m)
 
         if load_all_edge_attributes:
             for entries in metagraph["edgeCollections"].values():
                 if len(entries) > 0:
-                    m = f"load_all_edge_attributes is True, but an edgeCollections entry contains attributes: {entries}"
+                    m = f"load_all_edge_attributes is True, but an edgeCollections entry contains attributes: {entries}"  # noqa
                     raise PhenolError(m)
 
         if len(metagraph["edgeCollections"]) != 0 and not (load_coo or load_adj_dict):
