@@ -17,14 +17,14 @@ workflows:
             parameters:
               python-version: ["3.10", "3.13"]
       - test-rust
-      - test-python-3.10:
+      - test-python-310:
           requires:
             - build
           matrix:
             parameters:
               db-mode: ["single", "cluster"]
               db-version: ["3.10", "3.12"]
-      - test-python-3.13:
+      - test-python-313:
           requires:
             - build
           matrix:
@@ -109,7 +109,7 @@ jobs:
       - run:
           name: Cargo Test
           command: cargo test --no-default-features
-  test-python-3.10:
+  test-python-310:
     parameters:
       db-mode:
         type: string
@@ -159,7 +159,7 @@ jobs:
             conda activate phenolrs
             export RUST_BACKTRACE=1
             pytest --url http://172.28.0.1:8529 python/tests
-  test-python-3.13:
+  test-python-313:
     parameters:
       db-mode:
         type: string
