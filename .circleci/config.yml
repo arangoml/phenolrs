@@ -121,6 +121,7 @@ jobs:
           name: Install Phenol deps
           command: |
             conda activate phenolrs
+            pip install numpy~=1.26 && \
             pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.1.0+cpu && \
             pip install -f https://data.pyg.org/whl/torch-2.1.0+cpu.html \
                            torch-scatter==2.1.2 \
