@@ -185,8 +185,8 @@ jobs:
           command: |
             conda activate phenolrs
             pip install numpy~=1.26 && \
-            pip install --no-build-isolation git+https://github.com/pyg-team/pyg-lib.git && \
             pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.7.0+cpu && \
+            pip install --no-build-isolation git+https://github.com/pyg-team/pyg-lib.git && \
             pip install -f https://data.pyg.org/whl/torch-2.7.0+cpu.html \
                            torch-scatter \
                            torch-sparse \
