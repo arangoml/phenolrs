@@ -30,10 +30,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libssl-dev
           pip install build maturin twine
-          rustup target add ${{ matrix.target }}
+
+      - name: Build builder image
+        run: docker build -t phenolrs-builder:latest -f Dockerfile-build .
 
       - name: Build the package
-        run: maturin build --out dist --release --sdist --target ${{ matrix.target }} --interpreter python3.10 python3.11 python3.12 python3.13
+        run: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --out dist --release --sdist --target ${{ matrix.target }} --interpreter python3.10 python3.11 python3.12 python3.13
 
       - name: List built packages
         run: ls -la dist/*
@@ -71,6 +73,10 @@ jobs:
           rustup target add ${{ matrix.target }}
 
       - name: Build the package
+        env:
+          OPENSSL_DIR: C:/Program Files/OpenSSL-Win64
+          OPENSSL_INCLUDE_DIR: C:/Program Files/OpenSSL-Win64/include
+          OPENSSL_LIB_DIR: C:/Program Files/OpenSSL-Win64/lib
         run: maturin build --out dist --release --sdist --target ${{ matrix.target }} --interpreter python3.10 python3.11 python3.12 python3.13
 
       - name: List built packages
@@ -110,6 +116,10 @@ jobs:
           rustup target add ${{ matrix.target }}
 
       - name: Build the package
+        env:
+          OPENSSL_DIR: /usr/local/opt/openssl@3
+          OPENSSL_INCLUDE_DIR: /usr/local/opt/openssl@3/include
+          OPENSSL_LIB_DIR: /usr/local/opt/openssl@3/lib
         run: maturin build --out dist --release --sdist --target ${{ matrix.target }} --interpreter python3.10 python3.11 python3.12 python3.13
 
       - name: List built packages
