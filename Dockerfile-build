@@ -3,6 +3,4 @@ FROM --platform=$BUILDPLATFORM ghcr.io/pyo3/maturin:v1.8.6
 RUN yum update -y && \
     yum install -y openssl-devel
 
-RUN rustup target add aarch64-unknown-linux-gnu
-
 ENTRYPOINT ["/usr/bin/maturin"]

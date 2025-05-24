@@ -30,6 +30,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libssl-dev
           pip install build maturin twine
+          rustup target add ${{ matrix.target }}
 
       - name: Build builder image
         run: docker build -t phenolrs-builder:latest -f Dockerfile-build .
