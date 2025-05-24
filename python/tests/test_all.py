@@ -8,6 +8,12 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 
+    class Data:
+        pass
+
+    class HeteroData:
+        pass
+
 from phenolrs import PhenolError
 from phenolrs.networkx import NetworkXLoader
 from phenolrs.numpy import NumpyLoader
