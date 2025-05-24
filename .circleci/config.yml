@@ -184,13 +184,7 @@ jobs:
           name: Install Phenol deps
           command: |
             conda activate phenolrs
-            pip install numpy~=1.26 ninja wheel && \
-            pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.6.0+cpu && \
-            pip install pyg-lib -f https://data.pyg.org/whl/torch-2.6.0+cpu.html && \
-            pip install -f https://data.pyg.org/whl/torch-2.6.0+cpu.html \
-                           torch-scatter \
-                           torch-sparse \
-                           torch-geometric && \
+            pip install numpy~=1.26 && \
             pip install -r test-requirements.txt
       - run:
           name: Install Phenol
