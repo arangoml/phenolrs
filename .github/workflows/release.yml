@@ -66,7 +66,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
           architecture: ${{ matrix.target == 'aarch64-pc-windows-msvc' && 'arm64' || 'x64' }}
 
       - name: Install dependencies
