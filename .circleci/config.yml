@@ -113,8 +113,14 @@ jobs:
           name: Build builder image
           command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
       - run:
-          name: Build << parameters.python-version >> package for ARM
+          name: Build << parameters.python-version >> package for ARM Linux
           command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter << parameters.python-version >> --target aarch64-unknown-linux-gnu
+      - run:
+          name: Build << parameters.python-version >> package for ARM Windows
+          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter << parameters.python-version >> --target aarch64-pc-windows-msvc
+      - run:
+          name: Build << parameters.python-version >> package for ARM macOS
+          command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter << parameters.python-version >> --target aarch64-apple-darwin
       - persist_to_workspace:
           root: ~/project/target
           paths:
