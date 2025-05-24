@@ -2,17 +2,20 @@ from typing import Any, Callable
 
 import numpy
 import pytest
+
 try:
     from torch_geometric.data import Data, HeteroData
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
 
-    class Data:
+    class Data:  # type: ignore
         pass
 
-    class HeteroData:
+    class HeteroData:  # type: ignore
         pass
+
 
 from phenolrs import PhenolError
 from phenolrs.networkx import NetworkXLoader
