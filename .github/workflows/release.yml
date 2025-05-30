@@ -65,22 +65,34 @@ jobs:
   release-linux-arm64:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      - name: Install dependencies
+      - name: Set up QEMU for ARM emulation
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Install host dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libssl-dev
           pip install build maturin twine
           rustup target add aarch64-unknown-linux-gnu
 
-      - name: Build builder image
-        run: docker build --platform=linux/arm64 -t phenolrs-builder-arm:latest -f Dockerfile-build-linux-arm64 .
+      - name: Build ARM64 builder image
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --load \
+            -t phenolrs-builder-arm:latest \
+            -f Dockerfile-build-linux-arm64 .
 
       - name: Build the package
         env:
@@ -89,7 +101,7 @@ jobs:
           OPENSSL_LIB_DIR: /usr/lib64
         run: |
           docker run --rm \
-            -v "$(pwd)":/io \
+            -v "${{ github.workspace }}":/io \
             -e OPENSSL_DIR \
             -e OPENSSL_INCLUDE_DIR \
             -e OPENSSL_LIB_DIR \
@@ -116,6 +128,7 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
         run: twine upload --verbose --repository pypi dist/*.whl
+
 
   release-windows:
     runs-on: windows-latest
