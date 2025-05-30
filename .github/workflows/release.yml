@@ -12,11 +12,8 @@ on:
     types: [published]
 
 jobs:
-  release-linux:
+  release-linux-x86_64:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
     steps:
       - uses: actions/checkout@v4
 
@@ -30,18 +27,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libssl-dev
           pip install build maturin twine
-          rustup target add ${{ matrix.target }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+          rustup target add x86_64-unknown-linux-gnu
 
       - name: Build builder image
-        run: |
-          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-gnu" ]; then
-            docker buildx build --platform linux/amd64 -t phenolrs-builder:latest -f Dockerfile-build-linux-x86_64 --load .
-          else
-            docker buildx build --platform linux/arm64 -t phenolrs-builder:latest -f Dockerfile-build-linux-aarch64 --load .
-          fi
+        run: docker build -t phenolrs-builder:latest -f Dockerfile-build-linux-x86_64 .
 
       - name: Build the package
         env:
@@ -54,7 +43,48 @@ jobs:
             -e OPENSSL_DIR \
             -e OPENSSL_INCLUDE_DIR \
             -e OPENSSL_LIB_DIR \
-            phenolrs-builder:latest build --out dist --release --sdist --target ${{ matrix.target }} --interpreter python3.10 python3.11 python3.12 python3.13
+            phenolrs-builder:latest build --out dist --release --sdist --target x86_64-unknown-linux-gnu --interpreter python3.10 python3.11 python3.12 python3.13
+
+      - name: List built packages
+        run: ls -la dist/*
+
+      - name: Publish to Test PyPi
+        if: ${{ !github.event.inputs.test_mode }}
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
+        run: twine upload --verbose --repository testpypi dist/*.whl
+
+      - name: Publish to PyPi
+        if: ${{ !github.event.inputs.test_mode }}
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+        run: twine upload --verbose --repository pypi dist/*.whl
+
+  release-linux-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev
+          pip install build maturin twine
+          rustup target add aarch64-unknown-linux-gnu
+
+      - name: Build the package
+        env:
+          OPENSSL_DIR: /usr
+          OPENSSL_INCLUDE_DIR: /usr/include
+          OPENSSL_LIB_DIR: /usr/lib64
+        run: maturin build --out dist --release --sdist --target aarch64-unknown-linux-gnu --interpreter python3.10 python3.11 python3.12 python3.13
 
       - name: List built packages
         run: ls -la dist/*
