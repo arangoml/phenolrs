@@ -79,8 +79,12 @@ jobs:
             libssl-dev \
             gcc-aarch64-linux-gnu \
             g++-aarch64-linux-gnu \
-            pkg-config
-          pip install build maturin twine
+            pkg-config \
+            build-essential \
+            curl \
+            git
+          pip install --upgrade pip
+          pip install build maturin twine maturin[patchelf]
           rustup target add aarch64-unknown-linux-gnu
 
       - name: Build the package
@@ -91,6 +95,7 @@ jobs:
           CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
           AR_aarch64_unknown_linux_gnu: aarch64-linux-gnu-ar
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          PATH: ${{ env.PATH }}:/root/.cargo/bin
         run: maturin build --out dist --release --sdist --target aarch64-unknown-linux-gnu --interpreter python3.10 python3.11 python3.12 python3.13
 
       - name: List built packages
