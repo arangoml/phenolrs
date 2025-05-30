@@ -33,29 +33,24 @@ jobs:
           rustup target add ${{ matrix.target }}
 
       - name: Build builder image
-        run: docker build -t phenolrs-builder:latest -f Dockerfile-build .
+        run: |
+          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-gnu" ]; then
+            docker build -t phenolrs-builder:latest -f Dockerfile-build-linux-x86_64 .
+          else
+            docker build -t phenolrs-builder:latest -f Dockerfile-build-linux-aarch64 .
+          fi
 
       - name: Build the package
         env:
           OPENSSL_DIR: /usr
           OPENSSL_INCLUDE_DIR: /usr/include
           OPENSSL_LIB_DIR: /usr/lib64
-          PKG_CONFIG_ALLOW_CROSS: 1
-          PKG_CONFIG_ALLOW_CROSS_${{ matrix.target }}: 1
-          AARCH64_UNKNOWN_LINUX_GNU_OPENSSL_DIR: /usr
-          AARCH64_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR: /usr/include
-          AARCH64_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR: /usr/lib64
         run: |
           docker run --rm \
             -v $(pwd):/io \
             -e OPENSSL_DIR \
             -e OPENSSL_INCLUDE_DIR \
             -e OPENSSL_LIB_DIR \
-            -e PKG_CONFIG_ALLOW_CROSS \
-            -e PKG_CONFIG_ALLOW_CROSS_${{ matrix.target }} \
-            -e AARCH64_UNKNOWN_LINUX_GNU_OPENSSL_DIR \
-            -e AARCH64_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR \
-            -e AARCH64_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR \
             phenolrs-builder:latest build --out dist --release --sdist --target ${{ matrix.target }} --interpreter python3.10 python3.11 python3.12 python3.13
 
       - name: List built packages
