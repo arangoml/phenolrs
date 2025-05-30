@@ -36,6 +36,12 @@ jobs:
         run: docker build -t phenolrs-builder:latest -f Dockerfile-build .
 
       - name: Build the package
+        env:
+          OPENSSL_DIR: /usr
+          OPENSSL_INCLUDE_DIR: /usr/include
+          OPENSSL_LIB_DIR: /usr/lib/x86_64-linux-gnu
+          PKG_CONFIG_ALLOW_CROSS: 1
+          PKG_CONFIG_ALLOW_CROSS_${{ matrix.target }}: 1
         run: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --out dist --release --sdist --target ${{ matrix.target }} --interpreter python3.10 python3.11 python3.12 python3.13
 
       - name: List built packages
@@ -59,15 +65,14 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        target: [x86_64-pc-windows-msvc, aarch64-pc-windows-msvc]
+        target: [x86_64-pc-windows-msvc]
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
-          architecture: ${{ matrix.target == 'aarch64-pc-windows-msvc' && 'arm64' || 'x64' }}
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
