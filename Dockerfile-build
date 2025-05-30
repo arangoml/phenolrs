@@ -1,7 +1,7 @@
 FROM --platform=$BUILDPLATFORM ghcr.io/pyo3/maturin:v1.8.6
 
 RUN yum update -y && \
-    yum install -y openssl-devel && \
+    yum install -y openssl-devel gcc-aarch64-linux-gnu && \
     rustup target add \
         x86_64-unknown-linux-gnu \
         aarch64-unknown-linux-gnu \
@@ -9,5 +9,10 @@ RUN yum update -y && \
         aarch64-pc-windows-msvc \
         x86_64-apple-darwin \
         aarch64-apple-darwin
+
+# Set up cross-compilation environment
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+ENV CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+ENV AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
 
 ENTRYPOINT ["/usr/bin/maturin"]
