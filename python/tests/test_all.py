@@ -439,7 +439,7 @@ def test_karate_networkx(
 
     assert len(adj_dict[from_key][to_key]) == 1
     assert type(next(iter(adj_dict[from_key][to_key].keys()))) is int
-    assert isinstance(adj_dict[from_key][to_key][0], dict)  # type: ignore
+    assert isinstance(adj_dict[from_key][to_key][0], dict)
     assert isinstance(edge_values, dict)
     assert len(edge_values) == 0
 
