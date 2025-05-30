@@ -2,11 +2,17 @@ name: Release Phenolrs
 
 on:
   workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Run in test mode (build only, no publish)'
+        required: true
+        type: boolean
+        default: false
   release:
     types: [published]
 
 jobs:
-  release-linux:
+  release-linux-x86_64:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,30 +27,115 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libssl-dev
           pip install build maturin twine
+          rustup target add x86_64-unknown-linux-gnu
 
       - name: Build builder image
-        run: docker build -t phenolrs-builder:latest -f Dockerfile-build .
+        run: docker build -t phenolrs-builder:latest -f Dockerfile-build-linux-x86_64 .
 
       - name: Build the package
-        run: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --out dist --release  --sdist --interpreter python3.10 python3.11 python3.12 python3.13
+        env:
+          OPENSSL_DIR: /usr
+          OPENSSL_INCLUDE_DIR: /usr/include
+          OPENSSL_LIB_DIR: /usr/lib64
+        run: |
+          docker run --rm \
+            -v $(pwd):/io \
+            -e OPENSSL_DIR \
+            -e OPENSSL_INCLUDE_DIR \
+            -e OPENSSL_LIB_DIR \
+            phenolrs-builder:latest build --out dist --release --sdist --target x86_64-unknown-linux-gnu --interpreter python3.10 python3.11 python3.12 python3.13
 
-      - name: ls
-        run: ls dist/*
+      - name: List built packages
+        run: ls -la dist/*
 
       - name: Publish to Test PyPi
+        if: ${{ !github.event.inputs.test_mode }}
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
         run: twine upload --verbose --repository testpypi dist/*.whl
 
       - name: Publish to PyPi
+        if: ${{ !github.event.inputs.test_mode }}
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
         run: twine upload --verbose --repository pypi dist/*.whl
 
+  release-linux-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Set up QEMU for ARM emulation
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config
+          pip install build maturin twine
+          rustup target add aarch64-unknown-linux-gnu
+
+      - name: Build ARM64 builder image
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --load \
+            -t phenolrs-builder-arm:latest \
+            -f Dockerfile-build-linux-arm64 .
+
+      - name: Build the package
+        env:
+          OPENSSL_DIR: /usr
+          OPENSSL_INCLUDE_DIR: /usr/include
+          OPENSSL_LIB_DIR: /usr/lib/aarch64-linux-gnu
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}":/io \
+            -e OPENSSL_DIR \
+            -e OPENSSL_INCLUDE_DIR \
+            -e OPENSSL_LIB_DIR \
+            phenolrs-builder-arm:latest build \
+              --out dist \
+              --release \
+              --sdist \
+              --target aarch64-unknown-linux-gnu \
+              --interpreter python3.10 python3.11 python3.12 python3.13
+
+      - name: List built packages
+        run: ls -la dist/*
+
+      - name: Publish to Test PyPi
+        if: ${{ !github.event.inputs.test_mode }}
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
+        run: twine upload --verbose --repository testpypi dist/*.whl
+
+      - name: Publish to PyPi
+        if: ${{ !github.event.inputs.test_mode }}
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+        run: twine upload --verbose --repository pypi dist/*.whl
+
+
+
   release-windows:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        target: [x86_64-pc-windows-msvc]
     steps:
       - uses: actions/checkout@v4
 
@@ -54,32 +145,39 @@ jobs:
           python-version: "3.10"
 
       - name: Install dependencies
-        run: pip install build maturin twine
+        run: |
+          pip install build maturin twine
+          rustup target add ${{ matrix.target }}
 
       - name: Build the package
-        run: maturin build --out dist --release --sdist --interpreter python3.10 python3.11 python3.12 python3.13
+        env:
+          OPENSSL_DIR: C:/Program Files/OpenSSL-Win64
+          OPENSSL_INCLUDE_DIR: C:/Program Files/OpenSSL-Win64/include
+          OPENSSL_LIB_DIR: C:/Program Files/OpenSSL-Win64/lib
+        run: maturin build --out dist --release --sdist --target ${{ matrix.target }} --interpreter python3.10 python3.11 python3.12 python3.13
 
-      - name: ls
-        run: ls dist/*
+      - name: List built packages
+        run: dir dist
 
       - name: Publish to Test PyPi
+        if: ${{ !github.event.inputs.test_mode }}
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
         run: twine upload --verbose --repository testpypi dist\*.whl
 
       - name: Publish to PyPi
+        if: ${{ !github.event.inputs.test_mode }}
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
         run: twine upload --verbose --repository pypi dist\*.whl
 
   release-macos:
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     strategy:
       matrix:
-        os: [macos-latest, macos-13]
-
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
     steps:
       - uses: actions/checkout@v4
 
@@ -92,25 +190,27 @@ jobs:
         run: |
           brew install openssl
           pip install build maturin twine
+          rustup target add ${{ matrix.target }}
 
       - name: Build the package
-        run: |
-          if [[ "${{ matrix.os }}" == "macos-13" ]]; then
-            maturin build --out dist --release --sdist --target x86_64-apple-darwin --interpreter python3.10 python3.11 python3.12 python3.13
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            maturin build --out dist --release --sdist --target aarch64-apple-darwin --interpreter python3.10 python3.11 python3.12 python3.13
-          fi
+        env:
+          OPENSSL_DIR: /usr/local/opt/openssl@3
+          OPENSSL_INCLUDE_DIR: /usr/local/opt/openssl@3/include
+          OPENSSL_LIB_DIR: /usr/local/opt/openssl@3/lib
+        run: maturin build --out dist --release --sdist --target ${{ matrix.target }} --interpreter python3.10 python3.11 python3.12 python3.13
 
-      - name: ls
-        run: ls dist/*
+      - name: List built packages
+        run: ls -la dist/*
 
       - name: Publish to Test PyPi
+        if: ${{ !github.event.inputs.test_mode }}
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD_TEST }}
         run: twine upload --verbose --repository testpypi dist/*.whl
 
       - name: Publish to PyPi
+        if: ${{ !github.event.inputs.test_mode }}
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}

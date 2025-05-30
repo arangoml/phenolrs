@@ -1,0 +1,35 @@
+# Dockerfile-build-linux-arm64
+
+# pull the ARM64 Ubuntu 22.04 image
+FROM arm64v8/ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH="/usr/local/cargo/bin:${PATH}"
+
+# install system deps, Python & OpenSSL dev headers
+RUN apt-get update -y && \
+    apt-get upgrade -y && \
+    apt-get install -y \
+      build-essential \
+      curl \
+      git \
+      python3 \
+      python3-pip \
+      libssl-dev \
+      pkg-config && \
+    rm -rf /var/lib/apt/lists/*
+
+# install Rust toolchain and add the ARM64 target
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+    rustup target add aarch64-unknown-linux-gnu
+
+# upgrade pip and install maturin with patchelf support
+RUN pip3 install --upgrade pip && \
+    pip3 install maturin maturin[patchelf] build twine
+
+WORKDIR /io
+
+# expose maturin as entrypoint so your GH Action can just invoke it
+ENTRYPOINT ["maturin"]
