@@ -82,7 +82,7 @@ jobs:
       - name: Install host dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libssl-dev
+          sudo apt-get install -y libssl-dev pkg-config
           pip install build maturin twine
           rustup target add aarch64-unknown-linux-gnu
 
@@ -98,7 +98,7 @@ jobs:
         env:
           OPENSSL_DIR: /usr
           OPENSSL_INCLUDE_DIR: /usr/include
-          OPENSSL_LIB_DIR: /usr/lib64
+          OPENSSL_LIB_DIR: /usr/lib/aarch64-linux-gnu
         run: |
           docker run --rm \
             -v "${{ github.workspace }}":/io \
@@ -128,6 +128,7 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
         run: twine upload --verbose --repository pypi dist/*.whl
+
 
 
   release-windows:
