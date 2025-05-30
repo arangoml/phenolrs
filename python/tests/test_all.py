@@ -2,7 +2,20 @@ from typing import Any, Callable
 
 import numpy
 import pytest
-from torch_geometric.data import Data, HeteroData
+
+try:
+    from torch_geometric.data import Data, HeteroData
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
+    class Data:  # type: ignore
+        pass
+
+    class HeteroData:  # type: ignore
+        pass
+
 
 from phenolrs import PhenolError
 from phenolrs.networkx import NetworkXLoader
@@ -10,6 +23,7 @@ from phenolrs.numpy import NumpyLoader
 from phenolrs.pyg import PygLoader
 
 
+@pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch is not available")
 @pytest.mark.parametrize(
     "pyg_load_function, datatype",
     [
@@ -66,6 +80,7 @@ def test_abide_pyg(
         assert edges["edge_index"].shape == (2, 606770)
 
 
+@pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch is not available")
 def test_imdb_pyg(
     load_imdb: None,
     imdb_db_name: str,
@@ -108,6 +123,7 @@ def test_imdb_pyg(
     assert edges["edge_index"].shape == (2, 100000)
 
 
+@pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch is not available")
 def test_dblp_pyg(
     load_dblp: None,
     dblp_db_name: str,
@@ -196,6 +212,7 @@ def test_dblp_pyg(
         assert edges["edge_index"].shape == (2, 85810)
 
 
+@pytest.mark.numpy
 def test_abide_numpy(
     load_abide: None, abide_db_name: str, connection_information: dict[str, str]
 ) -> None:
@@ -255,6 +272,7 @@ def test_abide_numpy(
     assert vertex_cols_source_to_output == {"Subjects": {"brain_fmri_features": "x"}}
 
 
+@pytest.mark.networkx
 def test_karate_networkx(
     load_karate: None, karate_db_name: str, connection_information: dict[str, str]
 ) -> None:
@@ -336,8 +354,6 @@ def test_karate_networkx(
         [connection_information["url"]],
         username=connection_information["username"],
         password=connection_information["password"],
-        is_directed=True,
-        is_multigraph=True,
         symmetrize_edges_if_directed=True,
     )
     (
@@ -602,6 +618,7 @@ def test_karate_networkx(
         assert "Edge data must be a numeric value" in str(e)
 
 
+@pytest.mark.networkx
 def test_coo_edge_values_networkx(
     load_line_graph: None,
     custom_graph_db_name: str,
@@ -679,6 +696,7 @@ def test_coo_edge_values_networkx(
     assert all(isinstance(x, float) for x in edge_values["float_value"])
 
 
+@pytest.mark.networkx
 def test_multigraph_networkx(
     load_multigraph: None,
     multigraph_db_name: str,
@@ -743,6 +761,7 @@ def test_multigraph_networkx(
     assert list(edge_indices) == [0, 1, 0, 0, 1]
 
 
+@pytest.mark.networkx
 def test_imdb_networkx(
     load_imdb: None,
     imdb_db_name: str,
@@ -872,6 +891,7 @@ def test_imdb_networkx(
                         assert value is not None
 
 
+@pytest.mark.networkx
 def test_isolated_node_networkx(
     load_isolated_node: None,
     isolated_node_db_name: str,

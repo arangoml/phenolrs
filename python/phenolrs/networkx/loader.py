@@ -58,17 +58,17 @@ class NetworkXLoader:
             m = "edgeCollections must be non-empty if **load_adj_dict** or **load_coo** is True"  # noqa
             raise PhenolError(m)
 
-        if load_all_vertex_attributes and any(
-            [len(entries) > 0 for entries in metagraph["vertexCollections"].values()]
-        ):
-            m = "load_all_vertex_attributes is True, but vertexCollections contain attributes"  # noqa
-            raise PhenolError(m)
+        if load_all_vertex_attributes:
+            for entries in metagraph["vertexCollections"].values():
+                if len(entries) > 0:
+                    m = f"load_all_vertex_attributes is True, but a vertexCollections entry contains attributes: {entries}"  # noqa
+                    raise PhenolError(m)
 
-        if load_all_edge_attributes and any(
-            [len(entries) > 0 for entries in metagraph["edgeCollections"].values()]
-        ):
-            m = "load_all_edge_attributes is True, but edgeCollections contain attributes"  # noqa
-            raise PhenolError(m)
+        if load_all_edge_attributes:
+            for entries in metagraph["edgeCollections"].values():
+                if len(entries) > 0:
+                    m = f"load_all_edge_attributes is True, but an edgeCollections entry contains attributes: {entries}"  # noqa
+                    raise PhenolError(m)
 
         if len(metagraph["edgeCollections"]) != 0 and not (load_coo or load_adj_dict):
             m = "load_coo and load_adj_dict cannot both be False if edgeCollections is non-empty"  # noqa
