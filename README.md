@@ -552,7 +552,6 @@ cargo test --no-default-features
 ```
 
 ### Python
-**WIP - assumes dataset loaded in local ArangoDB instance.**
 
 #### Requirements
 ```bash
