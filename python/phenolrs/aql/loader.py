@@ -224,7 +224,8 @@ class AqlLoader:
         Args:
             collection: The vertex collection name
             filter_condition: Optional AQL filter condition
-                (without FILTER keyword)
+                (without FILTER keyword). Security note: Use bind_vars
+                for any user-provided values to prevent AQL injection.
             projection: Optional list of fields to project.
                 If None, returns full document.
             bind_vars: Optional bind variables
@@ -245,8 +246,11 @@ class AqlLoader:
 
         if projection:
             # Build projection with _id always included
+            # Validate field names to prevent injection
+            for f in projection:
+                _validate_identifier(f, "projection field")
             fields = ["_id: doc._id"]
-            fields.extend([f"{f}: doc.{f}" for f in projection])
+            fields.extend([f"`{f}`: doc.`{f}`" for f in projection])
             return_expr = "{" + ", ".join(fields) + "}"
             query_parts.append(f"RETURN {{vertices: [{return_expr}]}}")
         else:
@@ -269,7 +273,8 @@ class AqlLoader:
         Args:
             collection: The edge collection name
             filter_condition: Optional AQL filter condition
-                (without FILTER keyword)
+                (without FILTER keyword). Security note: Use bind_vars
+                for any user-provided values to prevent AQL injection.
             projection: Optional list of fields to project.
                 If None, returns full document.
             bind_vars: Optional bind variables
@@ -285,9 +290,13 @@ class AqlLoader:
 
         if projection:
             # Build projection with _from and _to always included
+            # Validate field names to prevent injection
+            for f in projection:
+                if f not in ("_from", "_to"):
+                    _validate_identifier(f, "projection field")
             fields = ["_from: doc._from", "_to: doc._to"]
             fields.extend(
-                [f"{f}: doc.{f}" for f in projection if f not in ("_from", "_to")]
+                [f"`{f}`: doc.`{f}`" for f in projection if f not in ("_from", "_to")]
             )
             return_expr = "{" + ", ".join(fields) + "}"
             query_parts.append(f"RETURN {{edges: [{return_expr}]}}")
@@ -313,15 +322,19 @@ class AqlLoader:
         """Helper to create a graph traversal query.
 
         Args:
-            start_vertex: The starting vertex ID (e.g., "collection/key")
-                or bind variable
+            start_vertex: The starting vertex. Must be either:
+                - A bind variable reference (e.g., "@start")
+                - A quoted literal (e.g., "'users/alice'")
+                Use bind_vars for user-provided values to prevent injection.
             graph_name: The named graph to traverse
             min_depth: Minimum traversal depth (default: 1)
             max_depth: Maximum traversal depth (default: 1)
             direction: Traversal direction - "OUTBOUND", "INBOUND", or "ANY"
                 (default: "OUTBOUND")
-            prune_condition: Optional PRUNE condition
-            filter_condition: Optional FILTER condition
+            prune_condition: Optional PRUNE condition. Security note: Use
+                bind_vars for user-provided values.
+            filter_condition: Optional FILTER condition. Security note: Use
+                bind_vars for user-provided values.
             bind_vars: Optional bind variables
 
         Returns:

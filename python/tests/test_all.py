@@ -1241,8 +1241,8 @@ class TestAqlLoader:
         # With projection
         query = AqlLoader.create_vertex_query("users", projection=["name", "age"])
         assert "_id: doc._id" in query["query"]
-        assert "name: doc.name" in query["query"]
-        assert "age: doc.age" in query["query"]
+        assert "`name`: doc.`name`" in query["query"]
+        assert "`age`: doc.`age`" in query["query"]
 
     def test_aql_helper_create_edge_query(self) -> None:
         """Test the create_edge_query helper."""
@@ -1261,7 +1261,7 @@ class TestAqlLoader:
         query = AqlLoader.create_edge_query("purchases", projection=["amount"])
         assert "_from: doc._from" in query["query"]
         assert "_to: doc._to" in query["query"]
-        assert "amount: doc.amount" in query["query"]
+        assert "`amount`: doc.`amount`" in query["query"]
 
     def test_aql_helper_create_traversal_query(self) -> None:
         """Test the create_traversal_query helper."""
