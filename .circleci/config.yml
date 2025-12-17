@@ -85,7 +85,7 @@ jobs:
       - checkout
       - run:
           name: Build builder image
-          command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
+          command: docker build --no-cache -t phenolrs-builder:latest -f Dockerfile-build-linux-x86_64 .
       - run:
           name: Build << parameters.python-version >> package
           command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter << parameters.python-version >>
