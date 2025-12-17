@@ -199,7 +199,11 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
     .map_err(|e| format!("Could not create AQL graph loader: {:?}", e))?;
 
     // Clone attribute info for the callback
-    let vertex_attr_names: Vec<String> = req.vertex_attributes.iter().map(|a| a.name.clone()).collect();
+    let vertex_attr_names: Vec<String> = req
+        .vertex_attributes
+        .iter()
+        .map(|a| a.name.clone())
+        .collect();
     let edge_attr_names: Vec<String> = req.edge_attributes.iter().map(|a| a.name.clone()).collect();
 
     let graph_arc_clone = graph_arc.clone();
@@ -209,7 +213,9 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
         // Insert vertices
         for i in 0..batch.vertex_ids.len() {
             let id = batch.vertex_ids[i].clone();
-            let columns: Vec<Value> = if !batch.vertex_attribute_values.is_empty() && i < batch.vertex_attribute_values.len() {
+            let columns: Vec<Value> = if !batch.vertex_attribute_values.is_empty()
+                && i < batch.vertex_attribute_values.len()
+            {
                 batch.vertex_attribute_values[i].clone()
             } else {
                 vec![]
@@ -222,7 +228,9 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
         for i in 0..edge_count {
             let from_id = batch.edge_from_ids[i].clone();
             let to_id = batch.edge_to_ids[i].clone();
-            let columns: Vec<Value> = if !batch.edge_attribute_values.is_empty() && i < batch.edge_attribute_values.len() {
+            let columns: Vec<Value> = if !batch.edge_attribute_values.is_empty()
+                && i < batch.edge_attribute_values.len()
+            {
                 batch.edge_attribute_values[i].clone()
             } else {
                 vec![]

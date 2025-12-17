@@ -52,9 +52,6 @@ pub fn create_data_item(name: String, type_str: &str) -> Result<DataItem, String
 }
 
 /// Helper to create AqlQuery from query string and bind vars
-pub fn create_aql_query(
-    query: String,
-    bind_vars: HashMap<String, serde_json::Value>,
-) -> AqlQuery {
+pub fn create_aql_query(query: String, bind_vars: HashMap<String, serde_json::Value>) -> AqlQuery {
     AqlQuery::new(query, bind_vars)
 }

@@ -239,18 +239,12 @@ impl FromPyObject<'_> for AqlDataLoadRequest {
         // Or simplified: {"attr1": "string", "attr2": "number"}
         let vertex_attributes: Vec<DataItem> = input_dict
             .get_item("vertex_attributes")?
-            .map_or_else(
-                || Ok(vec![]),
-                |v| parse_attributes(v),
-            )?;
+            .map_or_else(|| Ok(vec![]), |v| parse_attributes(v))?;
 
         // Parse edge attributes
         let edge_attributes: Vec<DataItem> = input_dict
             .get_item("edge_attributes")?
-            .map_or_else(
-                || Ok(vec![]),
-                |v| parse_attributes(v),
-            )?;
+            .map_or_else(|| Ok(vec![]), |v| parse_attributes(v))?;
 
         // Parse queries - expected format: [[{query, bindVars}, ...], [...], ...]
         let queries: Vec<Vec<AqlQuery>> = input_dict.get_item("queries")?.map_or_else(
