@@ -345,6 +345,16 @@ class AqlLoader:
             ...     "@start", "myGraph", 0, 3, bind_vars={"start": "users/1"}
             ... )
         """
+        # Validate start_vertex format to prevent malformed queries
+        if not (
+            start_vertex.startswith("@")
+            or (start_vertex.startswith("'") and start_vertex.endswith("'"))
+        ):
+            raise ValueError(
+                "start_vertex must be a bind variable (@var) or quoted literal "
+                f"('value'), got: {start_vertex}"
+            )
+
         # Use 0..max_depth to include the start vertex
         _validate_identifier(graph_name, "graph_name")
         query_parts = [

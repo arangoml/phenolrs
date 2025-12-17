@@ -1097,6 +1097,7 @@ class TestAqlLoader:
         assert len(node_dict) == 2
         assert "users/alice" in node_dict
         assert "users/bob" in node_dict
+        # charlie is NOT included because filter excludes inactive users
         assert "users/charlie" not in node_dict
 
     def test_aql_load_with_bind_vars(
@@ -1139,6 +1140,7 @@ class TestAqlLoader:
         assert len(node_dict) == 2
         assert "users/alice" in node_dict
         assert "users/charlie" in node_dict
+        # bob is NOT included because age filter excludes him (age=25 < 30)
         assert "users/bob" not in node_dict
 
     def test_aql_load_graph_traversal(
@@ -1224,6 +1226,21 @@ class TestAqlLoader:
         assert isinstance(col_to_ind_to_key, dict)
         assert isinstance(features_by_col, dict)
         assert isinstance(coo_map, dict)
+
+        # Verify users collection has 3 vertices
+        assert "users" in col_to_key_to_ind
+        assert len(col_to_key_to_ind["users"]) == 3
+
+        # Verify products collection has 2 vertices
+        assert "products" in col_to_key_to_ind
+        assert len(col_to_key_to_ind["products"]) == 2
+
+        # Verify alice is in users index mapping
+        assert "alice" in col_to_key_to_ind["users"]
+
+        # Verify edge COO structure exists
+        # Edge collection name format: "users_to_products"
+        assert len(coo_map) > 0
 
     def test_aql_helper_create_vertex_query(self) -> None:
         """Test the create_vertex_query helper."""
