@@ -23,7 +23,7 @@ from .typings import AqlQuery, AttributeSpec, DatabaseConfig
 
 import re
 
-# Valid AQL identifier pattern (alphanumeric, underscore, hyphen, starting with letter/underscore)
+# Valid AQL identifier: alphanumeric, underscore, hyphen; starts with letter/_
 _VALID_IDENTIFIER = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_\-]*$")
 
 
