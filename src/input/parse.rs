@@ -6,6 +6,7 @@ use arangors_graph_exporter::{AqlQuery, DataItem, DataLoadConfiguration, Databas
 use pyo3::exceptions::PyValueError;
 use pyo3::types::{PyDict, PyList};
 use pyo3::{prelude::*, Bound, FromPyObject, PyAny, PyResult};
+use pythonize::depythonize;
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -184,55 +185,9 @@ impl FromPyObject<'_> for LocalAqlQuery {
             .map_or_else(
                 || Ok::<HashMap<String, serde_json::Value>, PyErr>(HashMap::new()),
                 |v| {
-                    let py_dict = v.downcast::<PyDict>()?;
-                    let mut map = HashMap::new();
-                    for (key, value) in py_dict.iter() {
-                        let key_str: String = key.extract()?;
-                        // Convert Python value to JSON Value
-                        let json_str: String = value.repr()?.extract()?;
-                        // Try to parse as JSON, fall back to string
-                        let json_val = if let Ok(val) = serde_json::from_str(&json_str) {
-                            val
-                        } else {
-                            // Try extracting various Python types
-                            if let Ok(b) = value.extract::<bool>() {
-                                serde_json::Value::Bool(b)
-                            } else if let Ok(i) = value.extract::<i64>() {
-                                serde_json::Value::Number(i.into())
-                            } else if let Ok(f) = value.extract::<f64>() {
-                                serde_json::json!(f)
-                            } else if let Ok(s) = value.extract::<String>() {
-                                serde_json::Value::String(s)
-                            } else if value.is_none() {
-                                serde_json::Value::Null
-                            } else if let Ok(list) = value.downcast::<PyList>() {
-                                // Handle list
-                                let arr: Vec<serde_json::Value> = list
-                                    .iter()
-                                    .filter_map(|item| {
-                                        if let Ok(s) = item.extract::<String>() {
-                                            Some(serde_json::Value::String(s))
-                                        } else if let Ok(i) = item.extract::<i64>() {
-                                            Some(serde_json::Value::Number(i.into()))
-                                        } else if let Ok(f) = item.extract::<f64>() {
-                                            serde_json::Number::from_f64(f)
-                                                .map(serde_json::Value::Number)
-                                        } else if let Ok(b) = item.extract::<bool>() {
-                                            Some(serde_json::Value::Bool(b))
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .collect();
-                                serde_json::Value::Array(arr)
-                            } else {
-                                // Fallback to string representation
-                                serde_json::Value::String(value.str()?.to_string())
-                            }
-                        };
-                        map.insert(key_str, json_val);
-                    }
-                    Ok(map)
+                    depythonize(&v).map_err(|e| {
+                        PyValueError::new_err(format!("Failed to parse bind_vars: {}", e))
+                    })
                 },
             )?;
 

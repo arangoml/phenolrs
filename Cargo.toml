@@ -25,11 +25,14 @@ reqwest-retry = "0.3.0"
 reqwest-middleware = "0.2.4"
 log = "0.4.22"
 env_logger = "0.11.5"
-ndarray = "0.15.6"
+ndarray = "0.16"
 anyhow = "1.0.80"
 
 [dependencies.pyo3]
 version = "0.24.2"
+
+[dependencies.pythonize]
+version = "0.24.0"
 
 [features]
 extension-module = ["pyo3/extension-module"]

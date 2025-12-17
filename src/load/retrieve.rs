@@ -217,8 +217,9 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
             graph.insert_vertex(id, columns, &vertex_attr_names);
         }
 
-        // Insert edges
-        for i in 0..batch.edge_from_ids.len() {
+        // Insert edges - use min length to avoid index out of bounds
+        let edge_count = batch.edge_from_ids.len().min(batch.edge_to_ids.len());
+        for i in 0..edge_count {
             let from_id = batch.edge_from_ids[i].clone();
             let to_id = batch.edge_to_ids[i].clone();
             let columns: Vec<Value> = if !batch.edge_attribute_values.is_empty() && i < batch.edge_attribute_values.len() {

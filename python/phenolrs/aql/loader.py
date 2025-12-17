@@ -103,14 +103,10 @@ class AqlLoader:
         db_config: DatabaseConfig = {
             "endpoints": self.hosts,
             "database": self.database,
+            "username": self.username or "",
+            "password": self.password or "",
+            "jwt_token": self.user_jwt or "",
         }
-
-        if self.username:
-            db_config["username"] = self.username
-        if self.password:
-            db_config["password"] = self.password
-        if self.user_jwt:
-            db_config["jwt_token"] = self.user_jwt
         if self.tls_cert:
             db_config["tls_cert"] = self.tls_cert
 
