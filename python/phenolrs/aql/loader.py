@@ -11,7 +11,7 @@ The key benefit of AQL-based loading is flexibility:
 - Control over execution order (sequential groups, parallel queries)
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from phenolrs import (
     PhenolError,
@@ -19,7 +19,7 @@ from phenolrs import (
     graph_aql_to_numpy_format,
 )
 
-from .typings import AqlDataLoadRequest, AqlQuery, AttributeSpec
+from .typings import AqlQuery, AttributeSpec, DatabaseConfig
 
 
 class AqlLoader:
@@ -98,9 +98,9 @@ class AqlLoader:
         queries: List[List[AqlQuery]],
         vertex_attributes: Optional[AttributeSpec] = None,
         edge_attributes: Optional[AttributeSpec] = None,
-    ) -> AqlDataLoadRequest:
+    ) -> Dict[str, Any]:
         """Build the request object for the Rust backend."""
-        db_config: Dict[str, Any] = {
+        db_config: DatabaseConfig = {
             "endpoints": self.hosts,
             "database": self.database,
         }
@@ -114,7 +114,7 @@ class AqlLoader:
         if self.tls_cert:
             db_config["tls_cert"] = self.tls_cert
 
-        request: AqlDataLoadRequest = {
+        request: Dict[str, Any] = {
             "database_config": db_config,
             "batch_size": self.batch_size,
             "queries": queries,
@@ -132,7 +132,7 @@ class AqlLoader:
         queries: List[List[AqlQuery]],
         vertex_attributes: Optional[AttributeSpec] = None,
         edge_attributes: Optional[AttributeSpec] = None,
-    ) -> Tuple[Dict, Dict, Dict, Dict]:
+    ) -> Any:
         """Load a graph using AQL queries into numpy-compatible format.
 
         Args:
@@ -154,7 +154,7 @@ class AqlLoader:
             raise PhenolError("At least one AQL query must be provided")
 
         request = self._build_request(queries, vertex_attributes, edge_attributes)
-        return graph_aql_to_numpy_format(request)
+        return graph_aql_to_numpy_format(request)  # type: ignore[arg-type]
 
     def load_to_networkx(
         self,
@@ -166,7 +166,7 @@ class AqlLoader:
         is_directed: bool = True,
         is_multigraph: bool = True,
         symmetrize_edges_if_directed: bool = False,
-    ) -> Tuple[Dict, Dict, Any, Any, Any, Dict, Dict]:
+    ) -> Any:
         """Load a graph using AQL queries into NetworkX-compatible format.
 
         Args:
@@ -198,7 +198,9 @@ class AqlLoader:
             "symmetrize_edges_if_directed": symmetrize_edges_if_directed,
         }
 
-        return graph_aql_to_networkx_format(request, graph_config)
+        return graph_aql_to_networkx_format(
+            request, graph_config  # type: ignore[arg-type]
+        )
 
     @staticmethod
     def create_vertex_query(

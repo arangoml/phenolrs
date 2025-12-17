@@ -18,7 +18,7 @@ except ImportError:
 
 
 from phenolrs import PhenolError
-from phenolrs.aql import AqlLoader
+from phenolrs.aql import AqlLoader, AqlQuery
 from phenolrs.networkx import NetworkXLoader
 from phenolrs.numpy import NumpyLoader
 from phenolrs.pyg import PygLoader
@@ -1000,7 +1000,9 @@ class TestAqlLoader:
         )
 
         # Load only users
-        queries = [[{"query": "FOR v IN users RETURN {vertices: [v]}"}]]
+        queries: list[list[AqlQuery]] = [
+            [{"query": "FOR v IN users RETURN {vertices: [v]}"}]
+        ]
 
         result = loader.load_to_networkx(
             queries=queries,
@@ -1032,7 +1034,7 @@ class TestAqlLoader:
 
         # First group: load all vertices (parallel)
         # Second group: load all edges
-        queries = [
+        queries: list[list[AqlQuery]] = [
             # Sequential group 1: vertices
             [
                 {"query": "FOR v IN users RETURN {vertices: [v]}"},
@@ -1078,7 +1080,7 @@ class TestAqlLoader:
         )
 
         # Load only active users
-        queries = [
+        queries: list[list[AqlQuery]] = [
             [{"query": "FOR v IN users FILTER v.active == true RETURN {vertices: [v]}"}]
         ]
 
@@ -1112,7 +1114,7 @@ class TestAqlLoader:
         )
 
         # Load users with age >= min_age
-        queries = [
+        queries: list[list[AqlQuery]] = [
             [
                 {
                     "query": (
@@ -1154,7 +1156,7 @@ class TestAqlLoader:
         )
 
         # Traverse from alice to find connected products
-        queries = [
+        queries: list[list[AqlQuery]] = [
             [
                 {
                     "query": """
@@ -1196,7 +1198,7 @@ class TestAqlLoader:
             password=connection_information["password"],
         )
 
-        queries = [
+        queries: list[list[AqlQuery]] = [
             [
                 {"query": "FOR v IN users RETURN {vertices: [v]}"},
                 {"query": "FOR v IN products RETURN {vertices: [v]}"},
