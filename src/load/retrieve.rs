@@ -228,6 +228,14 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
 
         // Insert edges - use min length to avoid index out of bounds
         let edge_count = batch.edge_from_ids.len().min(batch.edge_to_ids.len());
+        if batch.edge_from_ids.len() != batch.edge_to_ids.len() {
+            log::warn!(
+                "Edge array length mismatch: from={}, to={}. Processing {} edges.",
+                batch.edge_from_ids.len(),
+                batch.edge_to_ids.len(),
+                edge_count
+            );
+        }
         for i in 0..edge_count {
             let from_id = batch.edge_from_ids[i].clone();
             let to_id = batch.edge_to_ids[i].clone();

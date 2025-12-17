@@ -21,6 +21,20 @@ from phenolrs import (
 
 from .typings import AqlQuery, AttributeSpec, DatabaseConfig
 
+import re
+
+# Valid AQL identifier pattern (alphanumeric, underscore, hyphen, starting with letter/underscore)
+_VALID_IDENTIFIER = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_\-]*$")
+
+
+def _validate_identifier(name: str, param_name: str) -> None:
+    """Validate that a name is a safe AQL identifier."""
+    if not name or not _VALID_IDENTIFIER.match(name):
+        raise ValueError(
+            f"Invalid {param_name}: '{name}'. Must be alphanumeric with "
+            "underscores/hyphens, starting with a letter or underscore."
+        )
+
 
 class AqlLoader:
     """Loader for AQL-based graph extraction from ArangoDB.
@@ -146,7 +160,7 @@ class AqlLoader:
             Tuple of (features_by_col, coo_map, col_to_key_to_ind,
             col_to_ind_to_key)
         """
-        if not queries or all(len(group) == 0 for group in queries):
+        if not queries or not any(len(group) > 0 for group in queries):
             raise PhenolError("At least one AQL query must be provided")
 
         request = self._build_request(queries, vertex_attributes, edge_attributes)
@@ -181,7 +195,7 @@ class AqlLoader:
             A tuple of (node_dict, adj_dict, src_indices, dst_indices,
             edge_indices, vertex_id_to_index, edge_values)
         """
-        if not queries or all(len(group) == 0 for group in queries):
+        if not queries or not any(len(group) > 0 for group in queries):
             raise PhenolError("At least one AQL query must be provided")
 
         request = self._build_request(queries, vertex_attributes, edge_attributes)
@@ -223,7 +237,8 @@ class AqlLoader:
             ...     "users", "doc.active == true", ["name", "age"]
             ... )
         """
-        query_parts = [f"FOR doc IN {collection}"]
+        _validate_identifier(collection, "collection")
+        query_parts = [f"FOR doc IN `{collection}`"]
 
         if filter_condition:
             query_parts.append(f"FILTER {filter_condition}")
@@ -262,7 +277,8 @@ class AqlLoader:
         Returns:
             An AqlQuery object ready to use
         """
-        query_parts = [f"FOR doc IN {collection}"]
+        _validate_identifier(collection, "collection")
+        query_parts = [f"FOR doc IN `{collection}`"]
 
         if filter_condition:
             query_parts.append(f"FILTER {filter_condition}")
@@ -317,9 +333,10 @@ class AqlLoader:
             ... )
         """
         # Use 0..max_depth to include the start vertex
+        _validate_identifier(graph_name, "graph_name")
         query_parts = [
             f"FOR v, e IN {min_depth}..{max_depth} {direction} "
-            f"{start_vertex} GRAPH '{graph_name}'"
+            f"{start_vertex} GRAPH `{graph_name}`"
         ]
 
         if prune_condition:
