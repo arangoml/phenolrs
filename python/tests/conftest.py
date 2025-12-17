@@ -242,3 +242,70 @@ def load_multigraph(
 @pytest.fixture(scope="module")
 def multigraph_db_name() -> str:
     return "multigraph"
+
+
+@pytest.fixture(scope="module")
+def aql_test_db_name() -> str:
+    return "aql_test"
+
+
+@pytest.fixture(scope="module")
+def load_aql_test_graph(
+    aql_test_db_name: str, connection_information: Dict[str, Any]
+) -> None:
+    """Create a simple test graph for AQL-based loading tests.
+
+    Creates:
+    - users collection: 3 vertices with name (string) and age (int) attributes
+    - products collection: 2 vertices with title (string) and price (float)
+    - purchases collection: 3 edges (users->products) with amount (float)
+    """
+    client = arango.ArangoClient(connection_information["url"])
+    sys_db = client.db(
+        "_system",
+        username=connection_information["username"],
+        password=connection_information["password"],
+    )
+
+    if not sys_db.has_database(aql_test_db_name):
+        sys_db.create_database(aql_test_db_name)
+
+    db = client.db(
+        aql_test_db_name,
+        username=connection_information["username"],
+        password=connection_information["password"],
+    )
+
+    # Create graph if not exists
+    if not db.has_graph("test_graph"):
+        db.create_graph(
+            "test_graph",
+            edge_definitions=[
+                {
+                    "edge_collection": "purchases",
+                    "from_vertex_collections": ["users"],
+                    "to_vertex_collections": ["products"],
+                }
+            ],
+        )
+
+        # Insert users
+        users = db.collection("users")
+        users.insert({"_key": "alice", "name": "Alice", "age": 30, "active": True})
+        users.insert({"_key": "bob", "name": "Bob", "age": 25, "active": True})
+        users.insert({"_key": "charlie", "name": "Charlie", "age": 35, "active": False})
+
+        # Insert products
+        products = db.collection("products")
+        products.insert({"_key": "laptop", "title": "Laptop", "price": 999.99})
+        products.insert({"_key": "phone", "title": "Phone", "price": 599.99})
+
+        # Insert purchase edges
+        purchases = db.collection("purchases")
+        purchases.insert(
+            {"_from": "users/alice", "_to": "products/laptop", "amount": 1.0}
+        )
+        purchases.insert(
+            {"_from": "users/alice", "_to": "products/phone", "amount": 2.0}
+        )
+        purchases.insert({"_from": "users/bob", "_to": "products/phone", "amount": 1.0})

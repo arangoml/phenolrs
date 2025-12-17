@@ -18,6 +18,7 @@ except ImportError:
 
 
 from phenolrs import PhenolError
+from phenolrs.aql import AqlLoader
 from phenolrs.networkx import NetworkXLoader
 from phenolrs.numpy import NumpyLoader
 from phenolrs.pyg import PygLoader
@@ -973,3 +974,335 @@ def test_isolated_node_networkx(
     assert len(adj_dict["pred"]["node/0"]) == 0
     assert len(adj_dict["pred"]["node/1"]) == 1
     assert len(adj_dict["pred"]["node/2"]) == 0
+
+
+# =============================================================================
+# AQL-based Graph Loading Tests
+# =============================================================================
+
+
+@pytest.mark.aql
+class TestAqlLoader:
+    """Tests for AQL-based graph loading."""
+
+    def test_aql_load_vertices_only(
+        self,
+        load_aql_test_graph: None,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test loading only vertices via AQL."""
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        # Load only users
+        queries = [[{"query": "FOR v IN users RETURN {vertices: [v]}"}]]
+
+        result = loader.load_to_networkx(
+            queries=queries,
+            is_directed=True,
+            is_multigraph=False,
+            load_coo=False,
+        )
+
+        node_dict, adj_dict, src_indices, dst_indices, *_ = result
+
+        assert len(node_dict) == 3
+        assert "users/alice" in node_dict
+        assert "users/bob" in node_dict
+        assert "users/charlie" in node_dict
+
+    def test_aql_load_vertices_and_edges_sequential(
+        self,
+        load_aql_test_graph: None,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test loading vertices first, then edges (sequential groups)."""
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        # First group: load all vertices (parallel)
+        # Second group: load all edges
+        queries = [
+            # Sequential group 1: vertices
+            [
+                {"query": "FOR v IN users RETURN {vertices: [v]}"},
+                {"query": "FOR v IN products RETURN {vertices: [v]}"},
+            ],
+            # Sequential group 2: edges
+            [
+                {"query": "FOR e IN purchases RETURN {edges: [e]}"},
+            ],
+        ]
+
+        result = loader.load_to_networkx(
+            queries=queries,
+            is_directed=True,
+            is_multigraph=False,
+        )
+
+        node_dict, adj_dict, src_indices, dst_indices, *_ = result
+
+        # Check vertices: 3 users + 2 products = 5 vertices
+        assert len(node_dict) == 5
+        assert "users/alice" in node_dict
+        assert "users/bob" in node_dict
+        assert "users/charlie" in node_dict
+        assert "products/laptop" in node_dict
+        assert "products/phone" in node_dict
+
+        # Check edges: 3 purchases
+        assert len(src_indices) == 3
+
+    def test_aql_load_with_filter(
+        self,
+        load_aql_test_graph: None,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test loading with AQL filter conditions."""
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        # Load only active users
+        queries = [
+            [{"query": "FOR v IN users FILTER v.active == true RETURN {vertices: [v]}"}]
+        ]
+
+        result = loader.load_to_networkx(
+            queries=queries,
+            is_directed=True,
+            is_multigraph=False,
+            load_coo=False,
+        )
+
+        node_dict, *_ = result
+
+        # Only 2 active users (alice and bob)
+        assert len(node_dict) == 2
+        assert "users/alice" in node_dict
+        assert "users/bob" in node_dict
+        assert "users/charlie" not in node_dict
+
+    def test_aql_load_with_bind_vars(
+        self,
+        load_aql_test_graph: None,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test loading with AQL bind variables."""
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        # Load users with age >= min_age
+        queries = [
+            [
+                {
+                    "query": (
+                        "FOR v IN users FILTER v.age >= @minAge "
+                        "RETURN {vertices: [v]}"
+                    ),
+                    "bindVars": {"minAge": 30},
+                }
+            ]
+        ]
+
+        result = loader.load_to_networkx(
+            queries=queries,
+            is_directed=True,
+            is_multigraph=False,
+            load_coo=False,
+        )
+
+        node_dict, *_ = result
+
+        # Only users with age >= 30 (alice: 30, charlie: 35)
+        assert len(node_dict) == 2
+        assert "users/alice" in node_dict
+        assert "users/charlie" in node_dict
+        assert "users/bob" not in node_dict
+
+    def test_aql_load_graph_traversal(
+        self,
+        load_aql_test_graph: None,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test loading via graph traversal."""
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        # Traverse from alice to find connected products
+        queries = [
+            [
+                {
+                    "query": """
+                        FOR v, e IN 0..1 OUTBOUND 'users/alice' GRAPH 'test_graph'
+                        RETURN {vertices: [v], edges: [e]}
+                    """,
+                }
+            ]
+        ]
+
+        result = loader.load_to_networkx(
+            queries=queries,
+            is_directed=True,
+            is_multigraph=False,
+        )
+
+        node_dict, adj_dict, src_indices, *_ = result
+
+        # Should find: alice + laptop + phone = 3 vertices
+        assert len(node_dict) == 3
+        assert "users/alice" in node_dict
+        assert "products/laptop" in node_dict
+        assert "products/phone" in node_dict
+
+        # Should find 2 edges (alice -> laptop, alice -> phone)
+        assert len(src_indices) == 2
+
+    def test_aql_load_to_numpy(
+        self,
+        load_aql_test_graph: None,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test loading into numpy format via AQL."""
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        queries = [
+            [
+                {"query": "FOR v IN users RETURN {vertices: [v]}"},
+                {"query": "FOR v IN products RETURN {vertices: [v]}"},
+            ],
+            [
+                {"query": "FOR e IN purchases RETURN {edges: [e]}"},
+            ],
+        ]
+
+        (
+            features_by_col,
+            coo_map,
+            col_to_key_to_ind,
+            col_to_ind_to_key,
+        ) = loader.load_to_numpy(
+            queries=queries,
+        )
+
+        # We should have entries for users and products collections
+        # Note: AQL returns full document IDs, so keys should be derived from _id
+        assert isinstance(col_to_key_to_ind, dict)
+        assert isinstance(col_to_ind_to_key, dict)
+
+    def test_aql_helper_create_vertex_query(self) -> None:
+        """Test the create_vertex_query helper."""
+        # Simple query
+        query = AqlLoader.create_vertex_query("users")
+        assert "FOR doc IN users" in query["query"]
+        assert "RETURN {vertices: [doc]}" in query["query"]
+
+        # With filter
+        query = AqlLoader.create_vertex_query(
+            "users", filter_condition="doc.active == true"
+        )
+        assert "FILTER doc.active == true" in query["query"]
+
+        # With projection
+        query = AqlLoader.create_vertex_query("users", projection=["name", "age"])
+        assert "_id: doc._id" in query["query"]
+        assert "name: doc.name" in query["query"]
+        assert "age: doc.age" in query["query"]
+
+    def test_aql_helper_create_edge_query(self) -> None:
+        """Test the create_edge_query helper."""
+        # Simple query
+        query = AqlLoader.create_edge_query("purchases")
+        assert "FOR doc IN purchases" in query["query"]
+        assert "RETURN {edges: [doc]}" in query["query"]
+
+        # With filter
+        query = AqlLoader.create_edge_query(
+            "purchases", filter_condition="doc.amount > 1"
+        )
+        assert "FILTER doc.amount > 1" in query["query"]
+
+        # With projection
+        query = AqlLoader.create_edge_query("purchases", projection=["amount"])
+        assert "_from: doc._from" in query["query"]
+        assert "_to: doc._to" in query["query"]
+        assert "amount: doc.amount" in query["query"]
+
+    def test_aql_helper_create_traversal_query(self) -> None:
+        """Test the create_traversal_query helper."""
+        # Simple traversal
+        query = AqlLoader.create_traversal_query(
+            start_vertex="@start",
+            graph_name="test_graph",
+            min_depth=0,
+            max_depth=2,
+            bind_vars={"start": "users/alice"},
+        )
+        assert "0..2 OUTBOUND @start GRAPH 'test_graph'" in query["query"]
+        assert "RETURN {vertices: [v], edges: [e]}" in query["query"]
+        assert query["bindVars"]["start"] == "users/alice"
+
+        # With filter and prune
+        query = AqlLoader.create_traversal_query(
+            start_vertex="'users/alice'",
+            graph_name="test_graph",
+            min_depth=1,
+            max_depth=3,
+            direction="ANY",
+            prune_condition="v.visited",
+            filter_condition="e.weight > 0",
+        )
+        assert "1..3 ANY 'users/alice' GRAPH 'test_graph'" in query["query"]
+        assert "PRUNE v.visited" in query["query"]
+        assert "FILTER e.weight > 0" in query["query"]
+
+    def test_aql_empty_queries_raises_error(
+        self,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test that empty queries raise an error."""
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database="_system",
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        with pytest.raises(PhenolError):
+            loader.load_to_networkx(queries=[])
+
+        with pytest.raises(PhenolError):
+            loader.load_to_networkx(queries=[[]])
+
+        with pytest.raises(PhenolError):
+            loader.load_to_numpy(queries=[])
