@@ -1215,12 +1215,15 @@ class TestAqlLoader:
             col_to_ind_to_key,
         ) = loader.load_to_numpy(
             queries=queries,
+            vertex_attributes={"age": "i64", "price": "f64"},
+            edge_attributes={"amount": "f64"},
         )
 
         # We should have entries for users and products collections
-        # Note: AQL returns full document IDs, so keys should be derived from _id
         assert isinstance(col_to_key_to_ind, dict)
         assert isinstance(col_to_ind_to_key, dict)
+        assert isinstance(features_by_col, dict)
+        assert isinstance(coo_map, dict)
 
     def test_aql_helper_create_vertex_query(self) -> None:
         """Test the create_vertex_query helper."""

@@ -199,12 +199,12 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
     .map_err(|e| format!("Could not create AQL graph loader: {:?}", e))?;
 
     // Clone attribute info for the callback
-    let vertex_attr_names: Vec<String> = req
-        .vertex_attributes
-        .iter()
-        .map(|a| a.name.clone())
-        .collect();
-    let edge_attr_names: Vec<String> = req.edge_attributes.iter().map(|a| a.name.clone()).collect();
+    // Add @collection_name as first field for NumpyGraph compatibility
+    let mut vertex_attr_names: Vec<String> = vec!["@collection_name".to_string()];
+    vertex_attr_names.extend(req.vertex_attributes.iter().map(|a| a.name.clone()));
+    // Add @collection_name as first field for edges too
+    let mut edge_attr_names: Vec<String> = vec!["@collection_name".to_string()];
+    edge_attr_names.extend(req.edge_attributes.iter().map(|a| a.name.clone()));
 
     let graph_arc_clone = graph_arc.clone();
     let handle_batch = move |batch: &mut arangors_graph_exporter::GraphBatch| {
@@ -213,13 +213,16 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
         // Insert vertices
         for i in 0..batch.vertex_ids.len() {
             let id = batch.vertex_ids[i].clone();
-            let columns: Vec<Value> = if !batch.vertex_attribute_values.is_empty()
-                && i < batch.vertex_attribute_values.len()
+            // Extract collection name from id (format: "collection/key")
+            let id_str = String::from_utf8_lossy(&id);
+            let collection_name = id_str.split('/').next().unwrap_or("unknown").to_string();
+
+            // Build columns with @collection_name as first element
+            let mut columns: Vec<Value> = vec![Value::String(collection_name)];
+            if !batch.vertex_attribute_values.is_empty() && i < batch.vertex_attribute_values.len()
             {
-                batch.vertex_attribute_values[i].clone()
-            } else {
-                vec![]
-            };
+                columns.extend(batch.vertex_attribute_values[i].clone());
+            }
             graph.insert_vertex(id, columns, &vertex_attr_names);
         }
 
@@ -228,13 +231,19 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
         for i in 0..edge_count {
             let from_id = batch.edge_from_ids[i].clone();
             let to_id = batch.edge_to_ids[i].clone();
-            let columns: Vec<Value> = if !batch.edge_attribute_values.is_empty()
-                && i < batch.edge_attribute_values.len()
-            {
-                batch.edge_attribute_values[i].clone()
-            } else {
-                vec![]
-            };
+
+            // Extract collection names from from/to ids for synthetic edge collection name
+            let from_str = String::from_utf8_lossy(&from_id);
+            let to_str = String::from_utf8_lossy(&to_id);
+            let from_col = from_str.split('/').next().unwrap_or("unknown");
+            let to_col = to_str.split('/').next().unwrap_or("unknown");
+            let edge_collection = format!("{}_to_{}", from_col, to_col);
+
+            // Build columns with @collection_name as first element
+            let mut columns: Vec<Value> = vec![Value::String(edge_collection)];
+            if !batch.edge_attribute_values.is_empty() && i < batch.edge_attribute_values.len() {
+                columns.extend(batch.edge_attribute_values[i].clone());
+            }
             let insertion_result = graph.insert_edge(from_id, to_id, columns, &edge_attr_names);
             if insertion_result.is_err() {
                 return Err(GraphLoaderError::from(format!(
