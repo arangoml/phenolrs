@@ -1229,7 +1229,7 @@ class TestAqlLoader:
         """Test the create_vertex_query helper."""
         # Simple query
         query = AqlLoader.create_vertex_query("users")
-        assert "FOR doc IN users" in query["query"]
+        assert "FOR doc IN `users`" in query["query"]
         assert "RETURN {vertices: [doc]}" in query["query"]
 
         # With filter
@@ -1248,7 +1248,7 @@ class TestAqlLoader:
         """Test the create_edge_query helper."""
         # Simple query
         query = AqlLoader.create_edge_query("purchases")
-        assert "FOR doc IN purchases" in query["query"]
+        assert "FOR doc IN `purchases`" in query["query"]
         assert "RETURN {edges: [doc]}" in query["query"]
 
         # With filter
@@ -1273,7 +1273,7 @@ class TestAqlLoader:
             max_depth=2,
             bind_vars={"start": "users/alice"},
         )
-        assert "0..2 OUTBOUND @start GRAPH 'test_graph'" in query["query"]
+        assert "0..2 OUTBOUND @start GRAPH `test_graph`" in query["query"]
         assert "RETURN {vertices: [v], edges: [e]}" in query["query"]
         assert query["bindVars"]["start"] == "users/alice"
 
@@ -1287,7 +1287,7 @@ class TestAqlLoader:
             prune_condition="v.visited",
             filter_condition="e.weight > 0",
         )
-        assert "1..3 ANY 'users/alice' GRAPH 'test_graph'" in query["query"]
+        assert "1..3 ANY 'users/alice' GRAPH `test_graph`" in query["query"]
         assert "PRUNE v.visited" in query["query"]
         assert "FILTER e.weight > 0" in query["query"]
 

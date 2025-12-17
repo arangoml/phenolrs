@@ -84,23 +84,11 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Verify source files exist
-          command: |
-            echo "=== AQL module files ==="
-            ls -la python/phenolrs/aql/
-      - run:
           name: Build builder image
           command: docker build --no-cache -t phenolrs-builder:latest -f Dockerfile-build-linux-x86_64 .
       - run:
           name: Build << parameters.python-version >> package
           command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter << parameters.python-version >>
-      - run:
-          name: Verify wheel contents
-          command: |
-            echo "=== Wheel files ==="
-            ls -la ~/project/target/wheels/
-            echo "=== Python files in wheel ==="
-            unzip -l ~/project/target/wheels/*.whl | grep -E "phenolrs/.*\.py|phenolrs/aql"
       - persist_to_workspace:
           root: ~/project/target
           paths:
