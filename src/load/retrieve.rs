@@ -211,6 +211,16 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
         let mut graph = graph_arc_clone.write().unwrap();
 
         // Insert vertices
+        if !batch.vertex_attribute_values.is_empty()
+            && batch.vertex_attribute_values.len() != batch.vertex_ids.len()
+        {
+            log::warn!(
+                "Vertex attribute array length mismatch: ids={}, attributes={}. \
+                 Some vertices may have incomplete attributes.",
+                batch.vertex_ids.len(),
+                batch.vertex_attribute_values.len()
+            );
+        }
         for i in 0..batch.vertex_ids.len() {
             let id = batch.vertex_ids[i].clone();
             // Extract collection name from id (format: "collection/key")
@@ -234,6 +244,16 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
                 batch.edge_from_ids.len(),
                 batch.edge_to_ids.len(),
                 edge_count
+            );
+        }
+        if !batch.edge_attribute_values.is_empty()
+            && batch.edge_attribute_values.len() != edge_count
+        {
+            log::warn!(
+                "Edge attribute array length mismatch: edges={}, attributes={}. \
+                 Some edges may have incomplete attributes.",
+                edge_count,
+                batch.edge_attribute_values.len()
             );
         }
         for i in 0..edge_count {
