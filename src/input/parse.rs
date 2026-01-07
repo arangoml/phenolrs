@@ -265,12 +265,19 @@ impl FromPyObject<'_> for AqlDataLoadRequest {
             },
         )?;
 
+        // Parse max_type_errors (optional)
+        let max_type_errors: Option<u64> = input_dict
+            .get_item("max_type_errors")?
+            .map(|v| v.extract())
+            .transpose()?;
+
         Ok(AqlDataLoadRequest {
             db_config: db_config.into(),
             batch_size,
             vertex_attributes,
             edge_attributes,
             queries,
+            max_type_errors,
         })
     }
 }

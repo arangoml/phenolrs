@@ -112,6 +112,7 @@ class AqlLoader:
         queries: List[List[AqlQuery]],
         vertex_attributes: Optional[AttributeSpec] = None,
         edge_attributes: Optional[AttributeSpec] = None,
+        max_type_errors: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Build the request object for the Rust backend."""
         db_config: DatabaseConfig = {
@@ -134,6 +135,8 @@ class AqlLoader:
             request["vertex_attributes"] = vertex_attributes
         if edge_attributes is not None:
             request["edge_attributes"] = edge_attributes
+        if max_type_errors is not None:
+            request["max_type_errors"] = max_type_errors
 
         return request
 
@@ -142,6 +145,7 @@ class AqlLoader:
         queries: List[List[AqlQuery]],
         vertex_attributes: Optional[AttributeSpec] = None,
         edge_attributes: Optional[AttributeSpec] = None,
+        max_type_errors: Optional[int] = None,
     ) -> Any:
         """Load a graph using AQL queries into numpy-compatible format.
 
@@ -155,6 +159,8 @@ class AqlLoader:
                 or a list of {"name": str, "type": str} objects.
             edge_attributes: Schema for edge attributes
                 (same format as vertex_attributes).
+            max_type_errors: Maximum number of type errors to report
+                before stopping. None uses the library default.
 
         Returns:
             Tuple of (features_by_col, coo_map, col_to_key_to_ind,
@@ -163,7 +169,9 @@ class AqlLoader:
         if not queries or not any(len(group) > 0 for group in queries):
             raise PhenolError("At least one AQL query must be provided")
 
-        request = self._build_request(queries, vertex_attributes, edge_attributes)
+        request = self._build_request(
+            queries, vertex_attributes, edge_attributes, max_type_errors
+        )
         return graph_aql_to_numpy_format(request)  # type: ignore[arg-type]
 
     def load_to_networkx(
@@ -176,6 +184,7 @@ class AqlLoader:
         is_directed: bool = True,
         is_multigraph: bool = True,
         symmetrize_edges_if_directed: bool = False,
+        max_type_errors: Optional[int] = None,
     ) -> Any:
         """Load a graph using AQL queries into NetworkX-compatible format.
 
@@ -190,6 +199,8 @@ class AqlLoader:
             is_directed: Whether the graph is directed (default: True)
             is_multigraph: Whether to allow multiple edges (default: True)
             symmetrize_edges_if_directed: Add reverse edges (default: False)
+            max_type_errors: Maximum number of type errors to report
+                before stopping. None uses the library default.
 
         Returns:
             A tuple of (node_dict, adj_dict, src_indices, dst_indices,
@@ -198,7 +209,9 @@ class AqlLoader:
         if not queries or not any(len(group) > 0 for group in queries):
             raise PhenolError("At least one AQL query must be provided")
 
-        request = self._build_request(queries, vertex_attributes, edge_attributes)
+        request = self._build_request(
+            queries, vertex_attributes, edge_attributes, max_type_errors
+        )
 
         graph_config = {
             "load_adj_dict": load_adj_dict,

@@ -195,6 +195,7 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
         req.vertex_attributes.clone(),
         req.edge_attributes.clone(),
         req.queries,
+        req.max_type_errors,
     )
     .map_err(|e| format!("Could not create AQL graph loader: {:?}", e))?;
 

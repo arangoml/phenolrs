@@ -18,17 +18,41 @@ pub struct NetworkXGraphConfig {
     pub symmetrize_edges_if_directed: bool,
 }
 
-/// Request for AQL-based graph loading following the design specification:
-/// - queries: List of lists of AQL queries. Outer list is processed sequentially,
-///   inner lists are processed in parallel.
-/// - Each query returns items of form {"vertices":[...], "edges":[...]}
-/// - vertex_attributes and edge_attributes define the schema with types
+/// Request for AQL-based graph loading.
+///
+/// Queries are organized as a list of lists. The outer list is processed sequentially,
+/// while inner lists are processed in parallel. Each query should return items of
+/// the form `{"vertices": [...], "edges": [...]}`.
 pub struct AqlDataLoadRequest {
+    /// Database connection configuration (endpoints, credentials, TLS settings).
     pub db_config: DatabaseConfiguration,
+
+    /// Number of documents to fetch per batch from ArangoDB.
     pub batch_size: u64,
+
+    /// Schema definition for vertex attributes.
+    ///
+    /// Each [`DataItem`] specifies an attribute name and its expected type.
+    /// Only attributes listed here will be extracted from vertex documents.
     pub vertex_attributes: Vec<DataItem>,
+
+    /// Schema definition for edge attributes.
+    ///
+    /// Each [`DataItem`] specifies an attribute name and its expected type.
+    /// Only attributes listed here will be extracted from edge documents.
     pub edge_attributes: Vec<DataItem>,
+
+    /// AQL queries organized as sequential groups of parallel queries.
+    ///
+    /// - Outer `Vec`: Groups processed sequentially (one after another)
+    /// - Inner `Vec`: Queries within a group processed in parallel
     pub queries: Vec<Vec<AqlQuery>>,
+
+    /// Maximum number of type errors to report per batch before stopping.
+    ///
+    /// When parsing document attributes, type mismatches are collected and reported.
+    /// This limit applies per batch, not overall. Set to `None` to use the library default.
+    pub max_type_errors: Option<u64>,
 }
 
 /// Helper to convert string type names to DataType enum

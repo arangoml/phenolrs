@@ -78,9 +78,9 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "arangors-graph-exporter"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6d4740db3ad63d9ff35db1cd1fbe05cb2f1f9eb4eb1c4db7bb64262e106645f"
+checksum = "1371d7c9555884cb7333105fe6c40d47f82658faf5f1e0da6a08520f4cdfcf0f"
 dependencies = [
  "bytes",
  "log",
