@@ -225,17 +225,18 @@ fn graph_aql_to_networkx_format(
 )> {
     let _ = env_logger::try_init();
 
-    // For AQL loading, we don't have load_all_vertex/edge_attributes in the same way
-    // We use the attribute schema provided in the request
-    let has_vertex_attrs = !request.vertex_attributes.is_empty();
-    let has_edge_attrs = !request.edge_attributes.is_empty();
+    // For AQL loading: if no attributes specified, load all; otherwise load selected
+    // load_all_*_attributes = true means load ALL properties (no schema)
+    // load_all_*_attributes = false means load SELECTED properties (user specified schema)
+    let load_all_vertex_attrs = request.vertex_attributes.is_empty();
+    let load_all_edge_attrs = request.edge_attributes.is_empty();
 
     let graph_factory = || {
         NetworkXGraph::new(
             graph_config.load_adj_dict,
             graph_config.load_coo,
-            has_vertex_attrs,
-            has_edge_attrs,
+            load_all_vertex_attrs,
+            load_all_edge_attrs,
             graph_config.is_directed,
             graph_config.is_multigraph,
             graph_config.symmetrize_edges_if_directed,

@@ -985,9 +985,9 @@ def test_isolated_node_networkx(
 class TestAqlLoader:
     """Tests for AQL-based graph loading."""
 
+    @pytest.mark.usefixtures("load_aql_test_graph")
     def test_aql_load_vertices_only(
         self,
-        load_aql_test_graph: None,
         aql_test_db_name: str,
         connection_information: dict[str, str],
     ) -> None:
@@ -1018,9 +1018,9 @@ class TestAqlLoader:
         assert "users/bob" in node_dict
         assert "users/charlie" in node_dict
 
+    @pytest.mark.usefixtures("load_aql_test_graph")
     def test_aql_load_vertices_and_edges_sequential(
         self,
-        load_aql_test_graph: None,
         aql_test_db_name: str,
         connection_information: dict[str, str],
     ) -> None:
@@ -1065,9 +1065,9 @@ class TestAqlLoader:
         # Check edges: 3 purchases
         assert len(src_indices) == 3
 
+    @pytest.mark.usefixtures("load_aql_test_graph")
     def test_aql_load_with_filter(
         self,
-        load_aql_test_graph: None,
         aql_test_db_name: str,
         connection_information: dict[str, str],
     ) -> None:
@@ -1100,9 +1100,9 @@ class TestAqlLoader:
         # charlie is NOT included because filter excludes inactive users
         assert "users/charlie" not in node_dict
 
+    @pytest.mark.usefixtures("load_aql_test_graph")
     def test_aql_load_with_bind_vars(
         self,
-        load_aql_test_graph: None,
         aql_test_db_name: str,
         connection_information: dict[str, str],
     ) -> None:
@@ -1143,9 +1143,9 @@ class TestAqlLoader:
         # bob is NOT included because age filter excludes him (age=25 < 30)
         assert "users/bob" not in node_dict
 
+    @pytest.mark.usefixtures("load_aql_test_graph")
     def test_aql_load_graph_traversal(
         self,
-        load_aql_test_graph: None,
         aql_test_db_name: str,
         connection_information: dict[str, str],
     ) -> None:
@@ -1186,9 +1186,9 @@ class TestAqlLoader:
         # Should find 2 edges (alice -> laptop, alice -> phone)
         assert len(src_indices) == 2
 
+    @pytest.mark.usefixtures("load_aql_test_graph")
     def test_aql_load_to_numpy(
         self,
-        load_aql_test_graph: None,
         aql_test_db_name: str,
         connection_information: dict[str, str],
     ) -> None:
@@ -1328,3 +1328,196 @@ class TestAqlLoader:
 
         with pytest.raises(PhenolError):
             loader.load_to_numpy(queries=[])
+
+    def test_aql_max_type_errors_passed_to_request(self) -> None:
+        """Test that max_type_errors is correctly passed through to the request."""
+        loader = AqlLoader(
+            hosts=["http://localhost:8529"],
+            database="_system",
+        )
+
+        # Verify max_type_errors is included when specified
+        request = loader._build_request(
+            queries=[[{"query": "RETURN 1"}]],
+            max_type_errors=5,
+        )
+        assert request["max_type_errors"] == 5
+
+        # Verify max_type_errors is not included when None
+        request_no_limit = loader._build_request(
+            queries=[[{"query": "RETURN 1"}]],
+        )
+        assert "max_type_errors" not in request_no_limit
+
+        # Verify zero is a valid value
+        request_zero = loader._build_request(
+            queries=[[{"query": "RETURN 1"}]],
+            max_type_errors=0,
+        )
+        assert request_zero["max_type_errors"] == 0
+
+    @pytest.mark.usefixtures("load_aql_test_graph")
+    def test_aql_load_with_correct_type_mappings(
+        self,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test loading with correct type mappings for all supported types."""
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        queries: list[list[AqlQuery]] = [
+            [AqlLoader.create_vertex_query("users")]
+        ]
+
+        # Test with correct type mappings:
+        # - name: string (actual: "Alice", "Bob", "Charlie")
+        # - age: i64 (actual: 30, 25, 35)
+        # - active: bool (actual: True, True, False)
+        result = loader.load_to_networkx(
+            queries=queries,
+            vertex_attributes={"name": "string", "age": "i64", "active": "bool"},
+            is_directed=True,
+            is_multigraph=False,
+            load_coo=False,
+        )
+        node_dict, *_ = result
+        assert len(node_dict) == 3
+
+        # Test f64 type with price field
+        product_queries: list[list[AqlQuery]] = [
+            [AqlLoader.create_vertex_query("products")]
+        ]
+        result = loader.load_to_networkx(
+            queries=product_queries,
+            vertex_attributes={"title": "string", "price": "f64"},
+            is_directed=True,
+            is_multigraph=False,
+            load_coo=False,
+        )
+        node_dict, *_ = result
+        assert len(node_dict) == 2  # laptop, phone
+
+        # Test edge_attributes with correct type mappings
+        # - amount: f64 (actual: 1.0, 2.0, 1.0)
+        full_graph_queries: list[list[AqlQuery]] = [
+            [
+                AqlLoader.create_vertex_query("users"),
+                AqlLoader.create_vertex_query("products"),
+            ],
+            [AqlLoader.create_edge_query("purchases")],
+        ]
+        result = loader.load_to_networkx(
+            queries=full_graph_queries,
+            vertex_attributes={"name": "string", "age": "i64"},
+            edge_attributes={"amount": "f64"},
+            is_directed=True,
+            is_multigraph=False,
+        )
+        node_dict, adj_dict, src_indices, *_ = result
+        assert len(node_dict) == 5  # 3 users + 2 products
+        assert len(src_indices) == 3  # 3 purchase edges
+
+    @pytest.mark.usefixtures("load_aql_test_graph")
+    def test_aql_load_with_wrong_type_mappings(
+        self,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test behavior with wrong type mappings.
+
+        When type mappings don't match data, the library silently converts
+        to default values (0 for numeric types) rather than raising errors.
+        """
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        queries: list[list[AqlQuery]] = [
+            [AqlLoader.create_vertex_query("users")]
+        ]
+
+        # Wrong mapping: name is actually a string, not i64
+        # The library converts unparseable values to defaults (0 for i64)
+        result = loader.load_to_networkx(
+            queries=queries,
+            vertex_attributes={"name": "i64"},  # Wrong: name is string
+            is_directed=True,
+            is_multigraph=False,
+            load_coo=False,
+        )
+        node_dict, *_ = result
+        # Vertices are loaded, but name values become 0 (default for failed i64 parse)
+        assert len(node_dict) == 3
+        for vertex_data in node_dict.values():
+            assert vertex_data.get("name") == 0  # Default value for failed conversion
+
+        # Test edge_attributes with type mismatch (also specify vertex attributes)
+        full_graph_queries: list[list[AqlQuery]] = [
+            [
+                AqlLoader.create_vertex_query("users"),
+                AqlLoader.create_vertex_query("products"),
+            ],
+            [AqlLoader.create_edge_query("purchases")],
+        ]
+        result = loader.load_to_networkx(
+            queries=full_graph_queries,
+            vertex_attributes={"name": "string"},  # Correct vertex mapping
+            edge_attributes={"amount": "i64"},  # Wrong: amount is f64, mapping as i64
+            is_directed=True,
+            is_multigraph=False,
+        )
+        node_dict, adj_dict, src_indices, *_ = result
+        assert len(node_dict) == 5  # 3 users + 2 products
+        assert len(src_indices) == 3  # 3 edges loaded
+
+    @pytest.mark.usefixtures("load_aql_test_graph")
+    def test_aql_load_with_max_type_errors_limit(
+        self,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test that max_type_errors parameter is passed through correctly.
+
+        This is a smoke test verifying the parameter doesn't break loading.
+        Full type error limit testing depends on the underlying Rust library.
+        """
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        queries: list[list[AqlQuery]] = [
+            [AqlLoader.create_vertex_query("users")]
+        ]
+
+        # Test load_to_networkx with max_type_errors (no type errors expected)
+        result = loader.load_to_networkx(
+            queries=queries,
+            vertex_attributes={"name": "string", "age": "i64"},
+            is_directed=True,
+            is_multigraph=False,
+            load_coo=False,
+            max_type_errors=10,
+        )
+        node_dict, *_ = result
+        assert len(node_dict) == 3  # alice, bob, charlie
+
+        # Test load_to_numpy with max_type_errors
+        result_numpy = loader.load_to_numpy(
+            queries=queries,
+            vertex_attributes={"age": "i64"},
+            max_type_errors=10,
+        )
+        features_by_col, coo_map, col_to_key_to_ind, col_to_ind_to_key = result_numpy
+        assert "users" in col_to_key_to_ind
+        assert len(col_to_key_to_ind["users"]) == 3

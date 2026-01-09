@@ -2,7 +2,7 @@ use crate::graph::Graph;
 use crate::input::load_request::{AqlDataLoadRequest, DataLoadRequest};
 use arangors_graph_exporter::errors::GraphLoaderError;
 use arangors_graph_exporter::{load_aql_graph, CollectionInfo, GraphLoader};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::error::Error;
 use std::sync::{Arc, RwLock};
 
@@ -200,12 +200,26 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
     .map_err(|e| format!("Could not create AQL graph loader: {:?}", e))?;
 
     // Clone attribute info for the callback
-    // Add @collection_name as first field for NumpyGraph compatibility
-    let mut vertex_attr_names: Vec<String> = vec!["@collection_name".to_string()];
-    vertex_attr_names.extend(req.vertex_attributes.iter().map(|a| a.name.clone()));
-    // Add @collection_name as first field for edges too
-    let mut edge_attr_names: Vec<String> = vec!["@collection_name".to_string()];
-    edge_attr_names.extend(req.edge_attributes.iter().map(|a| a.name.clone()));
+    // Only add @collection_name when specific attributes are requested
+    // When loading all attributes, field_names should be empty (for NetworkXGraph compatibility)
+    let has_vertex_attrs = !req.vertex_attributes.is_empty();
+    let has_edge_attrs = !req.edge_attributes.is_empty();
+
+    let vertex_attr_names: Vec<String> = if has_vertex_attrs {
+        let mut names = vec!["@collection_name".to_string()];
+        names.extend(req.vertex_attributes.iter().map(|a| a.name.clone()));
+        names
+    } else {
+        vec![]
+    };
+
+    let edge_attr_names: Vec<String> = if has_edge_attrs {
+        let mut names = vec!["@collection_name".to_string()];
+        names.extend(req.edge_attributes.iter().map(|a| a.name.clone()));
+        names
+    } else {
+        vec![]
+    };
 
     let graph_arc_clone = graph_arc.clone();
     let handle_batch = move |batch: &mut arangors_graph_exporter::GraphBatch| {
@@ -224,16 +238,34 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
         }
         for i in 0..batch.vertex_ids.len() {
             let id = batch.vertex_ids[i].clone();
-            // Extract collection name from id (format: "collection/key")
-            let id_str = String::from_utf8_lossy(&id);
-            let collection_name = id_str.split('/').next().unwrap_or("unknown").to_string();
 
-            // Build columns with @collection_name as first element
-            let mut columns: Vec<Value> = vec![Value::String(collection_name)];
-            if !batch.vertex_attribute_values.is_empty() && i < batch.vertex_attribute_values.len()
-            {
-                columns.extend(batch.vertex_attribute_values[i].clone());
-            }
+            // Build columns based on whether specific attributes are requested
+            let columns: Vec<Value> = if has_vertex_attrs {
+                // Extract collection name from id (format: "collection/key")
+                let id_str = String::from_utf8_lossy(&id);
+                let collection_name = id_str.split('/').next().unwrap_or("unknown").to_string();
+
+                // Build columns with @collection_name as first element
+                let mut cols = vec![Value::String(collection_name)];
+                if !batch.vertex_attribute_values.is_empty()
+                    && i < batch.vertex_attribute_values.len()
+                {
+                    cols.extend(batch.vertex_attribute_values[i].clone());
+                }
+                cols
+            } else {
+                // When loading all attributes, pass raw data from batch as single JSON object
+                // get_vertex_properties_all expects exactly 1 column (the full JSON doc)
+                if !batch.vertex_attribute_values.is_empty()
+                    && i < batch.vertex_attribute_values.len()
+                    && !batch.vertex_attribute_values[i].is_empty()
+                {
+                    batch.vertex_attribute_values[i].clone()
+                } else {
+                    // Pass empty JSON object if no data available
+                    vec![Value::Object(Map::new())]
+                }
+            };
             graph.insert_vertex(id, columns, &vertex_attr_names);
         }
 
@@ -261,18 +293,35 @@ pub async fn fetch_graph_from_arangodb_via_aql<G: Graph + Send + Sync + 'static>
             let from_id = batch.edge_from_ids[i].clone();
             let to_id = batch.edge_to_ids[i].clone();
 
-            // Extract collection names from from/to ids for synthetic edge collection name
-            let from_str = String::from_utf8_lossy(&from_id);
-            let to_str = String::from_utf8_lossy(&to_id);
-            let from_col = from_str.split('/').next().unwrap_or("unknown");
-            let to_col = to_str.split('/').next().unwrap_or("unknown");
-            let edge_collection = format!("{}_to_{}", from_col, to_col);
+            // Build columns based on whether specific attributes are requested
+            let columns: Vec<Value> = if has_edge_attrs {
+                // Extract collection names from from/to ids for synthetic edge collection name
+                let from_str = String::from_utf8_lossy(&from_id);
+                let to_str = String::from_utf8_lossy(&to_id);
+                let from_col = from_str.split('/').next().unwrap_or("unknown");
+                let to_col = to_str.split('/').next().unwrap_or("unknown");
+                let edge_collection = format!("{}_to_{}", from_col, to_col);
 
-            // Build columns with @collection_name as first element
-            let mut columns: Vec<Value> = vec![Value::String(edge_collection)];
-            if !batch.edge_attribute_values.is_empty() && i < batch.edge_attribute_values.len() {
-                columns.extend(batch.edge_attribute_values[i].clone());
-            }
+                // Build columns with @collection_name as first element
+                let mut cols = vec![Value::String(edge_collection)];
+                if !batch.edge_attribute_values.is_empty() && i < batch.edge_attribute_values.len()
+                {
+                    cols.extend(batch.edge_attribute_values[i].clone());
+                }
+                cols
+            } else {
+                // When loading all attributes, pass raw data from batch as single JSON object
+                // get_edge_properties_all expects exactly 1 column (the full JSON doc)
+                if !batch.edge_attribute_values.is_empty()
+                    && i < batch.edge_attribute_values.len()
+                    && !batch.edge_attribute_values[i].is_empty()
+                {
+                    batch.edge_attribute_values[i].clone()
+                } else {
+                    // Pass empty JSON object if no data available
+                    vec![Value::Object(Map::new())]
+                }
+            };
             let insertion_result = graph.insert_edge(from_id, to_id, columns, &edge_attr_names);
             if insertion_result.is_err() {
                 return Err(GraphLoaderError::from(format!(
