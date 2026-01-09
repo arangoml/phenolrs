@@ -253,7 +253,8 @@ class AqlLoader:
         Note:
             Edges are required for PyG Data format. The returned Data object
             will always have an edge_index tensor. Ensure your queries return
-            edge documents in the "edges" array.
+            edge documents in the "edges" array. For vertex-only graphs,
+            use :meth:`load_to_networkx` or :meth:`load_to_numpy` instead.
 
         Args:
             queries: List of query groups. Outer list is sequential,
@@ -271,6 +272,13 @@ class AqlLoader:
 
         Returns:
             A tuple of (Data, col_to_key_to_ind, col_to_ind_to_key)
+
+        Raises:
+            ImportError: If PyTorch/PyG dependencies are not installed.
+            PhenolError: If no queries are provided, no vertex/edge data is loaded,
+                multiple vertex collections or edge types are found (use
+                :meth:`load_to_pyg_heterodata` for heterogeneous graphs), or if
+                attributes have incompatible types (strings/objects).
 
         Example:
             >>> loader = AqlLoader(hosts=["http://localhost:8529"], database="mydb")
