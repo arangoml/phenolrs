@@ -714,7 +714,7 @@ class AqlLoader:
         if filter_condition:
             query_parts.append(f"FILTER {filter_condition}")
 
-        # Use conditional to handle null edges when min_depth=0 (start vertex has no edge)
+        # Handle null edges when min_depth=0 (start vertex has no edge)
         query_parts.append("RETURN {vertices: [v], edges: (e == null ? [] : [e])}")
 
         return {
