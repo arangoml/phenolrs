@@ -29,14 +29,23 @@ fn error_if_edge_exists<X>(
 fn parse_value_to_vec(val: &Value) -> Option<Vec<f64>> {
     match val.as_array() {
         Some(v) => {
-            let float_casted: Vec<f64> = v.iter().filter_map(|v| v.as_f64()).collect();
+            let float_casted: Vec<f64> = v.iter().filter_map(|v| value_to_f64(v)).collect();
             if float_casted.len() != v.len() {
                 None
             } else {
                 Some(float_casted)
             }
         }
-        None => val.as_f64().map(|only_val| vec![only_val]),
+        None => value_to_f64(val).map(|only_val| vec![only_val]),
+    }
+}
+
+/// Convert a JSON Value to f64, handling booleans as 0.0/1.0
+fn value_to_f64(val: &Value) -> Option<f64> {
+    match val {
+        Value::Number(n) => n.as_f64(),
+        Value::Bool(b) => Some(if *b { 1.0 } else { 0.0 }),
+        _ => None,
     }
 }
 
@@ -860,8 +869,11 @@ impl Graph for NumpyGraph {
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) -> Result<()> {
-        debug_assert!(!columns.is_empty());
-        debug_assert_eq!(columns.len(), field_names.len());
+        // Note: columns may be empty when no edge attributes are specified
+        // In that case, we derive the edge collection name from from/to IDs
+        if !field_names.is_empty() {
+            debug_assert_eq!(columns.len(), field_names.len());
+        }
 
         let (from_col, from_key) = {
             let s = String::from_utf8(from_id.clone()).expect("_from to be a string");
@@ -894,17 +906,22 @@ impl Graph for NumpyGraph {
             return Ok(());
         }
 
-        debug_assert!(field_names.contains(&String::from("@collection_name")));
-        let col_name_position = field_names
-            .iter()
-            .position(|x| x == "@collection_name")
-            .expect("No @collection_name in edge field names");
-        let col_name = match &columns[col_name_position] {
-            Value::String(s) => s.as_str(),
-            _ => panic!("Expected Value::String for @collection_name"),
+        // Get edge collection name: either from @collection_name column or derive from IDs
+        let col_name: String = if field_names.contains(&String::from("@collection_name")) {
+            let col_name_position = field_names
+                .iter()
+                .position(|x| x == "@collection_name")
+                .unwrap();
+            match &columns[col_name_position] {
+                Value::String(s) => s.clone(),
+                _ => format!("{}_to_{}", from_col, to_col),
+            }
+        } else {
+            // Derive edge collection name from from/to collection names
+            format!("{}_to_{}", from_col, to_col)
         };
 
-        let key_tup = (col_name.to_string(), from_col.clone(), to_col.clone());
+        let key_tup = (col_name, from_col.clone(), to_col.clone());
         if !self.coo_by_from_edge_to.contains_key(&key_tup) {
             self.coo_by_from_edge_to
                 .insert(key_tup.clone(), vec![vec![], vec![]]);

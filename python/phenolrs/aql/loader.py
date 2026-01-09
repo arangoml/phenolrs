@@ -447,6 +447,18 @@ class AqlLoader:
 
         data = HeteroData()
 
+        # Validate that collections referenced in pyg_feature_mapping exist
+        # This catches cases where string attributes were requested (which are
+        # silently dropped by the Rust backend, resulting in no vertex data)
+        if pyg_feature_mapping is not None:
+            for col_name in pyg_feature_mapping:
+                if col_name not in features_by_col:
+                    raise PhenolError(
+                        f"No vertex data loaded for collection '{col_name}'. "
+                        "This may occur if only string/object type attributes were "
+                        "requested, which cannot be converted to PyG tensors."
+                    )
+
         # Process vertex features per collection
         for col_name, col_features in features_by_col.items():
             if pyg_feature_mapping is not None and col_name in pyg_feature_mapping:
