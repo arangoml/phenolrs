@@ -1585,6 +1585,7 @@ class TestAqlLoader:
         data, _, _ = loader.load_to_pyg_data(
             queries=queries,
             vertex_attributes={"age": "i64", "active": "bool"},
+            edge_attributes={"amount": "f64"},
         )
 
         # Both age and active should be in x
@@ -1621,6 +1622,7 @@ class TestAqlLoader:
         data, key_to_ind, ind_to_key = loader.load_to_pyg_heterodata(
             queries=queries,
             vertex_attributes={"age": "i64", "price": "f64"},
+            edge_attributes={"amount": "f64"},
             pyg_feature_mapping={
                 "users": {"x": ["age"]},
                 "products": {"x": ["price"]},
@@ -1702,6 +1704,7 @@ class TestAqlLoader:
             loader.load_to_pyg_data(
                 queries=queries,
                 vertex_attributes={"name": "string"},  # String type is not supported
+                edge_attributes={"amount": "f64"},
                 pyg_feature_mapping={"x": ["name"]},
             )
 
@@ -1732,5 +1735,6 @@ class TestAqlLoader:
             loader.load_to_pyg_heterodata(
                 queries=queries,
                 vertex_attributes={"name": "string"},
+                edge_attributes={"amount": "f64"},
                 pyg_feature_mapping={"users": {"x": ["name"]}},
             )
