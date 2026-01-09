@@ -265,9 +265,10 @@ impl FromPyObject<'_> for AqlDataLoadRequest {
             },
         )?;
 
-        // Parse max_type_errors (optional)
+        // Parse max_type_errors (optional) - handle Python None explicitly
         let max_type_errors: Option<u64> = input_dict
             .get_item("max_type_errors")?
+            .and_then(|v| if v.is_none() { None } else { Some(v) })
             .map(|v| v.extract())
             .transpose()?;
 
@@ -307,6 +308,6 @@ fn parse_attributes(ob: Bound<'_, PyAny>) -> PyResult<Vec<DataItem>> {
     }
 
     Err(PyValueError::new_err(
-        "Attributes must be a dict {'name': 'type'} or list [{'name': 'n', 'type': 't'}]",
+        "Attributes must be a dict {'attr_name': 'type'} or list [{'name': 'n', 'type': 't'}]",
     ))
 }

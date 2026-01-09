@@ -130,10 +130,14 @@ class AqlLoader:
         db_config: DatabaseConfig = {
             "endpoints": self.hosts,
             "database": self.database,
-            "username": self.username or "",
-            "password": self.password or "",
-            "jwt_token": self.user_jwt or "",
         }
+        # Only include credentials when provided (not empty strings)
+        if self.username:
+            db_config["username"] = self.username
+        if self.password:
+            db_config["password"] = self.password
+        if self.user_jwt:
+            db_config["jwt_token"] = self.user_jwt
         if self.tls_cert:
             db_config["tls_cert"] = self.tls_cert
 
@@ -388,8 +392,11 @@ class AqlLoader:
 
         edge_key = list(coo_map.keys())[0]
         edge_index = torch.from_numpy(coo_map[edge_key].astype(np.int64))
+        # Always assign edge_index, even if empty (use proper empty tensor shape)
         if edge_index.numel() > 0:
             data.edge_index = edge_index
+        else:
+            data.edge_index = torch.empty((2, 0), dtype=torch.long)
 
         return data, col_to_adb_key_to_ind, col_to_ind_to_adb_key
 
@@ -571,7 +578,8 @@ class AqlLoader:
             for f in projection:
                 _validate_identifier(f, "projection field")
             fields = ["_id: doc._id"]
-            fields.extend([f"`{f}`: doc.`{f}`" for f in projection])
+            # Skip _id if already in projection to avoid duplicate keys
+            fields.extend([f"`{f}`: doc.`{f}`" for f in projection if f != "_id"])
             return_expr = "{" + ", ".join(fields) + "}"
             query_parts.append(f"RETURN {{vertices: [{return_expr}]}}")
         else:
@@ -706,7 +714,8 @@ class AqlLoader:
         if filter_condition:
             query_parts.append(f"FILTER {filter_condition}")
 
-        query_parts.append("RETURN {vertices: [v], edges: [e]}")
+        # Use conditional to handle null edges when min_depth=0 (start vertex has no edge)
+        query_parts.append("RETURN {vertices: [v], edges: (e == null ? [] : [e])}")
 
         return {
             "query": " ".join(query_parts),

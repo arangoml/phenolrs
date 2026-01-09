@@ -1291,7 +1291,7 @@ class TestAqlLoader:
             bind_vars={"start": "users/alice"},
         )
         assert "0..2 OUTBOUND @start GRAPH `test_graph`" in query["query"]
-        assert "RETURN {vertices: [v], edges: [e]}" in query["query"]
+        assert "RETURN {vertices: [v], edges: (e == null ? [] : [e])}" in query["query"]
         assert query["bindVars"]["start"] == "users/alice"
 
         # With filter and prune

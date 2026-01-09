@@ -15,11 +15,11 @@ pub fn get_arangodb_graph<G: Graph + Send + Sync + 'static>(
 
     // Fetch from ArangoDB in a background thread:
     let handle = std::thread::spawn(move || {
-        tokio::runtime::Builder::new_multi_thread()
+        let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
-            .unwrap()
-            .block_on(async { fetch_graph_from_arangodb_local_variant(req, graph_clone).await })
+            .map_err(|e| format!("Failed to build tokio runtime: {}", e))?;
+        runtime.block_on(async { fetch_graph_from_arangodb_local_variant(req, graph_clone).await })
     });
     handle.join().map_err(|_s| "Computation failed")??;
     let inner_rw_lock = Arc::<std::sync::RwLock<G>>::try_unwrap(graph)
@@ -165,11 +165,11 @@ pub fn get_arangodb_graph_via_aql<G: Graph + Send + Sync + 'static>(
 
     // Fetch from ArangoDB in a background thread:
     let handle = std::thread::spawn(move || {
-        tokio::runtime::Builder::new_multi_thread()
+        let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
-            .unwrap()
-            .block_on(async { fetch_graph_from_arangodb_via_aql(req, graph_clone).await })
+            .map_err(|e| format!("Failed to build tokio runtime: {}", e))?;
+        runtime.block_on(async { fetch_graph_from_arangodb_via_aql(req, graph_clone).await })
     });
     handle.join().map_err(|_s| "Computation failed")??;
     let inner_rw_lock = Arc::<std::sync::RwLock<G>>::try_unwrap(graph)
