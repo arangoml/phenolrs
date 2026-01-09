@@ -1521,3 +1521,157 @@ class TestAqlLoader:
         features_by_col, coo_map, col_to_key_to_ind, col_to_ind_to_key = result_numpy
         assert "users" in col_to_key_to_ind
         assert len(col_to_key_to_ind["users"]) == 3
+
+    @pytest.mark.usefixtures("load_aql_test_graph")
+    def test_aql_load_to_pyg_data(
+        self,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test loading into PyG Data format via AQL (homogeneous graph)."""
+        pytest.importorskip("torch")
+        pytest.importorskip("torch_geometric")
+
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        # Load users and their purchase edges (homogeneous subset)
+        queries: list[list[AqlQuery]] = [
+            [{"query": "FOR v IN users RETURN {vertices: [v]}"}],
+            [{"query": "FOR e IN purchases RETURN {edges: [e]}"}],
+        ]
+
+        # Load with explicit feature mapping
+        data, key_to_ind, ind_to_key = loader.load_to_pyg_data(
+            queries=queries,
+            vertex_attributes={"age": "i64"},
+            edge_attributes={"amount": "f64"},
+            pyg_feature_mapping={"x": ["age"]},
+        )
+
+        # Verify PyG Data structure
+        assert hasattr(data, "x")
+        assert hasattr(data, "edge_index")
+        assert data.x.shape[0] == 3  # 3 users
+        assert data.x.shape[1] == 1  # 1 feature (age)
+        assert data.edge_index.shape[0] == 2  # COO format (src, dst)
+        assert data.edge_index.shape[1] == 5  # 5 purchases
+
+        # Verify mappings
+        assert "users" in key_to_ind
+        assert len(key_to_ind["users"]) == 3
+
+    @pytest.mark.usefixtures("load_aql_test_graph")
+    def test_aql_load_to_pyg_data_auto_mapping(
+        self,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test loading into PyG Data format with auto feature mapping."""
+        pytest.importorskip("torch")
+        pytest.importorskip("torch_geometric")
+
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        queries: list[list[AqlQuery]] = [
+            [{"query": "FOR v IN users RETURN {vertices: [v]}"}],
+            [{"query": "FOR e IN purchases RETURN {edges: [e]}"}],
+        ]
+
+        # Load without explicit mapping - should auto-stack into 'x'
+        data, _, _ = loader.load_to_pyg_data(
+            queries=queries,
+            vertex_attributes={"age": "i64", "active": "bool"},
+        )
+
+        # Both age and active should be in x
+        assert hasattr(data, "x")
+        assert data.x.shape[0] == 3  # 3 users
+        assert data.x.shape[1] == 2  # 2 features (age, active)
+
+    @pytest.mark.usefixtures("load_aql_test_graph")
+    def test_aql_load_to_pyg_heterodata(
+        self,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test loading into PyG HeteroData format via AQL."""
+        pytest.importorskip("torch")
+        pytest.importorskip("torch_geometric")
+
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        # Load full heterogeneous graph
+        queries: list[list[AqlQuery]] = [
+            [
+                {"query": "FOR v IN users RETURN {vertices: [v]}"},
+                {"query": "FOR v IN products RETURN {vertices: [v]}"},
+            ],
+            [{"query": "FOR e IN purchases RETURN {edges: [e]}"}],
+        ]
+
+        data, key_to_ind, ind_to_key = loader.load_to_pyg_heterodata(
+            queries=queries,
+            vertex_attributes={"age": "i64", "price": "f64"},
+            pyg_feature_mapping={
+                "users": {"x": ["age"]},
+                "products": {"x": ["price"]},
+            },
+        )
+
+        # Verify HeteroData structure
+        assert "users" in data.node_types
+        assert "products" in data.node_types
+        assert data["users"].x.shape[0] == 3  # 3 users
+        assert data["products"].x.shape[0] == 3  # 3 products
+        assert len(data.edge_types) >= 1  # At least purchases edge type
+
+        # Verify mappings
+        assert "users" in key_to_ind
+        assert "products" in key_to_ind
+
+    def test_aql_load_to_pyg_missing_torch_raises(
+        self,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test that loading to PyG without torch raises ImportError."""
+
+        # Skip this test if torch is installed (we can't uninstall it)
+        try:
+            import torch  # noqa: F401
+
+            pytest.skip("torch is installed, cannot test missing import")
+        except ImportError:
+            pass
+
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database="_system",
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        queries: list[list[AqlQuery]] = [
+            [{"query": "FOR v IN test RETURN {vertices: [v]}"}],
+            [{"query": "FOR e IN test RETURN {edges: [e]}"}],
+        ]
+
+        with pytest.raises(ImportError, match="phenolrs\\[torch\\]"):
+            loader.load_to_pyg_data(queries=queries)
+
+        with pytest.raises(ImportError, match="phenolrs\\[torch\\]"):
+            loader.load_to_pyg_heterodata(queries=queries)

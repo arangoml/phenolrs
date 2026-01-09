@@ -616,6 +616,57 @@ for edge_key, indices in coo_map.items():
     print(f"Edge type {edge_key}: {indices.shape}")
 ```
 
+#### Loading to PyTorch Geometric (PyG)
+
+AqlLoader supports loading directly into PyG `Data` or `HeteroData` objects for GNN training:
+
+```python
+# Requires: pip install phenolrs[torch]
+
+# Load homogeneous graph into PyG Data
+data, key_to_ind, ind_to_key = loader.load_to_pyg_data(
+    queries=[
+        [{"query": "FOR v IN users RETURN {vertices: [v]}"}],
+        [{"query": "FOR e IN follows RETURN {edges: [e]}"}],
+    ],
+    vertex_attributes={"age": "i64", "score": "f64"},
+    # Map loaded attributes to PyG conventions (x for features, y for labels)
+    pyg_feature_mapping={"x": ["age", "score"]},
+)
+
+print(f"Node features: {data.x.shape}")       # [num_nodes, 2]
+print(f"Edge indices: {data.edge_index.shape}")  # [2, num_edges]
+```
+
+For heterogeneous graphs with multiple node/edge types:
+
+```python
+# Load heterogeneous graph into PyG HeteroData
+data, key_to_ind, ind_to_key = loader.load_to_pyg_heterodata(
+    queries=[
+        [
+            {"query": "FOR v IN users RETURN {vertices: [v]}"},
+            {"query": "FOR v IN products RETURN {vertices: [v]}"},
+        ],
+        [{"query": "FOR e IN purchases RETURN {edges: [e]}"}],
+    ],
+    vertex_attributes={"age": "i64", "price": "f64"},
+    pyg_feature_mapping={
+        "users": {"x": ["age"]},
+        "products": {"x": ["price"]},
+    },
+)
+
+print(data.node_types)     # ['users', 'products']
+print(data.edge_types)     # [('users', 'purchases', 'products')]
+print(data["users"].x.shape)  # [num_users, 1]
+```
+
+**Note on feature mapping:**
+- When `pyg_feature_mapping` is provided, attributes are stacked into the specified PyG attribute names
+- Without mapping, all numeric attributes are automatically stacked into `x`
+- Attributes must be numeric types (`i64`, `f64`, `bool`) for PyG compatibility
+
 #### Query Structure
 
 Queries are organized into groups for execution control:

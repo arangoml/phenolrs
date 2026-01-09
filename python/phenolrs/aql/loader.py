@@ -11,7 +11,10 @@ The key benefit of AQL-based loading is flexibility:
 - Control over execution order (sequential groups, parallel queries)
 """
 
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+
+import numpy as np
 
 from phenolrs import (
     PhenolError,
@@ -21,7 +24,16 @@ from phenolrs import (
 
 from .typings import AqlQuery, AttributeSpec, DatabaseConfig
 
-import re
+if TYPE_CHECKING:
+    from torch_geometric.data import Data, HeteroData
+
+try:
+    import torch
+    from torch_geometric.data import Data, HeteroData
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 # Valid AQL identifier: alphanumeric, underscore, hyphen; starts with letter/_
 _VALID_IDENTIFIER = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_\-]*$")
@@ -224,6 +236,242 @@ class AqlLoader:
         return graph_aql_to_networkx_format(
             request, graph_config  # type: ignore[arg-type]
         )
+
+    def load_to_pyg_data(
+        self,
+        queries: List[List[AqlQuery]],
+        vertex_attributes: Optional[AttributeSpec] = None,
+        edge_attributes: Optional[AttributeSpec] = None,
+        pyg_feature_mapping: Optional[Dict[str, List[str]]] = None,
+        max_type_errors: Optional[int] = None,
+    ) -> Tuple["Data", Dict[str, Dict[str, int]], Dict[str, Dict[int, str]]]:
+        """Load a graph using AQL queries into PyTorch Geometric Data format.
+
+        This method loads a homogeneous graph (single node type, single edge type)
+        into a PyG Data object suitable for GNN training.
+
+        Args:
+            queries: List of query groups. Outer list is sequential,
+                inner lists are parallel.
+                Each query should return {"vertices": [...], "edges": [...]}.
+            vertex_attributes: Schema for vertex attributes.
+                Maps attribute names to types (e.g., {"features": "f64"}).
+                Attributes must be numeric (f64, i64) for PyG compatibility.
+            edge_attributes: Schema for edge attributes.
+            pyg_feature_mapping: Optional mapping from PyG attribute names to
+                loaded attribute names. Example: {"x": ["feat1", "feat2"], "y": ["label"]}
+                If None, all numeric vertex attributes are stacked into 'x'.
+            max_type_errors: Maximum number of type errors to report.
+
+        Returns:
+            A tuple of (Data, col_to_key_to_ind, col_to_ind_to_key)
+
+        Example:
+            >>> loader = AqlLoader(hosts=["http://localhost:8529"], database="mydb")
+            >>> queries = [[{"query": "FOR v IN users RETURN {vertices: [v]}"}],
+            ...            [{"query": "FOR e IN follows RETURN {edges: [e]}"}]]
+            >>> data, key_to_ind, ind_to_key = loader.load_to_pyg_data(
+            ...     queries=queries,
+            ...     vertex_attributes={"features": "f64", "label": "i64"},
+            ...     pyg_feature_mapping={"x": ["features"], "y": ["label"]}
+            ... )
+        """
+        if not TORCH_AVAILABLE:
+            m = "Missing required dependencies. Install with `pip install phenolrs[torch]`"
+            raise ImportError(m)
+
+        if not queries or not any(len(group) > 0 for group in queries):
+            raise PhenolError("At least one AQL query must be provided")
+
+        # Load data as numpy first
+        request = self._build_request(
+            queries, vertex_attributes, edge_attributes, max_type_errors
+        )
+        (
+            features_by_col,
+            coo_map,
+            col_to_adb_key_to_ind,
+            col_to_ind_to_adb_key,
+        ) = graph_aql_to_numpy_format(request)  # type: ignore[arg-type]
+
+        # For homogeneous graph, we expect exactly one vertex collection
+        vertex_cols = [c for c in features_by_col.keys() if c != "@collection_name"]
+        if len(vertex_cols) == 0:
+            raise PhenolError("No vertex data loaded from AQL queries")
+        if len(vertex_cols) > 1:
+            m = (
+                f"Multiple vertex collections ({vertex_cols}) found. "
+                "Use load_to_pyg_heterodata for heterogeneous graphs."
+            )
+            raise PhenolError(m)
+
+        v_col_name = vertex_cols[0]
+        v_features = features_by_col[v_col_name]
+
+        data = Data()
+
+        # Build feature mapping
+        if pyg_feature_mapping is not None:
+            # User specified mapping
+            for pyg_name, attr_list in pyg_feature_mapping.items():
+                tensors = []
+                for attr_name in attr_list:
+                    if attr_name not in v_features:
+                        raise PhenolError(
+                            f"Attribute '{attr_name}' not found in loaded data. "
+                            f"Available: {list(v_features.keys())}"
+                        )
+                    arr = v_features[attr_name]
+                    if arr.ndim == 1:
+                        arr = arr.reshape(-1, 1)
+                    tensors.append(torch.from_numpy(arr.astype(np.float64)))
+
+                if tensors:
+                    combined = torch.cat(tensors, dim=1)
+                    if combined.numel() > 0:
+                        data[pyg_name] = combined
+        else:
+            # Auto-mapping: stack all numeric attributes into 'x'
+            tensors = []
+            for attr_name, arr in v_features.items():
+                if attr_name == "@collection_name":
+                    continue
+                if arr.ndim == 1:
+                    arr = arr.reshape(-1, 1)
+                tensors.append(torch.from_numpy(arr.astype(np.float64)))
+
+            if tensors:
+                combined = torch.cat(tensors, dim=1)
+                if combined.numel() > 0:
+                    data.x = combined
+
+        # Add edges - expect exactly one edge type for homogeneous graph
+        if len(coo_map) == 0:
+            raise PhenolError("No edge data loaded from AQL queries")
+        if len(coo_map) > 1:
+            m = (
+                "Multiple edge types found. "
+                "Use load_to_pyg_heterodata for heterogeneous graphs."
+            )
+            raise PhenolError(m)
+
+        edge_key = list(coo_map.keys())[0]
+        edge_index = torch.from_numpy(coo_map[edge_key].astype(np.int64))
+        if edge_index.numel() > 0:
+            data.edge_index = edge_index
+
+        return data, col_to_adb_key_to_ind, col_to_ind_to_adb_key
+
+    def load_to_pyg_heterodata(
+        self,
+        queries: List[List[AqlQuery]],
+        vertex_attributes: Optional[AttributeSpec] = None,
+        edge_attributes: Optional[AttributeSpec] = None,
+        pyg_feature_mapping: Optional[Dict[str, Dict[str, List[str]]]] = None,
+        max_type_errors: Optional[int] = None,
+    ) -> Tuple["HeteroData", Dict[str, Dict[str, int]], Dict[str, Dict[int, str]]]:
+        """Load a graph using AQL queries into PyTorch Geometric HeteroData format.
+
+        This method loads a heterogeneous graph (multiple node/edge types)
+        into a PyG HeteroData object suitable for heterogeneous GNN training.
+
+        Args:
+            queries: List of query groups. Outer list is sequential,
+                inner lists are parallel.
+                Each query should return {"vertices": [...], "edges": [...]}.
+            vertex_attributes: Schema for vertex attributes.
+            edge_attributes: Schema for edge attributes.
+            pyg_feature_mapping: Optional nested mapping from collection names to
+                PyG attribute mappings. Example:
+                {"Users": {"x": ["feat1"], "y": ["label"]},
+                 "Products": {"x": ["features"]}}
+                If None, all numeric attributes per collection are stacked into 'x'.
+            max_type_errors: Maximum number of type errors to report.
+
+        Returns:
+            A tuple of (HeteroData, col_to_key_to_ind, col_to_ind_to_key)
+
+        Example:
+            >>> loader = AqlLoader(hosts=["http://localhost:8529"], database="mydb")
+            >>> queries = [
+            ...     [{"query": "FOR v IN users RETURN {vertices: [v]}"},
+            ...      {"query": "FOR v IN products RETURN {vertices: [v]}"}],
+            ...     [{"query": "FOR e IN purchases RETURN {edges: [e]}"}]
+            ... ]
+            >>> data, key_to_ind, ind_to_key = loader.load_to_pyg_heterodata(
+            ...     queries=queries,
+            ...     vertex_attributes={"features": "f64", "label": "i64"},
+            ...     pyg_feature_mapping={
+            ...         "users": {"x": ["features"], "y": ["label"]},
+            ...         "products": {"x": ["features"]}
+            ...     }
+            ... )
+        """
+        if not TORCH_AVAILABLE:
+            m = "Missing required dependencies. Install with `pip install phenolrs[torch]`"
+            raise ImportError(m)
+
+        if not queries or not any(len(group) > 0 for group in queries):
+            raise PhenolError("At least one AQL query must be provided")
+
+        # Load data as numpy first
+        request = self._build_request(
+            queries, vertex_attributes, edge_attributes, max_type_errors
+        )
+        (
+            features_by_col,
+            coo_map,
+            col_to_adb_key_to_ind,
+            col_to_ind_to_adb_key,
+        ) = graph_aql_to_numpy_format(request)  # type: ignore[arg-type]
+
+        data = HeteroData()
+
+        # Process vertex features per collection
+        for col_name, col_features in features_by_col.items():
+            if pyg_feature_mapping is not None and col_name in pyg_feature_mapping:
+                # User specified mapping for this collection
+                col_mapping = pyg_feature_mapping[col_name]
+                for pyg_name, attr_list in col_mapping.items():
+                    tensors = []
+                    for attr_name in attr_list:
+                        if attr_name not in col_features:
+                            raise PhenolError(
+                                f"Attribute '{attr_name}' not found in collection "
+                                f"'{col_name}'. Available: {list(col_features.keys())}"
+                            )
+                        arr = col_features[attr_name]
+                        if arr.ndim == 1:
+                            arr = arr.reshape(-1, 1)
+                        tensors.append(torch.from_numpy(arr.astype(np.float64)))
+
+                    if tensors:
+                        combined = torch.cat(tensors, dim=1)
+                        if combined.numel() > 0:
+                            data[col_name][pyg_name] = combined
+            else:
+                # Auto-mapping: stack all numeric attributes into 'x'
+                tensors = []
+                for attr_name, arr in col_features.items():
+                    if attr_name == "@collection_name":
+                        continue
+                    if arr.ndim == 1:
+                        arr = arr.reshape(-1, 1)
+                    tensors.append(torch.from_numpy(arr.astype(np.float64)))
+
+                if tensors:
+                    combined = torch.cat(tensors, dim=1)
+                    if combined.numel() > 0:
+                        data[col_name].x = combined
+
+        # Add edges per edge type
+        for edge_key, edge_coo in coo_map.items():
+            edge_col_name, from_col, to_col = edge_key
+            edge_index = torch.from_numpy(edge_coo.astype(np.int64))
+            if edge_index.numel() > 0:
+                data[(from_col, edge_col_name, to_col)].edge_index = edge_index
+
+        return data, col_to_adb_key_to_ind, col_to_ind_to_adb_key
 
     @staticmethod
     def create_vertex_query(
