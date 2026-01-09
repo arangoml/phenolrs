@@ -7,7 +7,7 @@ from adbnx_adapter import ADBNX_Adapter
 from arango.database import StandardDatabase
 from arango_datasets import Datasets
 
-connection_config: Dict[str, Any]
+connection_config: Dict[str, Any] = {}
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -27,7 +27,6 @@ def pytest_configure(config: pytest.Config) -> None:
 
 @pytest.fixture(scope="session")
 def connection_information() -> Dict[str, Any]:
-    global connection_config
     return {
         "url": connection_config.get("url"),
         "username": connection_config.get("username"),
