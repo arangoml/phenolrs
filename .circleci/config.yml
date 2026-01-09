@@ -132,6 +132,7 @@ jobs:
             conda activate phenolrs
       - run:
           name: Install Phenol deps
+          # Using +cpu builds because CI runners don't have GPUs
           command: |
             conda activate phenolrs
             pip install numpy~=1.26 && \
@@ -182,9 +183,13 @@ jobs:
             conda activate phenolrs
       - run:
           name: Install Phenol deps
+          # Using +cpu builds because CI runners don't have GPUs
+          # Python 3.13 requires torch>=2.6.0 for full support, PyG>=2.7.0
           command: |
             conda activate phenolrs
             pip install numpy~=1.26 && \
+            pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.6.0+cpu && \
+            pip install torch-geometric==2.7.0 && \
             pip install -r test-requirements.txt
       - run:
           name: Install Phenol

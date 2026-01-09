@@ -259,6 +259,7 @@ def load_aql_test_graph(
     - users collection: 3 vertices with name (string) and age (int) attributes
     - products collection: 2 vertices with title (string) and price (float)
     - purchases collection: 3 edges (users->products) with amount (float)
+    - follows collection: 2 edges (users->users) with weight (float)
     """
     client = arango.ArangoClient(connection_information["url"])
     sys_db = client.db(
@@ -309,3 +310,10 @@ def load_aql_test_graph(
             {"_from": "users/alice", "_to": "products/phone", "amount": 2.0}
         )
         purchases.insert({"_from": "users/bob", "_to": "products/phone", "amount": 1.0})
+
+        # Insert follows edges (users->users for homogeneous graph testing)
+        if not db.has_collection("follows"):
+            db.create_collection("follows", edge=True)
+        follows = db.collection("follows")
+        follows.insert({"_from": "users/alice", "_to": "users/bob", "weight": 0.9})
+        follows.insert({"_from": "users/bob", "_to": "users/charlie", "weight": 0.7})
