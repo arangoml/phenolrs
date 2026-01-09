@@ -6,7 +6,6 @@ https://github.com/arangodb/documents/blob/master/DesignDocuments/02_PLANNING/Ge
 
 from typing import Any, Dict, List, Literal, TypedDict, Union
 
-
 # Supported data types for attributes
 DataType = Literal[
     "bool", "string", "u64", "i64", "f64", "json", "number", "int", "float"

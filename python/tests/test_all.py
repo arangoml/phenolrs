@@ -1308,6 +1308,39 @@ class TestAqlLoader:
         assert "PRUNE v.visited" in query["query"]
         assert "FILTER e.weight > 0" in query["query"]
 
+        # Test invalid direction raises error
+        with pytest.raises(ValueError, match="direction must be one of"):
+            AqlLoader.create_traversal_query(
+                start_vertex="@start",
+                graph_name="test_graph",
+                direction="INVALID",
+            )
+
+        # Test negative min_depth raises error
+        with pytest.raises(ValueError, match="min_depth must be non-negative"):
+            AqlLoader.create_traversal_query(
+                start_vertex="@start",
+                graph_name="test_graph",
+                min_depth=-1,
+            )
+
+        # Test negative max_depth raises error
+        with pytest.raises(ValueError, match="max_depth must be non-negative"):
+            AqlLoader.create_traversal_query(
+                start_vertex="@start",
+                graph_name="test_graph",
+                max_depth=-1,
+            )
+
+        # Test max_depth < min_depth raises error
+        with pytest.raises(ValueError, match="max_depth.*must be >= min_depth"):
+            AqlLoader.create_traversal_query(
+                start_vertex="@start",
+                graph_name="test_graph",
+                min_depth=3,
+                max_depth=1,
+            )
+
     def test_aql_empty_queries_raises_error(
         self,
         connection_information: dict[str, str],

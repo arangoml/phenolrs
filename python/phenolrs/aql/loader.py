@@ -250,6 +250,11 @@ class AqlLoader:
         This method loads a homogeneous graph (single node type, single edge type)
         into a PyG Data object suitable for GNN training.
 
+        Note:
+            Edges are required for PyG Data format. The returned Data object
+            will always have an edge_index tensor. Ensure your queries return
+            edge documents in the "edges" array.
+
         Args:
             queries: List of query groups. Outer list is sequential,
                 inner lists are parallel.
@@ -661,6 +666,23 @@ class AqlLoader:
             raise ValueError(
                 "start_vertex must be a bind variable (@var) or quoted literal "
                 f"('value'), got: {start_vertex}"
+            )
+
+        # Validate direction parameter
+        valid_directions = ("OUTBOUND", "INBOUND", "ANY")
+        if direction not in valid_directions:
+            raise ValueError(
+                f"direction must be one of {valid_directions}, got: '{direction}'"
+            )
+
+        # Validate depth parameters
+        if min_depth < 0:
+            raise ValueError(f"min_depth must be non-negative, got: {min_depth}")
+        if max_depth < 0:
+            raise ValueError(f"max_depth must be non-negative, got: {max_depth}")
+        if max_depth < min_depth:
+            raise ValueError(
+                f"max_depth ({max_depth}) must be >= min_depth ({min_depth})"
             )
 
         # Use 0..max_depth to include the start vertex
