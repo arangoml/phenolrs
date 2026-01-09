@@ -1370,9 +1370,7 @@ class TestAqlLoader:
             password=connection_information["password"],
         )
 
-        queries: list[list[AqlQuery]] = [
-            [AqlLoader.create_vertex_query("users")]
-        ]
+        queries: list[list[AqlQuery]] = [[AqlLoader.create_vertex_query("users")]]
 
         # Test with correct type mappings:
         # - name: string (actual: "Alice", "Bob", "Charlie")
@@ -1440,9 +1438,7 @@ class TestAqlLoader:
             password=connection_information["password"],
         )
 
-        queries: list[list[AqlQuery]] = [
-            [AqlLoader.create_vertex_query("users")]
-        ]
+        queries: list[list[AqlQuery]] = [[AqlLoader.create_vertex_query("users")]]
 
         # Wrong mapping: name is actually a string, not i64
         # The library converts unparseable values to defaults (0 for i64)
@@ -1496,9 +1492,7 @@ class TestAqlLoader:
             password=connection_information["password"],
         )
 
-        queries: list[list[AqlQuery]] = [
-            [AqlLoader.create_vertex_query("users")]
-        ]
+        queries: list[list[AqlQuery]] = [[AqlLoader.create_vertex_query("users")]]
 
         # Test load_to_networkx with max_type_errors (no type errors expected)
         result = loader.load_to_networkx(
@@ -1675,3 +1669,68 @@ class TestAqlLoader:
 
         with pytest.raises(ImportError, match="phenolrs\\[torch\\]"):
             loader.load_to_pyg_heterodata(queries=queries)
+
+    @pytest.mark.usefixtures("load_aql_test_graph")
+    def test_aql_load_to_pyg_string_attribute_raises(
+        self,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test that loading string attributes into PyG raises an error.
+
+        PyG requires numeric tensors, so string attributes cannot be converted.
+        This should raise a clear error rather than silently failing.
+        """
+        pytest.importorskip("torch")
+        pytest.importorskip("torch_geometric")
+
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        queries: list[list[AqlQuery]] = [
+            [{"query": "FOR v IN users RETURN {vertices: [v]}"}],
+            [{"query": "FOR e IN purchases RETURN {edges: [e]}"}],
+        ]
+
+        # Loading string attribute 'name' into PyG should fail
+        # because PyG requires numeric tensors
+        with pytest.raises(PhenolError, match=r"string/object type"):
+            loader.load_to_pyg_data(
+                queries=queries,
+                vertex_attributes={"name": "string"},  # String type is not supported
+                pyg_feature_mapping={"x": ["name"]},
+            )
+
+    @pytest.mark.usefixtures("load_aql_test_graph")
+    def test_aql_load_to_pyg_heterodata_string_attribute_raises(
+        self,
+        aql_test_db_name: str,
+        connection_information: dict[str, str],
+    ) -> None:
+        """Test that loading string attributes into PyG HeteroData raises an error."""
+        pytest.importorskip("torch")
+        pytest.importorskip("torch_geometric")
+
+        loader = AqlLoader(
+            hosts=[connection_information["url"]],
+            database=aql_test_db_name,
+            username=connection_information["username"],
+            password=connection_information["password"],
+        )
+
+        queries: list[list[AqlQuery]] = [
+            [{"query": "FOR v IN users RETURN {vertices: [v]}"}],
+            [{"query": "FOR e IN purchases RETURN {edges: [e]}"}],
+        ]
+
+        # Loading string attribute into PyG HeteroData should also fail
+        with pytest.raises(PhenolError, match=r"string/object type"):
+            loader.load_to_pyg_heterodata(
+                queries=queries,
+                vertex_attributes={"name": "string"},
+                pyg_feature_mapping={"users": {"x": ["name"]}},
+            )

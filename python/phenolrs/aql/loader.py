@@ -12,7 +12,7 @@ The key benefit of AQL-based loading is flexibility:
 """
 
 import re
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 try:
     import torch
-    from torch_geometric.data import Data, HeteroData
+    from torch_geometric.data import Data, HeteroData  # noqa: F811
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -259,7 +259,8 @@ class AqlLoader:
                 Attributes must be numeric (f64, i64) for PyG compatibility.
             edge_attributes: Schema for edge attributes.
             pyg_feature_mapping: Optional mapping from PyG attribute names to
-                loaded attribute names. Example: {"x": ["feat1", "feat2"], "y": ["label"]}
+                loaded attribute names.
+                Example: {"x": ["feat1", "feat2"], "y": ["label"]}
                 If None, all numeric vertex attributes are stacked into 'x'.
             max_type_errors: Maximum number of type errors to report.
 
@@ -277,8 +278,10 @@ class AqlLoader:
             ... )
         """
         if not TORCH_AVAILABLE:
-            m = "Missing required dependencies. Install with `pip install phenolrs[torch]`"
-            raise ImportError(m)
+            raise ImportError(
+                "Missing required dependencies. "
+                "Install with `pip install phenolrs[torch]`"
+            )
 
         if not queries or not any(len(group) > 0 for group in queries):
             raise PhenolError("At least one AQL query must be provided")
@@ -292,7 +295,7 @@ class AqlLoader:
             coo_map,
             col_to_adb_key_to_ind,
             col_to_ind_to_adb_key,
-        ) = graph_aql_to_numpy_format(request)  # type: ignore[arg-type]
+        ) = graph_aql_to_numpy_format(request)  # type: ignore[arg-type]  # fmt: skip
 
         # For homogeneous graph, we expect exactly one vertex collection
         vertex_cols = [c for c in features_by_col.keys() if c != "@collection_name"]
@@ -322,6 +325,13 @@ class AqlLoader:
                             f"Available: {list(v_features.keys())}"
                         )
                     arr = v_features[attr_name]
+                    # Check if attribute is string type (not convertible to numeric)
+                    if arr.dtype.kind in ("U", "S", "O"):
+                        raise PhenolError(
+                            f"Attribute '{attr_name}' has string/object type "
+                            "which cannot be converted to PyG tensors. "
+                            "PyG requires numeric types (i64, f64, bool)."
+                        )
                     if arr.ndim == 1:
                         arr = arr.reshape(-1, 1)
                     tensors.append(torch.from_numpy(arr.astype(np.float64)))
@@ -336,6 +346,14 @@ class AqlLoader:
             for attr_name, arr in v_features.items():
                 if attr_name == "@collection_name":
                     continue
+                # Check if attribute is string type (not convertible to numeric)
+                if arr.dtype.kind in ("U", "S", "O"):
+                    raise PhenolError(
+                        f"Attribute '{attr_name}' has string/object type "
+                        "which cannot be converted to PyG tensors. "
+                        "PyG requires numeric types (i64, f64, bool). "
+                        "Exclude string attributes or use pyg_feature_mapping."
+                    )
                 if arr.ndim == 1:
                     arr = arr.reshape(-1, 1)
                 tensors.append(torch.from_numpy(arr.astype(np.float64)))
@@ -408,8 +426,10 @@ class AqlLoader:
             ... )
         """
         if not TORCH_AVAILABLE:
-            m = "Missing required dependencies. Install with `pip install phenolrs[torch]`"
-            raise ImportError(m)
+            raise ImportError(
+                "Missing required dependencies. "
+                "Install with `pip install phenolrs[torch]`"
+            )
 
         if not queries or not any(len(group) > 0 for group in queries):
             raise PhenolError("At least one AQL query must be provided")
@@ -423,7 +443,7 @@ class AqlLoader:
             coo_map,
             col_to_adb_key_to_ind,
             col_to_ind_to_adb_key,
-        ) = graph_aql_to_numpy_format(request)  # type: ignore[arg-type]
+        ) = graph_aql_to_numpy_format(request)  # type: ignore[arg-type]  # fmt: skip
 
         data = HeteroData()
 
@@ -441,6 +461,13 @@ class AqlLoader:
                                 f"'{col_name}'. Available: {list(col_features.keys())}"
                             )
                         arr = col_features[attr_name]
+                        # Check if attribute is string type (not convertible to numeric)
+                        if arr.dtype.kind in ("U", "S", "O"):
+                            raise PhenolError(
+                                f"Attribute '{attr_name}' in '{col_name}' has "
+                                "string/object type which cannot be converted "
+                                "to PyG tensors. Requires numeric (i64, f64, bool)."
+                            )
                         if arr.ndim == 1:
                             arr = arr.reshape(-1, 1)
                         tensors.append(torch.from_numpy(arr.astype(np.float64)))
@@ -455,6 +482,14 @@ class AqlLoader:
                 for attr_name, arr in col_features.items():
                     if attr_name == "@collection_name":
                         continue
+                    # Check if attribute is string type (not convertible to numeric)
+                    if arr.dtype.kind in ("U", "S", "O"):
+                        raise PhenolError(
+                            f"Attribute '{attr_name}' in '{col_name}' has "
+                            "string/object type which cannot be converted "
+                            "to PyG tensors. Requires numeric (i64, f64, bool). "
+                            "Exclude string attrs or use pyg_feature_mapping."
+                        )
                     if arr.ndim == 1:
                         arr = arr.reshape(-1, 1)
                     tensors.append(torch.from_numpy(arr.astype(np.float64)))
