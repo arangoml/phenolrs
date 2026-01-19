@@ -1177,14 +1177,16 @@ class TestAqlLoader:
 
         node_dict, adj_dict, src_indices, *_ = result
 
-        # Should find: alice + laptop + phone = 3 vertices
-        assert len(node_dict) == 3
+        # Should find: alice + laptop + phone + bob = 4 vertices
+        # (bob is connected via "follows" edge)
+        assert len(node_dict) == 4
         assert "users/alice" in node_dict
         assert "products/laptop" in node_dict
         assert "products/phone" in node_dict
+        assert "users/bob" in node_dict
 
-        # Should find 2 edges (alice -> laptop, alice -> phone)
-        assert len(src_indices) == 2
+        # Should find 3 edges (alice -> laptop, alice -> phone, alice -> bob)
+        assert len(src_indices) == 3
 
     @pytest.mark.usefixtures("load_aql_test_graph")
     def test_aql_load_to_numpy(
