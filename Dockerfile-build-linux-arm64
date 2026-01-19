@@ -21,13 +21,13 @@ RUN apt-get update -y && \
       pkg-config && \
     rm -rf /var/lib/apt/lists/*
 
-# install Rust toolchain and add the ARM64 target
+# install Rust toolchain (latest stable) and add the ARM64 target
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
     rustup target add aarch64-unknown-linux-gnu
 
 # upgrade pip and install maturin with patchelf support
 RUN pip3 install --upgrade pip && \
-    pip3 install maturin maturin[patchelf] build twine
+    pip3 install maturin==1.10.2 maturin[patchelf] build twine
 
 WORKDIR /io
 

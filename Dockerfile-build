@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM ghcr.io/pyo3/maturin:v1.8.6
+FROM --platform=$BUILDPLATFORM ghcr.io/pyo3/maturin:v1.10.2
 
 RUN yum update -y && \
     yum install -y openssl-devel

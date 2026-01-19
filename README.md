@@ -9,6 +9,7 @@ A high-performance graph data loader for ArangoDB, written in Rust with Python b
   - [NumpyLoader](#numpyloader)
   - [NetworkXLoader](#networkxloader)
   - [PygLoader](#pygloader)
+  - [AqlLoader](#aqlloader)
 - [Development](#development)
 - [Tests](#tests)
 
@@ -479,6 +480,224 @@ print(data.edge_types)  # [('term', 'to', 'paper'), ('author', 'to', 'paper'), .
 print(f"Author features: {data['author'].x.shape}")  # torch.Size([4057, 334])
 print(f"Paper features: {data['paper'].x.shape}")    # torch.Size([14328, 4231])
 print(f"Term features: {data['term'].x.shape}")      # torch.Size([7723, 50])
+```
+
+### AqlLoader
+
+Load graph data using custom AQL queries for maximum flexibility. Unlike the metagraph-based loaders, AqlLoader gives you full control over which data to extract using ArangoDB's powerful query language.
+
+**Why use AqlLoader?**
+- Use ArangoDB indexes for efficient data retrieval
+- Filter vertices and edges with arbitrary AQL conditions
+- Execute graph traversals to extract connected subgraphs
+- Combine multiple queries with controlled execution order
+- Access the full power of AQL for complex data extraction patterns
+
+#### Basic Usage
+
+```python
+from phenolrs.aql import AqlLoader
+
+# Initialize the loader
+loader = AqlLoader(
+    hosts=["http://localhost:8529"],
+    database="mydb",
+    username="root",
+    password="password",
+)
+
+# Define queries - each returns {vertices: [...], edges: [...]}
+queries = [
+    # First group: load vertices (queries run in parallel)
+    [
+        {"query": "FOR v IN users RETURN {vertices: [v]}"},
+        {"query": "FOR v IN products RETURN {vertices: [v]}"},
+    ],
+    # Second group: load edges (runs after first group completes)
+    [
+        {"query": "FOR e IN purchases RETURN {edges: [e]}"},
+    ],
+]
+
+# Load into NetworkX format
+result = loader.load_to_networkx(
+    queries=queries,
+    is_directed=True,
+    is_multigraph=False,
+)
+
+node_dict, adj_dict, src_indices, dst_indices, *_ = result
+print(f"Loaded {len(node_dict)} nodes")
+```
+
+#### Loading with Attribute Types
+
+When you specify attribute types, the loader validates and converts values:
+
+```python
+# Load with typed attributes
+result = loader.load_to_networkx(
+    queries=queries,
+    vertex_attributes={"name": "string", "age": "i64", "score": "f64"},
+    edge_attributes={"weight": "f64", "active": "bool"},
+    is_directed=True,
+    is_multigraph=False,
+)
+
+# Supported types: "string", "i64", "f64", "bool"
+```
+
+#### Using Helper Methods
+
+AqlLoader provides helper methods to build common query patterns safely:
+
+```python
+from phenolrs.aql import AqlLoader
+
+# Create vertex query with filter
+vertex_query = AqlLoader.create_vertex_query(
+    collection="users",
+    filter_condition="doc.active == @active",
+    projection=["name", "age"],  # Optional: select specific fields
+    bind_vars={"active": True},
+)
+
+# Create edge query
+edge_query = AqlLoader.create_edge_query(
+    collection="purchases",
+    filter_condition="doc.amount > @minAmount",
+    bind_vars={"minAmount": 100},
+)
+
+# Create graph traversal query
+traversal_query = AqlLoader.create_traversal_query(
+    start_vertex="@start",  # Use bind variable for safety
+    graph_name="commerce_graph",
+    min_depth=0,
+    max_depth=2,
+    direction="OUTBOUND",
+    bind_vars={"start": "users/alice"},
+)
+
+# Execute queries
+queries = [
+    [vertex_query],
+    [edge_query],
+]
+
+result = loader.load_to_networkx(
+    queries=queries,
+    vertex_attributes={"name": "string", "age": "i64"},
+    edge_attributes={"amount": "f64"},
+)
+```
+
+#### Loading to NumPy Format
+
+```python
+# Load into NumPy format for numerical computing
+(
+    features_by_col,
+    coo_map,
+    col_to_key_to_ind,
+    col_to_ind_to_key,
+) = loader.load_to_numpy(
+    queries=queries,
+    vertex_attributes={"age": "i64", "score": "f64"},
+    edge_attributes={"weight": "f64"},
+)
+
+# Access features by collection
+user_ages = features_by_col["users"]["age"]
+print(f"User ages shape: {user_ages.shape}")
+
+# Access edge indices in COO format
+for edge_key, indices in coo_map.items():
+    print(f"Edge type {edge_key}: {indices.shape}")
+```
+
+#### Loading to PyTorch Geometric (PyG)
+
+AqlLoader supports loading directly into PyG `Data` or `HeteroData` objects for GNN training:
+
+```python
+# Requires: pip install phenolrs[torch]
+
+# Load homogeneous graph into PyG Data
+data, key_to_ind, ind_to_key = loader.load_to_pyg_data(
+    queries=[
+        [{"query": "FOR v IN users RETURN {vertices: [v]}"}],
+        [{"query": "FOR e IN follows RETURN {edges: [e]}"}],
+    ],
+    vertex_attributes={"age": "i64", "score": "f64"},
+    # Map loaded attributes to PyG conventions (x for features, y for labels)
+    pyg_feature_mapping={"x": ["age", "score"]},
+)
+
+print(f"Node features: {data.x.shape}")       # [num_nodes, 2]
+print(f"Edge indices: {data.edge_index.shape}")  # [2, num_edges]
+```
+
+For heterogeneous graphs with multiple node/edge types:
+
+```python
+# Load heterogeneous graph into PyG HeteroData
+data, key_to_ind, ind_to_key = loader.load_to_pyg_heterodata(
+    queries=[
+        [
+            {"query": "FOR v IN users RETURN {vertices: [v]}"},
+            {"query": "FOR v IN products RETURN {vertices: [v]}"},
+        ],
+        [{"query": "FOR e IN purchases RETURN {edges: [e]}"}],
+    ],
+    vertex_attributes={"age": "i64", "price": "f64"},
+    pyg_feature_mapping={
+        "users": {"x": ["age"]},
+        "products": {"x": ["price"]},
+    },
+)
+
+print(data.node_types)     # ['users', 'products']
+print(data.edge_types)     # [('users', 'purchases', 'products')]
+print(data["users"].x.shape)  # [num_users, 1]
+```
+
+**Note on feature mapping:**
+- When `pyg_feature_mapping` is provided, attributes are stacked into the specified PyG attribute names
+- Without mapping, all numeric attributes are automatically stacked into `x`
+- Attributes must be numeric types (`i64`, `f64`, `bool`) for PyG compatibility
+
+#### Query Structure
+
+Queries are organized into groups for execution control:
+- **Outer list**: Groups processed **sequentially** (one after another)
+- **Inner list**: Queries within a group processed **in parallel**
+
+```python
+queries = [
+    # Group 1: These run in parallel, must complete before Group 2
+    [
+        {"query": "FOR v IN users RETURN {vertices: [v]}"},
+        {"query": "FOR v IN products RETURN {vertices: [v]}"},
+    ],
+    # Group 2: Runs after Group 1 completes
+    [
+        {"query": "FOR e IN purchases RETURN {edges: [e]}"},
+    ],
+]
+```
+
+Each query must return documents with `vertices` and/or `edges` arrays:
+```aql
+// Return vertices
+FOR v IN users RETURN {vertices: [v]}
+
+// Return edges
+FOR e IN follows RETURN {edges: [e]}
+
+// Return both (e.g., from traversal)
+FOR v, e IN 1..2 OUTBOUND 'users/alice' GRAPH 'social'
+RETURN {vertices: [v], edges: [e]}
 ```
 
 ## Common Parameters

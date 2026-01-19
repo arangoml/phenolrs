@@ -70,3 +70,7 @@ docs/_build/
 
 # Pyenv
 .python-version
+
+# Docker generated files (JWT for local testing)
+docker/jwtHeader
+docker/jwtSecret

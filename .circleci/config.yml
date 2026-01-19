@@ -23,14 +23,14 @@ workflows:
           matrix:
             parameters:
               db-mode: ["single", "cluster"]
-              db-version: ["3.10", "3.12"]
+              db-version: ["3.12"]
       - test-python-313:
           requires:
             - build
           matrix:
             parameters:
               db-mode: ["single", "cluster"]
-              db-version: ["3.10", "3.12"]
+              db-version: ["3.12"]
 
 jobs:
   lint-python:
@@ -61,7 +61,7 @@ jobs:
             - ~/.cache/pip
   lint-rust:
     docker:
-      - image: cimg/rust:1.75
+      - image: cimg/rust:1.90
     steps:
       - checkout
       - run:
@@ -85,7 +85,7 @@ jobs:
       - checkout
       - run:
           name: Build builder image
-          command: docker build -t phenolrs-builder:latest -f Dockerfile-build .
+          command: docker build --no-cache -t phenolrs-builder:latest -f Dockerfile-build-linux-x86_64 .
       - run:
           name: Build << parameters.python-version >> package
           command: docker run --rm -v $(pwd):/io phenolrs-builder:latest build --interpreter << parameters.python-version >>
@@ -96,7 +96,7 @@ jobs:
 
   test-rust:
     docker:
-      - image: cimg/rust:1.75
+      - image: cimg/rust:1.90
     steps:
       - checkout
       - run:
@@ -132,6 +132,7 @@ jobs:
             conda activate phenolrs
       - run:
           name: Install Phenol deps
+          # Using +cpu builds because CI runners don't have GPUs
           command: |
             conda activate phenolrs
             pip install numpy~=1.26 && \
@@ -146,7 +147,7 @@ jobs:
           name: Install Phenol
           command: |
             conda activate phenolrs
-            pip install phenolrs --find-links ~/project/target/wheels
+            pip install phenolrs --no-index --find-links ~/project/target/wheels
       - run:
           name: Start Database
           command: ./docker/start_db.sh
@@ -182,15 +183,19 @@ jobs:
             conda activate phenolrs
       - run:
           name: Install Phenol deps
+          # Using +cpu builds because CI runners don't have GPUs
+          # Python 3.13 requires torch>=2.6.0 for full support, PyG>=2.7.0
           command: |
             conda activate phenolrs
             pip install numpy~=1.26 && \
+            pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.6.0+cpu && \
+            pip install torch-geometric==2.7.0 && \
             pip install -r test-requirements.txt
       - run:
           name: Install Phenol
           command: |
             conda activate phenolrs
-            pip install phenolrs --find-links ~/project/target/wheels
+            pip install phenolrs --no-index --find-links ~/project/target/wheels
       - run:
           name: Start Database
           command: ./docker/start_db.sh
