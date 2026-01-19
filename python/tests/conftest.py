@@ -285,7 +285,12 @@ def load_aql_test_graph(
                     "edge_collection": "purchases",
                     "from_vertex_collections": ["users"],
                     "to_vertex_collections": ["products"],
-                }
+                },
+                {
+                    "edge_collection": "follows",
+                    "from_vertex_collections": ["users"],
+                    "to_vertex_collections": ["users"],
+                },
             ],
         )
 
@@ -311,8 +316,6 @@ def load_aql_test_graph(
         purchases.insert({"_from": "users/bob", "_to": "products/phone", "amount": 1.0})
 
         # Insert follows edges (users->users for homogeneous graph testing)
-        if not db.has_collection("follows"):
-            db.create_collection("follows", edge=True)
         follows = db.collection("follows")
         follows.insert({"_from": "users/alice", "_to": "users/bob", "weight": 0.9})
         follows.insert({"_from": "users/bob", "_to": "users/charlie", "weight": 0.7})
