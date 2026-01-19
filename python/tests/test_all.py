@@ -1333,7 +1333,7 @@ class TestAqlLoader:
             )
 
         # Test max_depth < min_depth raises error
-        with pytest.raises(ValueError, match="max_depth.*must be >= min_depth"):
+        with pytest.raises(ValueError, match=r"max_depth.*must be >= min_depth"):
             AqlLoader.create_traversal_query(
                 start_vertex="@start",
                 graph_name="test_graph",
