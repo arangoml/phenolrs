@@ -869,9 +869,12 @@ impl Graph for NumpyGraph {
         columns: Vec<Value>,
         field_names: &Vec<String>,
     ) -> Result<()> {
-        // Note: columns may be empty when no edge attributes are specified
-        // In that case, we derive the edge collection name from from/to IDs
-        if !field_names.is_empty() {
+        // Note: columns may be empty when no edge attributes are specified.
+        // If field_names is empty, columns should generally be empty too (otherwise the caller
+        // is dropping attribute values on the floor).
+        if field_names.is_empty() {
+            debug_assert!(columns.is_empty());
+        } else {
             debug_assert_eq!(columns.len(), field_names.len());
         }
 
@@ -907,19 +910,16 @@ impl Graph for NumpyGraph {
         }
 
         // Get edge collection name: either from @collection_name column or derive from IDs
-        let col_name: String = if field_names.contains(&String::from("@collection_name")) {
-            let col_name_position = field_names
-                .iter()
-                .position(|x| x == "@collection_name")
-                .unwrap();
-            match &columns[col_name_position] {
-                Value::String(s) => s.clone(),
-                _ => format!("{}_to_{}", from_col, to_col),
-            }
-        } else {
-            // Derive edge collection name from from/to collection names
-            format!("{}_to_{}", from_col, to_col)
-        };
+        let derived = format!("{}_to_{}", from_col, to_col);
+        let col_name: String = field_names
+            .iter()
+            .position(|x| x == "@collection_name")
+            .and_then(|pos| columns.get(pos))
+            .and_then(|v| match v {
+                Value::String(s) => Some(s.clone()),
+                _ => None,
+            })
+            .unwrap_or_else(|| derived);
 
         let key_tup = (col_name, from_col.clone(), to_col.clone());
         if !self.coo_by_from_edge_to.contains_key(&key_tup) {
