@@ -156,6 +156,8 @@ class PygLoader:
             for feature in features_by_col[col].keys():
                 if feature == "@collection_name":
                     continue
+                if feature not in col_mapping:
+                    continue
 
                 target_name = col_mapping[feature]
                 result = torch.from_numpy(
