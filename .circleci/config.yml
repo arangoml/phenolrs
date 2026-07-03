@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  trivy-scan: arangoml/trivy-scan@0.0.9
+
 executors:
   generate-executor:
     machine:
@@ -12,6 +15,7 @@ workflows:
     jobs:
       - lint-python
       - lint-rust
+      - dependency-cve-scan
       - build:
           matrix:
             parameters:
@@ -33,6 +37,18 @@ workflows:
               db-version: ["3.12"]
 
 jobs:
+  dependency-cve-scan:
+    docker:
+      - image: cimg/python:3.10
+    steps:
+      - checkout
+      - trivy-scan/scan:
+          scan-type: fs
+          scan-path: "."
+          severity: "CRITICAL,HIGH"
+          fail-on-findings: true
+          store-junit-results: true
+
   lint-python:
     docker:
       - image: cimg/python:3.10
