@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  trivy-scan: arangoml/trivy-scan@0.0.9
+  trivy-scan: arangoml/trivy-scan@0.0.10
 
 executors:
   generate-executor:
@@ -16,6 +16,7 @@ workflows:
       - lint-python
       - lint-rust
       - dependency-cve-scan
+      - secret-scan
       - build:
           matrix:
             parameters:
@@ -35,6 +36,17 @@ workflows:
             parameters:
               db-mode: ["single", "cluster"]
               db-version: ["3.12"]
+  # phenolrs ships no runtime image — dependency drift in the lockfiles is its
+  # nightly exposure, so the nightly reuses the fs dependency gate.
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 3 * * *"
+          filters:
+            branches:
+              only: main
+    jobs:
+      - dependency-cve-scan
 
 jobs:
   dependency-cve-scan:
@@ -45,8 +57,21 @@ jobs:
       - trivy-scan/scan:
           scan-type: fs
           scan-path: "."
+          scanners: "vuln"
           severity: "CRITICAL,HIGH"
           fail-on-findings: true
+          store-junit-results: true
+
+  secret-scan:
+    docker:
+      - image: cimg/python:3.10
+    steps:
+      - checkout
+      - trivy-scan/scan:
+          scan-type: fs
+          scan-path: "."
+          scanners: "secret"
+          fail-on-findings: false
           store-junit-results: true
 
   lint-python:
