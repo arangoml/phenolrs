@@ -40,7 +40,7 @@ workflows:
             parameters:
               db-mode: ["single", "cluster"]
               db-version: ["3.12"]
-  # phenolrs ships no runtime image — dependency drift in the lockfiles is its
+  # phenolrs ships no runtime image — dependency drift in Cargo.lock is its
   # nightly exposure, so the nightly reuses the fs dependency gate.
   nightly:
     triggers:
@@ -65,8 +65,10 @@ jobs:
           severity: "CRITICAL,HIGH"
           fail-on-findings: true
           store-junit-results: true
-          # SBOM of the locked production dependency graph (Cargo.lock +
-          # poetry.lock) from the same scan.
+          # SBOM of the locked production dependency graph (Cargo.lock) from
+          # the same scan. poetry.lock was removed: phenolrs builds with
+          # maturin against pyproject.toml, so the lockfile was unused and
+          # scanned versions that never shipped.
           sbom-output: /tmp/sbom.cdx.json
       - store_artifacts:
           path: /tmp/sbom.cdx.json
