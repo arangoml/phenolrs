@@ -50,19 +50,35 @@ workflows:
             branches:
               only: main
     jobs:
-      - dependency-cve-scan
+      - dependency-cve-scan:
+          # Report-only nightly feed (no PR/merge gates on this workflow):
+          # widen to every severity band and disable the ignore-unfixed
+          # default so MEDIUM/LOW/UNKNOWN and not-yet-fixed findings are
+          # visible too, matching the fleet's nightly severity-ALL
+          # standard. The commit-time gate below is unaffected and stays
+          # CRITICAL,HIGH with ignore-unfixed at its fixable-only default.
+          severity: "CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN"
+          ignore-unfixed: false
 
 jobs:
   dependency-cve-scan:
     docker:
       - image: cimg/python:3.10
+    parameters:
+      severity:
+        type: string
+        default: "CRITICAL,HIGH"
+      ignore-unfixed:
+        type: boolean
+        default: true
     steps:
       - checkout
       - trivy-scan/scan:
           scan-type: fs
           scan-path: "."
           scanners: "vuln"
-          severity: "CRITICAL,HIGH"
+          severity: << parameters.severity >>
+          ignore-unfixed: << parameters.ignore-unfixed >>
           fail-on-findings: true
           store-junit-results: true
           # SBOM of the locked production dependency graph (Cargo.lock) from
