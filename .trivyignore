@@ -1,2 +1,0 @@
-# GHSA-36hh-v3qg-5jq4 pyo3 0.24.2→0.29.0: breaking major bump, deferred; numpy and pythonize crates are version-locked to pyo3 0.24, upgrade tracked by mark.read. review by: 2026-08-02
-GHSA-36hh-v3qg-5jq4

@@ -10,6 +10,8 @@ use serde_json::{Map, Value};
 
 #[cfg(not(test))]
 use pyo3::prelude::*;
+#[cfg(not(test))]
+use pyo3::IntoPyObjectExt;
 
 #[cfg(not(test))] // not(test) is needed to let us use `cargo test`
 pub fn construct_col_to_features(
@@ -274,18 +276,18 @@ pub fn construct_multidigraph_adj_dict(
 
 #[cfg(not(test))]
 // Construct a Python object from a serde_json Value
-fn construct_py_object(value: &Value, py: Python) -> PyResult<PyObject> {
+fn construct_py_object(value: &Value, py: Python) -> PyResult<Py<PyAny>> {
     match value {
         Value::Null => Ok(py.None()),
-        Value::String(s) => Ok(s.to_object(py)),
-        Value::Bool(b) => Ok(b.to_object(py)),
+        Value::String(s) => s.into_py_any(py),
+        Value::Bool(b) => b.into_py_any(py),
         Value::Number(num) => {
             if let Some(i) = num.as_i64() {
-                Ok(i.to_object(py))
+                i.into_py_any(py)
             } else if let Some(u) = num.as_u64() {
-                Ok(u.to_object(py))
+                u.into_py_any(py)
             } else {
-                Ok(num.as_f64().unwrap().to_object(py))
+                num.as_f64().unwrap().into_py_any(py)
             }
         }
         Value::Array(arr) => {
@@ -293,14 +295,14 @@ fn construct_py_object(value: &Value, py: Python) -> PyResult<PyObject> {
             for item in arr {
                 py_list.append(construct_py_object(item, py)?)?;
             }
-            Ok(py_list.to_object(py))
+            py_list.into_py_any(py)
         }
         Value::Object(obj) => {
             let py_dict = PyDict::new(py);
             for (key, value) in obj {
                 py_dict.set_item(key, construct_py_object(value, py)?)?;
             }
-            Ok(py_dict.to_object(py))
+            py_dict.into_py_any(py)
         }
     }
 }
