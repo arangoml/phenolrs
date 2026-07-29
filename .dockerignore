@@ -1,0 +1,64 @@
+# Build-context exclusions for the three builder images.
+#
+# None of Dockerfile-build, Dockerfile-build-linux-arm64 or
+# Dockerfile-build-linux-x86_64 carries a COPY or ADD today: they install a
+# toolchain and run maturin against a bind-mounted /io, so nothing from this
+# context currently reaches a layer. This file is the guard for the day one of
+# them grows a COPY, because `docker build` still uploads the whole context to
+# the daemon and a COPY . added later would pull in every path listed below.
+#
+# Patterns are written in BOTH root-anchored and **/-anchored forms on purpose:
+# a bare "*.pem" matches only the context root, so key material one directory
+# down (which is exactly where docker/server.pem lives) would still be shipped.
+
+# --- Key material ---------------------------------------------------------
+*.pem
+**/*.pem
+*.key
+**/*.key
+*.p12
+**/*.p12
+*.pfx
+**/*.pfx
+id_rsa
+**/id_rsa
+id_ed25519
+**/id_ed25519
+*.keystore
+**/*.keystore
+.netrc
+**/.netrc
+.npmrc
+**/.npmrc
+.pypirc
+**/.pypirc
+
+# --- Credential-carrying config -------------------------------------------
+.env
+**/.env
+.env.*
+**/.env.*
+*.tfvars
+**/*.tfvars
+.aws/
+**/.aws/
+.docker/config.json
+**/.docker/config.json
+
+# The local ArangoDB test fixture: TLS material plus the JWT files
+# docker/start_db.sh generates at run time.
+docker/server.pem
+docker/jwtHeader
+docker/jwtSecret
+
+# --- Build and VCS noise, so the context stays small ----------------------
+.git/
+.github/
+target/
+dist/
+build/
+**/__pycache__/
+**/*.py[cod]
+.venv/
+venv/
+.pytest_cache/
