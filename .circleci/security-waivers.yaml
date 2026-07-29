@@ -1,0 +1,62 @@
+# Structured accepted-risk waivers for the Trivy gates.
+# Schema and validation live in arangoml/trivy-scan (validate-waivers); this
+# file is passed as `waivers-path` to the gating scans and to disposition-check.
+#
+# WHY THIS AND NOT .trivyignore
+# A .trivyignore entry is a bare rule ID, so "DS-0002" would waive that control
+# for every file in the repository, now and in future, with no record of who
+# accepted the risk. Here every entry carries a path or package scope, a
+# severity, a detection date, an expiry inside that severity's window, a
+# reason, and an approved-by that must resolve to a CODEOWNERS entry. Anything
+# malformed, undated, expired or over-window fails the job BEFORE the scan runs.
+#
+# WAIVERS ARE SUBTRACTED AT GATE TIME ONLY. They are never passed to trivy as
+# --ignorefile, so the published JSON report, table, JUnit and SBOM keep every
+# finding and the job log states which waivers were applied, by whom, and why.
+# An ignorefile prunes the evidence artifact as well as the gate, which is how
+# a waived finding becomes an invisible finding.
+#
+# WINDOWS. waiver-windows in .circleci/config.yml is the same table the POA&M
+# section of SECURITY.md publishes: CRITICAL 30, HIGH 30, MEDIUM 90, LOW 180,
+# design-acceptance 366, KEV 90 days from `detected`. A waiver cannot cure an
+# SLA breach: a finding already past its window has no valid expiry date left
+# and validate-waivers rejects the entry. That is deliberate.
+#
+# FORMAT. The parser accepts a strict YAML subset: one `key: value` per line,
+# `paths:` as a block or inline list, and unknown keys are rejected rather than
+# ignored. Block scalars (`>-`, `|`) are not supported, so `reason:` is one
+# line. Do not reformat this file with a YAML pretty-printer.
+#
+# NO DEPENDENCY WAIVERS. The dependency gate is clean at HEAD: nothing in
+# Cargo.lock is dispositioned, and the disposition-check job runs on every PR
+# anyway, so an undated, unattributed or over-window entry added later cannot
+# merge. Do not copy entries into this file from another repository: a waiver
+# written against another repo's manifests is not an acceptance of anything
+# here.
+#
+# DELIBERATELY NOT WAIVED, so the reminder survives: DS-0015 ('yum clean all'
+# missing, the two maturin images) and DS-0029 ('apt-get' missing
+# --no-install-recommends, the arm64 image). Both are real fixes rather than
+# acceptances, and they are the work the dockerfile-scan flip criterion in
+# .circleci/config.yml is waiting on. Also not waived: docker/server.pem, the
+# committed test-server private key that secret-scan reports; the fix is to
+# generate it at fixture start-up.
+
+waivers:
+  # --- Design acceptance: the builder images run as root -------------------
+  # An architectural acceptance rather than a scheduled remediation, so it
+  # carries class: design-acceptance and re-review at most every 12 months.
+  # It is scoped to the three builder Dockerfiles by path, not to the rule id:
+  # a bare "DS-0002" would accept a root user in any Dockerfile this repo ever
+  # gains, including one that ships.
+  - id: DS-0002
+    kind: misconfiguration
+    class: design-acceptance
+    paths:
+      - Dockerfile-build
+      - Dockerfile-build-linux-arm64
+      - Dockerfile-build-linux-x86_64
+    detected: 2026-07-29
+    expires: 2027-07-29
+    reason: "these three images are ephemeral build tools, never pushed to a registry and never run outside a CI job: their entrypoint is maturin against a bind-mounted /io, and a non-root UID in the container cannot write the built wheel back to the host-owned mount, so the root user is load-bearing rather than incidental; the exit criterion is a build that no longer needs a host bind mount"
+    approved-by: "@MarkusReadius"
