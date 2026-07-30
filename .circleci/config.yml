@@ -441,7 +441,10 @@ jobs:
               echo "WARNING: ${LIST} is missing or empty, so there is no committed list to compare the rulesets against. Commit it." >&2
               exit 0
             fi
-            grep -vE '^[[:space:]]*(#|$)' "${LIST}" \
+            # Same guard, same reason: a list that is non-empty but carries
+            # only comments yields zero matches, which pipefail would turn into
+            # a hard failure instead of an empty expected set.
+            { grep -vE '^[[:space:]]*(#|$)' "${LIST}" || true; } \
               | sed -e 's/[[:space:]]*$//' | sort -u > /tmp/required-expected.txt
             echo "Committed required contexts (${LIST}):"
             sed -e 's/^/  /' /tmp/required-expected.txt
@@ -468,7 +471,13 @@ jobs:
             # heredoc operator in a command body has to be escaped and is a
             # standing edit hazard. "context" appears only inside
             # required_status_checks entries.
-            grep -oE '"context":[[:space:]]*"[^"]*"' /tmp/rulesets.json \
+            # Zero matches is a real state, not an error: a protection payload
+            # that carries no status-check contexts is exactly what this job
+            # exists to report, and grep's exit 1 on zero matches would
+            # otherwise kill the script under CircleCI's default -eo pipefail
+            # shell before the comparison runs. Hence the `|| true` inside the
+            # brace group.
+            { grep -oE '"context":[[:space:]]*"[^"]*"' /tmp/rulesets.json || true; } \
               | sed -e 's/.*"\([^"]*\)"$/\1/' | sort -u > /tmp/required-live.txt
             echo "Live required contexts on main:"
             sed -e 's/^/  /' /tmp/required-live.txt
