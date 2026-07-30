@@ -143,6 +143,10 @@ What is covered:
 - `Cargo.lock`, 201 packages, on every PR, on `main` and every night. The
   target list is asserted by name (`expect-targets: Cargo.lock`), so a moved or
   deleted lockfile fails the gate instead of passing it with nothing to scan.
+  `lint-rust` also asserts the lockfile is current for `Cargo.toml`
+  (`cargo metadata --locked`), before any other `cargo` command in the pipeline
+  can quietly update it: a lock that has drifted from the manifest makes the
+  gate report on versions a build does not resolve, and it does so at exit 0.
 - First-party Rust in `src/` and Python in `python/`, including
   `python/tests/`. The committed `.semgrepignore` is what keeps the test tree in
   scope, since Semgrep's built-in list drops `tests/` wholesale, and it is

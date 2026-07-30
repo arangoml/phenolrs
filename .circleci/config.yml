@@ -351,11 +351,11 @@ jobs:
   # inside a CI job, are never pushed to a registry, and run maturin against a
   # bind-mounted /io. DS-0002 in particular is load-bearing, because a
   # non-root UID in the container cannot write the wheel back to the
-  # host-owned mount. FLIP CRITERION: fix DS-0015 and DS-0029, record DS-0002
-  # as a dated design-acceptance waiver in .circleci/security-waivers.yaml,
-  # then set fail-on-findings: true here and add the job to
-  # .github/required-checks.txt. Owner call, because it edits the release
-  # build path.
+  # host-owned mount, and it is already carried as a dated, path-scoped
+  # design-acceptance waiver in .circleci/security-waivers.yaml. FLIP
+  # CRITERION: fix DS-0015 and DS-0029, then set fail-on-findings: true here
+  # and add the job to .github/required-checks.txt. Owner call, because it
+  # edits the release build path.
   #
   # The credential guard below IS blocking, and green today: it is
   # deterministic, it fails when it inspected zero files rather than passing
@@ -404,8 +404,11 @@ jobs:
           semgrepignore-baseline: << pipeline.parameters.semgrepignore-allowed >>
           poam-windows: "critical=30,high=30,medium=90,low=180"
       # Waiver integrity: schema, scope, dates, windows, and an approved-by
-      # that has to resolve to a CODEOWNERS entry. The waivers list is empty
-      # today; the check still runs so an added undated entry cannot merge.
+      # that has to resolve to a CODEOWNERS entry. One entry is carried today
+      # (DS-0002, the builder images running as root, scoped to the three
+      # Dockerfiles by path), and no dependency finding is dispositioned. The
+      # check runs on every PR regardless, so an added undated, unattributed or
+      # over-window entry cannot merge.
       - trivy-scan/validate-waivers:
           waivers-path: << pipeline.parameters.waivers-path >>
           waiver-windows: << pipeline.parameters.waiver-windows >>
@@ -671,6 +674,25 @@ jobs:
       - image: cimg/rust:1.90
     steps:
       - checkout
+      # Cargo.lock currency, FIRST and before any other cargo invocation. The
+      # dependency gate scans Cargo.lock, so the lockfile is the gate's whole
+      # view of the dependency graph: if it has drifted from Cargo.toml, the
+      # gate reports on versions that are not the ones a build resolves, and it
+      # does so at exit 0. Every later cargo command in this pipeline
+      # (clippy here, maturin in test-rust and in the builder images) silently
+      # updates a stale lock in place, so this has to run before them or it
+      # measures nothing. --locked makes cargo refuse to write the lock and
+      # exit nonzero instead, which is the check. Proven both ways locally:
+      # exit 0 at HEAD, exit 101 with a Cargo.toml constraint bumped past the
+      # locked version.
+      - run:
+          name: Assert Cargo.lock is current for Cargo.toml
+          command: |
+            if ! cargo metadata --locked --format-version 1 > /dev/null; then
+              echo "ERROR: Cargo.lock does not satisfy Cargo.toml, so the dependency gate is scanning a lockfile that no longer describes what this crate builds. Run 'cargo update --workspace' (or 'cargo check') and commit the resulting Cargo.lock." >&2
+              exit 1
+            fi
+            echo "Cargo.lock resolves Cargo.toml with no update needed."
       - run:
           name: Install clippy
           command: rustup component add clippy
