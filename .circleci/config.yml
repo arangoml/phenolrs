@@ -5,7 +5,7 @@ version: 2.1
 # runs in this pipeline with zero repo diff and zero review. Bumps are a
 # reviewed one-line change here and are listed in SECURITY.md.
 orbs:
-  trivy-scan: arangoml/trivy-scan@1.1.2
+  trivy-scan: arangoml/trivy-scan@1.2.0
   semgrep-scan: arangoml/semgrep-scan@1.0.0
   supply-chain: arangoml/supply-chain@1.0.0
 
@@ -14,7 +14,7 @@ parameters:
   waiver-windows:
     type: string
     description: "Per-severity waiver expiry windows (days from `detected`). Kept identical to the POA&M window table in SECURITY.md so the repo has ONE window policy."
-    default: "critical=30,high=30,medium=90,low=180,design=366,kev=90"
+    default: "critical=30,high=30,medium=90,low=180,design=366,kev=14"
   waivers-path:
     type: string
     description: "Structured accepted-risk waivers, subtracted at gate time only (the published report keeps every finding)."
