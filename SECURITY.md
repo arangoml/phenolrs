@@ -96,8 +96,9 @@ expiry date left and the entry is rejected.
 The KEV row is the override: a KEV-listed finding is remediated by its CISA due
 date regardless of its CVSS band, including when that band is below every gate.
 This is why `kev-epss-check` runs against the nightly's full-severity report
-rather than against the gate's report. CISA BOD 26-04 moves the federal
-baseline onto exactly these signals, with full agency use from 2026-12-07.
+rather than against the gate's report. CISA BOD 26-04 keys federal remediation
+deadlines on exploitation evidence (KEV), not CVSS, with full agency use from
+2026-12-07; EPSS is the complementary likelihood signal, mandated by nothing.
 
 Open POA&M rows at the time of writing:
 

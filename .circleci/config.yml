@@ -402,7 +402,8 @@ jobs:
           destination: sbom-full.spdx.json
       # Exploitation signals rather than CVSS bands, against the full-severity report: SECURITY.md commits to
       # remediating a KEV finding by its CISA due date regardless of the windows, and a KEV-listed MEDIUM sits
-      # below every gate band. BOD 26-04 moves the federal baseline onto these two signals. Both feeds are free.
+      # below every gate band. KEV drives BOD 26-04 deadlines; EPSS is a complementary signal, not mandated.
+      # Both feeds are free.
       - trivy-scan/kev-epss-check:
           report-path: /tmp/full-trivy-results.json
           # KEV blocks. EPSS is disabled here (1.0 is unreachable): KEV membership is a fact with a dated federal
