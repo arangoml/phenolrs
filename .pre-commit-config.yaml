@@ -3,15 +3,10 @@
 # Run all: pre-commit run --all-files
 
 repos:
-  # Committed-secret detection at commit time. This is the only tier that can
-  # stop key material before it reaches the remote at all: the CI secret-scan
-  # job reports after the push, and by then the value has to be rotated
-  # regardless of whether the commit is reverted.
-  #
-  # rev is a COMMIT SHA, not a tag: pre-commit resolves rev against the remote
-  # at install time, and a tag can be moved, so a tag pin is a mutable
-  # reference to third-party code that runs on every commit. This sha is
-  # gitleaks v8.30.1. Bump both the sha and the comment together.
+  # Commit-time secret detection is the only tier that can stop key material before it reaches the remote;
+  # the CI job reports after the push, by which point the value needs rotating regardless.
+  # rev is a commit sha, not a tag: pre-commit resolves rev at install time and a tag can be moved. This sha
+  # is gitleaks v8.30.1; bump the sha and the trailing comment together.
   - repo: https://github.com/gitleaks/gitleaks
     rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # v8.30.1
     hooks:

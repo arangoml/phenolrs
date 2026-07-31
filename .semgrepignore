@@ -1,22 +1,9 @@
-# Effective ignore list for the Semgrep SAST tiers.
-#
-# A committed .semgrepignore REPLACES Semgrep's built-in list wholesale, which
-# is the reason to commit one: the built-in list silently drops test/, tests/,
-# build/, dist/ and vendor/, and python/tests/ here starts a real ArangoDB and
-# talks to it with real credentials, so it is exactly the tree that has to stay
-# in scope. Every entry below is either a dependency directory, a VCS
-# directory, generated build output, or the one dated exception at the bottom.
-#
-# THIS FILE IS GUARDED IN BOTH DIRECTIONS, deliberately, because narrowing a
-# SAST scope is how a SAST gate dies without ever going red:
-#   * semgrep-scan/scan is passed semgrepignore-baseline: "src/ python/
-#     python/tests/" (paths that must NOT be excluded) and fails if an entry
-#     here would skip one of them.
-#   * trivy-scan/disposition-check is passed the opposite-polarity parameter of
-#     the same name, the allowlist of lines this file may contain, and fails on
-#     any entry beyond it.
-# Adding a line here therefore takes a reviewed change to
-# semgrepignore-allowed in .circleci/config.yml as well.
+# A committed .semgrepignore replaces Semgrep's built-in list wholesale, which is the reason to commit one:
+# the built-in list drops test/, tests/, build/, dist/ and vendor/, and python/tests/ starts a real ArangoDB
+# and talks to it with real credentials.
+# Guarded in both directions, because narrowing SAST scope is how a SAST gate dies without ever going red:
+# semgrep-scan gets the paths that must not be excluded, disposition-check gets the allowlist of lines this
+# file may contain. Adding a line here also takes a reviewed change to semgrepignore-allowed in config.yml.
 
 .git/
 .venv/
@@ -27,12 +14,7 @@ dist/
 target/
 vendor/
 
-# The committed test-server private key for the local ArangoDB fixture. It is
-# a genuine finding (generic.secrets detected-private-key, ERROR) and it is
-# excluded HERE, from SAST only, rather than being suppressed everywhere:
-# the secret-scan tier still reports it every run, which is the tier whose job
-# committed key material is. Excluding it from SAST keeps a single tracked
-# finding from red-lining a gate that exists to catch first-party code defects.
-# The real fix is to generate this key at fixture start-up instead of
-# committing it; see Known gaps in SECURITY.md.
+# The committed test-server key for the local ArangoDB fixture, a genuine finding excluded from SAST only:
+# secret-scan still reports it every run, which is the tier whose job committed key material is.
+# The real fix is generating this key at fixture start-up.
 docker/server.pem

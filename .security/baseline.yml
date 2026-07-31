@@ -1,32 +1,11 @@
-# OSPS Baseline scorecard for arangoml/phenolrs
-#
-# WHY THIS FILE EXISTS
-# Security posture was previously a narrative in PR descriptions. Prose does not
-# aggregate across a fleet and cannot show a trend. This file is the
-# machine-readable per-repo scorecard: one row per control, with its state, the
-# evidence that state rests on, and whether the control has actually been PROVEN
-# to fire rather than merely configured.
-#
-# WHY OSPS BASELINE AND NOT OPENSSF SCORECARD
-# OpenSSF Scorecard detects eleven of its checks only through GitHub Actions
-# workflows, so a repository whose gates live in CircleCI scores badly and any
-# improvement is invisible. OSPS Baseline is CI-agnostic, tiered, and already
-# mapped to the EU CRA and NIST SSDF.
-#
-# HONESTY ABOUT THE IDS. The control ids below follow the OSPS Baseline
-# OSPS-<CATEGORY>-<NN> scheme and were transcribed by hand, NOT reconciled
-# against a pinned machine-readable catalogue export. Read `requirement` as the
-# authoritative statement of what is being claimed and the id as a pointer.
-#
-# STATE VOCABULARY
-#   met            implemented AND the evidence has been observed
-#   met-unproven   implemented and reviewed, but never observed firing
-#   partial        implemented for part of the scope, with the remainder named
-#   blocked        implementable only by an org/platform owner (see blocked-on)
-#   accepted-gap   deliberately not implemented; see accepted-gaps below
-#
-# Consumers must tolerate LOCAL-* ids, which carry no target-level because there
-# is no OSPS tier to cite for them.
+# OSPS Baseline scorecard: one row per control, with the evidence behind its state and whether the control
+# has been observed firing rather than merely configured. Prose in PR descriptions does not aggregate.
+# Not OpenSSF Scorecard: eleven of its checks are detected only through GitHub Actions, so a CircleCI-gated
+# repo scores badly and any improvement is invisible. OSPS Baseline is CI-agnostic and already CRA/SSDF mapped.
+# Ids were transcribed by hand, not reconciled against a pinned catalogue export: read `requirement` as the
+# authoritative claim and the id as a pointer.
+# States: met, met-unproven (never observed firing), partial (remainder named), blocked (org owner action),
+# accepted-gap. LOCAL-* ids carry no target-level because no OSPS tier covers them.
 
 catalogue: OSPS Baseline v2026.02.19
 repo: arangoml/phenolrs
@@ -38,7 +17,7 @@ repo-class: library
 
 controls:
 
-  # --- Access control -------------------------------------------------------
+  # Access control
   - id: OSPS-AC-01
     requirement: "Version control requires multi-factor authentication for write access."
     target-level: 1
@@ -78,7 +57,7 @@ controls:
     proven: true
     note: "require_code_owner_review is deliberately not requested: GitHub does not count a PR author's own approval, so a sole security owner would deadlock their own security PRs. Routing is for visibility, not blocking."
 
-  # --- Build and release ----------------------------------------------------
+  # Build and release
   - id: OSPS-BR-01
     requirement: "The build is reproducible from a pinned toolchain."
     target-level: 2
@@ -111,7 +90,7 @@ controls:
     proven: false
     blocked-on: "same as OSPS-BR-03. Nothing in CircleCI publishes a wheel, so there is no pipeline-side digest to attest."
 
-  # --- Quality --------------------------------------------------------------
+  # Quality
   - id: OSPS-QA-01
     requirement: "Every release candidate passes automated functional tests."
     target-level: 1
@@ -129,7 +108,7 @@ controls:
     note: "the currency check was proven both ways locally on cargo 1.96.1: exit 0 at HEAD, exit 101 with a Cargo.toml constraint bumped past the locked version."
     remainder: "dev-requirements.txt and test-requirements.txt carry no version constraints at all, and the runtime dependencies in pyproject.toml are unbounded (numpy, python-arango>=8.2.6). poetry.lock was deleted in this branch as dead weight: nothing built with poetry."
 
-  # --- Security assessment --------------------------------------------------
+  # Security assessment
   - id: OSPS-SA-01
     requirement: "First-party code is statically analysed on every change."
     target-level: 2
@@ -163,7 +142,7 @@ controls:
     proven: true
     note: "the dependency gate's own detection was proven by seeding quinn-proto 0.11.13 into Cargo.lock and running the exact gate configuration (CRITICAL,HIGH plus ignore-unfixed): trivy exited 1 with CVE-2026-31812 and GHSA-4w2j-m93h-cj5j. The clean result at HEAD is therefore a clean tree, not a broken scanner."
 
-  # --- Vulnerability management --------------------------------------------
+  # Vulnerability management
   - id: OSPS-VM-01
     requirement: "A vulnerability reporting channel is documented."
     target-level: 1
@@ -221,7 +200,7 @@ controls:
     proven: true
     remainder: "there is no committed .github/dependabot.yml, so the update cadence, the ecosystems covered and the cooldown are whatever the org defaults are rather than a reviewed repository decision. A cooldown matters: a freshly published release is the delivery vehicle for a compromised-maintainer attack."
 
-  # --- Documentation and governance ----------------------------------------
+  # Documentation and governance
   - id: OSPS-DO-01
     requirement: "The security posture, gate policy and accepted risks are documented."
     target-level: 1
@@ -236,13 +215,8 @@ controls:
     evidence: "SECURITY.md Cryptography states that this library performs no cryptography of its own, that TLS comes from the transitive rustls/reqwest stack, and that no FIPS-validated mode is claimed"
     proven: true
 
-  # --- Local additions (not OSPS) -------------------------------------------
-  # No OSPS tier covers the publish path of a language package, so this row is
-  # a local addition, prefixed LOCAL- to keep it distinguishable from a
-  # transcribed OSPS id, and target-level is omitted because there is no tier
-  # to cite. It is recorded because the wheel is what a consumer actually
-  # installs, and a posture file that omits the publish path reads as coverage
-  # it does not have.
+  # Local addition: no OSPS tier covers the publish path of a language package, so this row is prefixed
+  # LOCAL- and omits target-level. Recorded because the wheel is what a consumer actually installs.
   - id: LOCAL-PUB-01
     requirement: "The published wheel is scanned and inventoried before it reaches the index."
     state: blocked

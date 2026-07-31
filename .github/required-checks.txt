@@ -1,36 +1,13 @@
-# Authoritative list of CircleCI status-check contexts that MUST be required by
-# the branch protection on main. One context per line; blank lines and #
-# comments are ignored.
-#
-# NOTHING IS REQUIRED TODAY. This repository has no repository-level ruleset:
-# the only rulesets that apply to it are the enterprise-sourced
-# stable-branch-no-force-push and stable-branch-no-delete, and neither carries
-# a required_status_checks rule. So every gate below runs, reports, and blocks
-# nothing at merge time. Creating the ruleset is an org-owner action; this file
-# is what it should be created from.
-#
-# The required-checks-drift job compares this list against the live branch
-# rules for main and reports any context that is committed but not required (a
-# gate that does not block a merge) or required but not committed (a required
-# context nothing emits is fail-closed and blocks every merge; one that matches
-# the WRONG job silently drops the intended gate). That job is WARN-ONLY until
-# the ruleset exists; flip it to blocking in the same change that creates it.
-#
-# WHY THESE STRINGS ARE STABLE NOW. CircleCI appends an instance suffix when the
-# same job name appears in more than one workflow, and the scheme is not
-# predictable. This repo has already been bitten: dependency-cve-scan ran
-# unnamed in both the ci and nightly workflows and reported as
-# "ci/circleci: dependency-cve-scan-1". Every gate instance now carries an
-# explicit `name:` in .circleci/config.yml (bare in the ci workflow, -nightly in
-# the nightly one), so no future topology change can renumber them.
-#
-# Verify after any topology change with either of:
-#   circleci config process .circleci/config.yml
-#   gh pr checks <PR>
-# The second is the authoritative confirmation.
+# Contexts that must be required by the branch protection on main. One per line.
+# Nothing is required today: the only rulesets applying here are enterprise-sourced and carry no
+# required_status_checks rule, so every gate below reports and blocks nothing. Creating a repository ruleset
+# is an org-owner action, and this file is what it should be created from. required-checks-drift compares
+# the two and stays warn-only until it exists.
+# These strings are stable only because every gate instance carries an explicit `name:` in config.yml:
+# CircleCI otherwise appends unpredictable suffixes (dependency-cve-scan once reported as -1).
+# Confirm with `gh pr checks` after any topology change.
 
-# Dependency CVEs in Cargo.lock, fixable CRITICAL/HIGH, waivers subtracted at
-# gate time, Cargo.lock asserted present by name
+# Dependency CVEs in Cargo.lock, fixable CRITICAL/HIGH, waivers subtracted at gate time
 ci/circleci: dependency-cve-scan
 
 # SAST tier 1: full repo, p/default plus p/rust, ERROR band
@@ -39,12 +16,10 @@ ci/circleci: sast-scan
 # SAST tier 2: newly introduced findings only, WARNING band
 ci/circleci: sast-scan-diff
 
-# Waiver and disposition integrity: undated, expired, over-window or
-# unattributed accepted risks, and any shrinkage of SAST scope
+# Waiver and disposition integrity, plus any shrinkage of SAST scope
 ci/circleci: disposition-check
 
-# Existing functional gates, listed so the ruleset is created complete rather
-# than security-only
+# Existing functional gates, so the ruleset gets created complete rather than security-only
 ci/circleci: lint-python
 ci/circleci: lint-rust
 ci/circleci: test-rust
@@ -53,16 +28,11 @@ ci/circleci: test-python-310-cluster-3.12
 ci/circleci: test-python-313-single-3.12
 ci/circleci: test-python-313-cluster-3.12
 
-# NOT REQUIRED YET, deliberately:
+# Not required yet, deliberately:
 #   ci/circleci: secret-scan
-#     Report-only for one enumeration cycle with .circleci/trivy-secret.yaml in
-#     place, so genuine fixtures get dated allow-rules before the gate can go
-#     red. docker/server.pem is an open finding, not an allow-rule. Add this
-#     line in the same change that sets fail-on-findings: true on the job.
+#     Report-only for one enumeration cycle so genuine fixtures get dated allow-rules before the gate can
+#     go red. Add this line in the same change that sets fail-on-findings: true.
 #   ci/circleci: dockerfile-scan
-#     The misconfig half is report-only until DS-0015 and DS-0029 are fixed on
-#     the builder images; see the flip criterion on the job. The credential
-#     guard inside it is already blocking.
+#     Misconfig half is report-only until DS-0015 and DS-0029 are fixed; the credential guard already blocks.
 #   ci/circleci: required-checks-drift
-#     Warn-only by construction; requiring a check that can never fail adds no
-#     protection.
+#     Warn-only by construction, so requiring it adds no protection.

@@ -1,14 +1,7 @@
-# Review routing for the security-relevant configuration in this repository.
-#
-# This file is also the approver registry for .circleci/security-waivers.yaml:
-# validate-waivers refuses an accepted-risk entry whose `approved-by` does not
-# resolve to an owner listed here, so an acceptance cannot be self-granted by
-# an account with no stake in the file it waives.
-#
-# NOTE: require_code_owner_review is deliberately NOT requested on the branch
-# protection for main. GitHub does not count a PR author's own approval, so a
-# sole security owner would deadlock their own security PRs. Routing here is
-# for visibility, not for blocking.
+# Review routing for the security-relevant configuration here, and the approver registry for
+# .circleci/security-waivers.yaml: validate-waivers rejects an approved-by that does not resolve to an
+# owner listed below. require_code_owner_review is deliberately not requested on main, because GitHub does
+# not count a PR author's own approval and a sole security owner would deadlock their own PRs.
 
 # CI and gate configuration
 /.circleci/                 @MarkusReadius
