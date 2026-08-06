@@ -2,7 +2,7 @@ version: 2.1
 
 # Pin exact orb versions: a float lets a future orb publish change what runs here with no repo diff.
 orbs:
-  trivy-scan: arangoml/trivy-scan@1.5.0
+  trivy-scan: arangoml/trivy-scan@1.5.1
   semgrep-scan: arangoml/semgrep-scan@1.0.0
   supply-chain: arangoml/supply-chain@1.0.0
 
