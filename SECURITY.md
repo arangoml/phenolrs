@@ -91,7 +91,7 @@ expiry date left and the entry is rejected.
 | MEDIUM | 90 days | `waiver-windows`, `poam-windows` |
 | LOW | 180 days | `waiver-windows`, `poam-windows` |
 | Design acceptance | 366 days, re-reviewed annually | `waiver-windows` |
-| CISA KEV listed | 90 days, and never later than the CISA due date | `kev-epss-check` in the nightly |
+| CISA KEV listed | 14 days, and never later than the CISA due date | `kev-epss-check` in the nightly |
 
 The KEV row is the override: a KEV-listed finding is remediated by its CISA due
 date regardless of its CVSS band, including when that band is below every gate.
