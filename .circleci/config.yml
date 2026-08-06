@@ -2,7 +2,7 @@ version: 2.1
 
 # Pin exact orb versions: a float lets a future orb publish change what runs here with no repo diff.
 orbs:
-  trivy-scan: arangoml/trivy-scan@1.2.0
+  trivy-scan: arangoml/trivy-scan@1.5.0
   semgrep-scan: arangoml/semgrep-scan@1.0.0
   supply-chain: arangoml/supply-chain@1.0.0
 
@@ -77,6 +77,7 @@ workflows:
       # workflows (dependency-cve-scan reported as dependency-cve-scan-1), which invalidates required-checks.txt.
       - dependency-cve-scan:
           name: dependency-cve-scan
+          context: [github-pr-comments]
       - secret-scan:
           name: secret-scan
       - sast-scan:
@@ -152,6 +153,7 @@ jobs:
           severity: "CRITICAL,HIGH"
           ignore-unfixed: true
           fail-on-findings: true
+          pr-comment: true
           # --severity applies at scan time, so a narrow band erases MEDIUM/LOW/UNKNOWN from the report, JUnit
           # and SBOM as well as the gate. Wide report, narrow gate, one scan.
           report-severity: "CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN"
