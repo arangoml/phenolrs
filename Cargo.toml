@@ -15,24 +15,21 @@ lto = "fat"
 
 [dependencies]
 arangors-graph-exporter = "0.1.2"
-numpy = "0.24.0"
+numpy = "0.29.0"
 tokio = { version = "1", features = ["full"] }
 bytes = "1.5.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-reqwest = { version = "0.11.16", features = ["json", "rustls-tls"] }
-reqwest-retry = "0.3.0"
-reqwest-middleware = "0.2.4"
 log = "0.4.22"
 env_logger = "0.11.5"
 ndarray = "0.16"
 anyhow = "1.0.80"
 
 [dependencies.pyo3]
-version = "0.24.2"
+version = "0.29.0"
 
 [dependencies.pythonize]
-version = "0.24.0"
+version = "0.29.0"
 
 [features]
 extension-module = ["pyo3/extension-module"]

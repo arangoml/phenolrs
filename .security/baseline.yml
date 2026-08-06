@@ -1,0 +1,278 @@
+# OSPS Baseline scorecard: one row per control, with the evidence behind its state and whether the control
+# has been observed firing rather than merely configured. Prose in PR descriptions does not aggregate.
+# Not OpenSSF Scorecard: eleven of its checks are detected only through GitHub Actions, so a CircleCI-gated
+# repo scores badly and any improvement is invisible. OSPS Baseline is CI-agnostic and already CRA/SSDF mapped.
+# Ids were transcribed by hand, not reconciled against a pinned catalogue export: read `requirement` as the
+# authoritative claim and the id as a pointer.
+# States: met, met-unproven (never observed firing), partial (remainder named), blocked (org owner action),
+# accepted-gap. LOCAL-* ids carry no target-level because no OSPS tier covers them.
+
+catalogue: OSPS Baseline v2026.02.19
+repo: arangoml/phenolrs
+target-level: 2
+owner: "@MarkusReadius"
+assessed: 2026-07-29
+assessed-against: ci/trivy-cve-scanning
+repo-class: library
+
+controls:
+
+  # Access control
+  - id: OSPS-AC-01
+    requirement: "Version control requires multi-factor authentication for write access."
+    target-level: 1
+    state: met
+    evidence: "org-enforced 2FA requirement on arangoml"
+    proven: true
+
+  - id: OSPS-AC-02
+    requirement: "The default branch cannot be force-pushed or deleted, and merges require review."
+    target-level: 1
+    state: partial
+    evidence: "enterprise-sourced rulesets stable-branch-no-force-push (19814963) and stable-branch-no-delete (19814975) apply to main"
+    proven: true
+    remainder: "no repository ruleset exists, so there is no pull-request review requirement on main either."
+
+  - id: OSPS-AC-03
+    requirement: "Merges to the default branch require the automated checks that gate the release to pass."
+    target-level: 2
+    state: blocked
+    evidence: ".github/required-checks.txt holds the authoritative context list; required-checks-drift compares it against the live branch rules for main on every PR and every night"
+    proven: false
+    blocked-on: "no ruleset with a required_status_checks rule exists on this repository, so zero contexts are required and every gate reports without blocking. Creating it is an org-owner action; the drift job is warn-only until it is done, then flips to blocking."
+
+  - id: OSPS-AC-04
+    requirement: "CI credentials are least-privilege and not exposed to untrusted code."
+    target-level: 2
+    state: blocked
+    evidence: "every scan job here is offline and carries no context at all: the Trivy fs scans, the Semgrep tiers and the disposition checks read the checkout and need no credentials"
+    proven: true
+    blocked-on: "CircleCI project-settings audit: confirm fork-PR secret passing is OFF and that no unused context is attached. Project settings are not changed from this pipeline. The PyPI upload tokens live in GitHub Actions secrets (TWINE_PASSWORD, TWINE_PASSWORD_TEST) and their scope is an owner review item."
+
+  - id: OSPS-AC-05
+    requirement: "Changes to security-relevant configuration are routed to a named owner."
+    target-level: 2
+    state: met
+    evidence: ".github/CODEOWNERS covers .circleci/, .github/, .semgrepignore, .trivyignore, .dockerignore, .pre-commit-config.yaml, .security/, SECURITY.md, the dependency manifests and the three builder Dockerfiles"
+    proven: true
+    note: "require_code_owner_review is deliberately not requested: GitHub does not count a PR author's own approval, so a sole security owner would deadlock their own security PRs. Routing is for visibility, not blocking."
+
+  # Build and release
+  - id: OSPS-BR-01
+    requirement: "The build is reproducible from a pinned toolchain."
+    target-level: 2
+    state: partial
+    evidence: "Cargo.lock is committed; the scan executor is digest-pinned; Trivy, Semgrep and helm are version-pinned and checksum-verified inside the shared orbs; the three orbs are pinned to exact versions with no @1 or @1.0 float"
+    proven: true
+    remainder: "dev-requirements.txt and test-requirements.txt are entirely unpinned, so the lint and test toolchain is not reproducible. The builder images install rustup and maturin from the network at build time and the arm64 image installs the latest stable Rust, so the compiler that produces a wheel is not pinned either."
+
+  - id: OSPS-BR-02
+    requirement: "Build secrets do not persist in the produced artifact or in build caches."
+    target-level: 2
+    state: met
+    evidence: "no builder Dockerfile consumes a credential (no private index, no registry auth), and the deterministic credential guard in dockerfile-scan fails the build if a credential-shaped ARG or ENV appears in a final stage; .dockerignore excludes key material in both root-anchored and **/-anchored forms for the day a COPY is added"
+    proven: true
+    note: "guard executed against all three Dockerfiles locally before this change landed: 3 files inspected, 0 findings. It fails on zero files inspected rather than passing vacuously."
+
+  - id: OSPS-BR-03
+    requirement: "Released artifacts are signed, and the signature is verified before consumption."
+    target-level: 3
+    state: blocked
+    evidence: "None. No wheel is signed and no attestation is produced."
+    proven: false
+    blocked-on: "the release path is GitHub Actions with twine, and the supply-chain orb signs OCI artifacts by digest, which a PyPI wheel is not. The free path is PyPI Trusted Publishing with PEP 740 attestations, which needs a PyPI project-settings change and a release-workflow change. Both are owner actions."
+
+  - id: OSPS-BR-04
+    requirement: "Provenance is published for released artifacts."
+    target-level: 3
+    state: blocked
+    evidence: "None."
+    proven: false
+    blocked-on: "same as OSPS-BR-03. Nothing in CircleCI publishes a wheel, so there is no pipeline-side digest to attest."
+
+  # Quality
+  - id: OSPS-QA-01
+    requirement: "Every release candidate passes automated functional tests."
+    target-level: 1
+    state: partial
+    evidence: "the ci workflow runs clippy, fmt, black, mypy, flake8, bandit, cargo test and the full Python matrix (3.10 and 3.13, single and cluster) against a real ArangoDB 3.12"
+    proven: true
+    remainder: "the release workflow triggers on a published GitHub release and runs none of those jobs: it builds and uploads wheels directly. A tag can therefore reach PyPI without the test matrix having run on that commit."
+
+  - id: OSPS-QA-02
+    requirement: "Dependencies are declared with pinned, verifiable versions."
+    target-level: 2
+    state: partial
+    evidence: "Cargo.lock is committed with checksums for all 201 packages and is the manifest that drives the shipped wheel; lint-rust asserts the lock is current for Cargo.toml (cargo metadata --locked) before any other cargo command can update it in place, so the graph the dependency gate scans is the graph a build resolves"
+    proven: true
+    note: "the currency check was proven both ways locally on cargo 1.96.1: exit 0 at HEAD, exit 101 with a Cargo.toml constraint bumped past the locked version."
+    remainder: "dev-requirements.txt and test-requirements.txt carry no version constraints at all, and the runtime dependencies in pyproject.toml are unbounded (numpy, python-arango>=8.2.6). poetry.lock was deleted in this branch as dead weight: nothing built with poetry."
+
+  # Security assessment
+  - id: OSPS-SA-01
+    requirement: "First-party code is statically analysed on every change."
+    target-level: 2
+    state: met
+    evidence: "sast-scan (Semgrep CE, p/default plus p/rust, gate at ERROR) and sast-scan-diff (newly introduced findings only, gate at WARNING) on PRs and nightly; python/tests/ is in scope via the committed .semgrepignore and the scope-shrinkage guard stops it being removed"
+    proven: true
+    note: "measured locally on this branch with semgrep 1.168.0: 338 rules, 48 files, 0 ERROR findings and 10 pre-existing WARNING findings (all mutable-action-tag in .github/workflows/release.yml). p/rust contributes 11 rules, none of them ERROR, which is why the WARNING diff tier exists rather than being optional. The scope guard was proven by adding python/tests/ to .semgrepignore: disposition-check failed with SCOPE SHRINKAGE."
+
+  - id: OSPS-SA-02
+    requirement: "Infrastructure and container configuration is scanned on every change."
+    target-level: 2
+    state: partial
+    evidence: "dockerfile-scan runs the Trivy misconfiguration scanner over the three builder Dockerfiles with file-patterns dockerfile:Dockerfile-build.*, plus the deterministic credential guard"
+    proven: true
+    remainder: "the misconfiguration half is report-only. Six HIGH findings stand: DS-0002 (root user, all three, accepted as a design acceptance in .circleci/security-waivers.yaml), DS-0015 (yum clean all, two files) and DS-0029 (--no-install-recommends, arm64). Flip criterion is on the job."
+    note: "this control read as met-by-absence before the change: without file-patterns, Trivy's dockerfile analyzer does not recognise the name Dockerfile-build*, so a plain misconfig scan found ZERO dockerfile targets and exited 0. Verified on trivy v0.72.0: zero targets without the pattern, three targets and six HIGH findings with it."
+
+  - id: OSPS-SA-03
+    requirement: "Committed credentials are detected."
+    target-level: 2
+    state: partial
+    evidence: "secret-scan with .circleci/trivy-secret.yaml (disable-allow-rules: [tests], which puts back the tree Trivy's built-in allow rules exclude entirely), plus a gitleaks pre-commit hook pinned to a commit sha"
+    proven: true
+    remainder: "report-only for one enumeration cycle, and there is a real finding to enumerate: docker/server.pem is an unencrypted RSA private key committed for the local test fixture. It is deliberately NOT allow-ruled, because the fix is to generate it at fixture start-up. The gate cannot flip to blocking until that is done or the key is given a dated allow-rule."
+
+  - id: OSPS-SA-04
+    requirement: "Detection capability is continuously re-proven."
+    target-level: 3
+    state: met
+    evidence: "nightly-self-test scans a digest-pinned known-vulnerable image every night and fails the nightly if the unique-finding count falls below a measured floor of 5"
+    proven: true
+    note: "the dependency gate's own detection was proven by seeding quinn-proto 0.11.13 into Cargo.lock and running the exact gate configuration (CRITICAL,HIGH plus ignore-unfixed): trivy exited 1 with CVE-2026-31812 and GHSA-4w2j-m93h-cj5j. The clean result at HEAD is therefore a clean tree, not a broken scanner."
+
+  # Vulnerability management
+  - id: OSPS-VM-01
+    requirement: "A vulnerability reporting channel is documented."
+    target-level: 1
+    state: met
+    evidence: "SECURITY.md Reporting a vulnerability, with acknowledgement and assessment targets and a coordinated 90-day disclosure default"
+    proven: false
+    note: "private vulnerability reporting has to be enabled per repository in the Security tab; confirm it is on."
+
+  - id: OSPS-VM-02
+    requirement: "Dependencies are scanned for known vulnerabilities on every change."
+    target-level: 1
+    state: met
+    evidence: "dependency-cve-scan on every PR and on main, gating on fixable CRITICAL/HIGH with the full band in the report; expect-targets names Cargo.lock so a vanished lockfile fails by name rather than passing with nothing to scan"
+    proven: true
+    note: "the vacuous-pass mode was checked, not assumed: with Cargo.lock moved aside the scan produces an empty target list, which is what expect-targets and require-targets exist to catch."
+
+  - id: OSPS-VM-03
+    requirement: "Shipped artifacts are re-scanned on a schedule, not only at build time."
+    target-level: 2
+    state: partial
+    evidence: "nightly-dependency-scan re-scans Cargo.lock every night in two passes, a non-blocking full-severity report pass (dev dependencies and licences included) followed by a blocking fixable CRITICAL/HIGH pass"
+    proven: false
+    remainder: "the rescan covers the dependency graph at HEAD, which is the input to the wheel and not the wheel itself. A published wheel contains a compiled Rust cdylib that no scanner can introspect, and no PyPI-side rescan exists. Also: the nightly still runs from an in-config triggers: schedule, which runs on ONE branch, acceptable while there is exactly one supported line."
+    note: "before this change the nightly reran the commit-time gate with severity widened to UNKNOWN and ignore-unfixed disabled while fail-on-findings stayed hardcoded true, so it would have failed on any MEDIUM, LOW, UNKNOWN or unfixed finding. It was described as report-only and behaved as a gate."
+
+  - id: OSPS-VM-04
+    requirement: "Accepted risks are dated, scoped, attributed and enforced."
+    target-level: 2
+    state: met
+    evidence: ".circleci/security-waivers.yaml carries id, scope, class, detected, expires, reason and a CODEOWNERS-resolvable approved-by; disposition-check and validate-waivers block on anything undated, expired, over-window or unattributed, on PRs as well as nightly; waivers are subtracted at GATE time only so the published report keeps every finding"
+    proven: true
+    note: "proven by fixture rather than by inspection: removing `detected` from the single waiver made validate-waivers exit 1, and expiring the review-by date in .circleci/trivy-secret.yaml made disposition-check exit 1."
+
+  - id: OSPS-VM-05
+    requirement: "Remediation deadlines are defined and enforced."
+    target-level: 2
+    state: partial
+    evidence: "one window table for the whole repo (CRITICAL/HIGH 30, MEDIUM 90, LOW 180, design acceptance 366 days), machine-enforced by waiver-windows and poam-windows; the CISA KEV override is enforced by kev-epss-check against the nightly full-severity report"
+    proven: true
+    remainder: "five POA&M rows are open in SECURITY.md, three of them HIGH with a window closing 2026-08-28. Nothing in CI fails on an open POA&M row that has no waiver, by design: the report tier is where they live."
+
+  - id: OSPS-VM-06
+    requirement: "A component inventory is produced for each artifact and retained."
+    target-level: 2
+    state: partial
+    evidence: "CycloneDX and SPDX-2.3 SBOMs are rendered from the dependency scan and stored as build artifacts, structurally validated against CISA's 2025 Minimum Elements by validate-sbom with a floor of 150 components against a measured 202"
+    proven: true
+    remainder: "no SBOM is published next to the wheels, because nothing in CircleCI publishes a wheel. Durable retention is wired and inert: publish-evidence needs an S3 bucket with COMPLIANCE-mode retention and dtrack-upload needs a Dependency-Track 5 host, both org actions. Until then the inventory persists only as CircleCI artifacts with finite retention."
+
+  - id: OSPS-VM-07
+    requirement: "Automated dependency updates are enabled."
+    target-level: 2
+    state: partial
+    evidence: "Dependabot is active on this repository and its cargo alerts are what surfaced the h2, rustls and openssl issues this branch supersedes"
+    proven: true
+    remainder: "there is no committed .github/dependabot.yml, so the update cadence, the ecosystems covered and the cooldown are whatever the org defaults are rather than a reviewed repository decision. A cooldown matters: a freshly published release is the delivery vehicle for a compromised-maintainer attack."
+
+  # Documentation and governance
+  - id: OSPS-DO-01
+    requirement: "The security posture, gate policy and accepted risks are documented."
+    target-level: 1
+    state: met
+    evidence: "SECURITY.md: the two-tier gate policy, the POA&M window table with the KEV row, the required-context list with the suffix-instability warning, coverage caveats, the honest unsigned-artifact statement, and a Known gaps table naming each paid alternative with its internal-use price"
+    proven: true
+
+  - id: OSPS-DO-02
+    requirement: "Cryptographic posture is stated accurately."
+    target-level: 2
+    state: met
+    evidence: "SECURITY.md Cryptography states that this library performs no cryptography of its own, that TLS comes from the transitive rustls/reqwest stack, and that no FIPS-validated mode is claimed"
+    proven: true
+
+  # Local addition: no OSPS tier covers the publish path of a language package, so this row is prefixed
+  # LOCAL- and omits target-level. Recorded because the wheel is what a consumer actually installs.
+  - id: LOCAL-PUB-01
+    requirement: "The published wheel is scanned and inventoried before it reaches the index."
+    state: blocked
+    evidence: "None. .github/workflows/release.yml builds five platform wheels and uploads them with twine on a published release, with no scan, no SBOM and no signature; the CircleCI gates run on the source tree only."
+    proven: false
+    blocked-on: "there is no CircleCI publish job to wire a gate into, so closing this means either moving the publish path to CircleCI or adding the gate on the GitHub Actions side. Both are owner decisions about the release process, not config edits, and both touch the workflow that ships to PyPI. Named in the fleet CVE visibility matrix as one of the published-artifact surfaces with no pre-publish scan."
+
+accepted-gaps:
+
+  - id: ghas-code-security
+    control-refs: [OSPS-SA-01]
+    decision: "Not purchased. GitHub Code Security (CodeQL, code scanning) is a paid SKU on private repositories at 30 USD per committer per month, and this org runs CI on CircleCI, not Actions."
+    free-baseline: "Semgrep CE at 0 USD, two tiers (full-repo ERROR plus diff-aware WARNING), with p/rust added because p/default carries no Rust rules."
+    residual-risk: "no dataflow-grade taint analysis across function boundaries; Semgrep CE's interfile analysis is weaker than CodeQL's."
+
+  - id: sarif-upload-to-code-scanning
+    control-refs: [OSPS-SA-01]
+    decision: "Not wired. Uploading SARIF to GitHub code scanning requires the same paid SKU."
+    free-baseline: "SARIF is produced and stored as a job artifact."
+    residual-risk: "findings are not visible in the GitHub UI, so triage happens in CircleCI."
+
+  - id: semgrep-appsec-platform
+    control-refs: [OSPS-SA-01, OSPS-SA-03]
+    decision: "Not purchased. The AppSec Platform and Semgrep Secrets are the paid funnel, priced per contributor and quoted per deal; no SEMGREP_APP_TOKEN exists and the pipeline never calls semgrep ci."
+    free-baseline: "Semgrep CE with the registry rulesets, at 0 USD."
+    residual-risk: "no managed triage state or cross-repo dashboard; the baseline-commit diff tier substitutes for platform-side backlog suppression."
+
+  - id: paid-trivy-aqua-features
+    control-refs: [OSPS-VM-02, OSPS-VM-03]
+    decision: "Not purchased. Every Trivy capability this pipeline uses is in the free OSS scanner."
+    free-baseline: "Trivy OSS pinned and checksum-verified in the shared orb, plus the free unauthenticated CISA KEV and FIRST EPSS feeds."
+    residual-risk: "none identified for this repository's scope."
+
+  - id: github-artifact-attestations
+    control-refs: [OSPS-BR-03, OSPS-BR-04]
+    decision: "Not usable as the fleet pattern. Artifact Attestations are Actions-only and, on private repositories, Enterprise Cloud."
+    free-baseline: "None in place. PyPI Trusted Publishing with PEP 740 attestations is the free candidate and is an owner decision."
+    residual-risk: "nothing published is verifiable."
+
+  - id: openvex-publication
+    control-refs: [OSPS-VM-04]
+    decision: "Not published. VEX emission is scoped to the repos shipping to customers and agencies; phenolrs is an internal library consumed by ArangoDB products, so it keeps waivers without publishing VEX."
+    free-baseline: ".circleci/security-waivers.yaml carries the same not-affected statements, validated on every PR."
+    residual-risk: "a downstream consumer cannot machine-read a not-affected claim about this component; the product-level VEX covers it."
+
+  - id: openssf-scorecard-as-a-metric
+    control-refs: []
+    decision: "Not adopted as a fleet metric. Eleven Scorecard checks are detected only through GitHub Actions workflows, so a repository gated in CircleCI scores badly and improvement is invisible."
+    free-baseline: "this file."
+    residual-risk: "no externally comparable single number."
+
+open-items:
+  - "Create a repository ruleset on main from .github/required-checks.txt, then flip required-checks-drift from warn-only to blocking (OSPS-AC-03)."
+  - "Decide the wheel-signing path: PyPI Trusted Publishing with PEP 740 attestations is the free option and needs a PyPI settings change plus a release-workflow change (OSPS-BR-03, LOCAL-PUB-01)."
+  - "Generate docker/server.pem at fixture start-up, then flip secret-scan to blocking (OSPS-SA-03)."
+  - "Fix DS-0015 and DS-0029 on the builder images, then flip the dockerfile-scan misconfig half to blocking (OSPS-SA-02)."
+  - "Pin dev-requirements.txt and test-requirements.txt, which both closes the toolchain-reproducibility gap and puts them inside the already-wired pip file-patterns scan scope (OSPS-BR-01, OSPS-QA-02)."
+  - "Commit .github/dependabot.yml with an explicit ecosystem list and a cooldown (OSPS-VM-07)."
+  - "Reconcile every control id and requirement text against a committed machine-readable OSPS Baseline v2026.02.19 catalogue export, then drop the caveat in this file's header."

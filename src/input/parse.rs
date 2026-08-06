@@ -33,9 +33,11 @@ pub fn create_collection_info_vec(
     collection_info.iter().map(|c| c.0.clone()).collect()
 }
 
-impl FromPyObject<'_> for DataLoadRequest {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let input_dict = ob.downcast::<PyDict>()?;
+impl FromPyObject<'_, '_> for DataLoadRequest {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.cast::<PyDict>()?;
         let db_config: LocalDatabaseConfiguration = input_dict
             .get_item("database_config")?
             .map_or(Ok(LocalDatabaseConfiguration::default()), |c| c.extract())?;
@@ -61,9 +63,11 @@ impl FromPyObject<'_> for DataLoadRequest {
     }
 }
 
-impl FromPyObject<'_> for LocalDataLoadConfiguration {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let input_dict = ob.downcast::<PyDict>()?;
+impl FromPyObject<'_, '_> for LocalDataLoadConfiguration {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.cast::<PyDict>()?;
         let parallelism: u32 = input_dict
             .get_item("parallelism")?
             .map_or(Ok(8), |v| v.extract())?;
@@ -89,9 +93,11 @@ impl FromPyObject<'_> for LocalDataLoadConfiguration {
     }
 }
 
-impl FromPyObject<'_> for LocalDatabaseConfiguration {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let input_dict = ob.downcast::<PyDict>()?;
+impl FromPyObject<'_, '_> for LocalDatabaseConfiguration {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.cast::<PyDict>()?;
         let database: String = input_dict
             .get_item("database")?
             .map_or_else(|| Ok("_system".into()), |c| c.extract())?;
@@ -121,9 +127,11 @@ impl FromPyObject<'_> for LocalDatabaseConfiguration {
     }
 }
 
-impl FromPyObject<'_> for LocalCollectionInfo {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let input_dict = ob.downcast::<PyDict>()?;
+impl FromPyObject<'_, '_> for LocalCollectionInfo {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.cast::<PyDict>()?;
         let name: String = input_dict.get_item("name")?.map_or_else(
             || Err(PyValueError::new_err("Collection name not set")),
             |s| s.extract::<String>(),
@@ -138,9 +146,11 @@ impl FromPyObject<'_> for LocalCollectionInfo {
     }
 }
 
-impl FromPyObject<'_> for NetworkXGraphConfig {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let input_dict = ob.downcast::<PyDict>()?;
+impl FromPyObject<'_, '_> for NetworkXGraphConfig {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.cast::<PyDict>()?;
         let load_adj_dict: bool = input_dict
             .get_item("load_adj_dict")?
             .map_or_else(|| Ok(true), |c| c.extract())?;
@@ -169,9 +179,11 @@ impl FromPyObject<'_> for NetworkXGraphConfig {
 /// Helper struct for parsing a single AQL query from Python
 pub struct LocalAqlQuery(pub AqlQuery);
 
-impl FromPyObject<'_> for LocalAqlQuery {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let input_dict = ob.downcast::<PyDict>()?;
+impl FromPyObject<'_, '_> for LocalAqlQuery {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.cast::<PyDict>()?;
 
         let query: String = input_dict.get_item("query")?.map_or_else(
             || Err(PyValueError::new_err("AQL query string is required")),
@@ -198,9 +210,11 @@ impl FromPyObject<'_> for LocalAqlQuery {
 /// Helper struct for parsing a DataItem (attribute definition) from Python
 pub struct LocalDataItem(pub DataItem);
 
-impl FromPyObject<'_> for LocalDataItem {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let input_dict = ob.downcast::<PyDict>()?;
+impl FromPyObject<'_, '_> for LocalDataItem {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.cast::<PyDict>()?;
 
         let name: String = input_dict.get_item("name")?.map_or_else(
             || Err(PyValueError::new_err("Attribute name is required")),
@@ -221,9 +235,11 @@ impl FromPyObject<'_> for LocalDataItem {
     }
 }
 
-impl FromPyObject<'_> for AqlDataLoadRequest {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let input_dict = ob.downcast::<PyDict>()?;
+impl FromPyObject<'_, '_> for AqlDataLoadRequest {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+        let input_dict = ob.cast::<PyDict>()?;
 
         // Parse database configuration
         let db_config: LocalDatabaseConfiguration = input_dict
@@ -250,10 +266,10 @@ impl FromPyObject<'_> for AqlDataLoadRequest {
         let queries: Vec<Vec<AqlQuery>> = input_dict.get_item("queries")?.map_or_else(
             || Err(PyValueError::new_err("queries is required")),
             |v| {
-                let outer_list = v.downcast::<PyList>()?;
+                let outer_list = v.cast::<PyList>()?;
                 let mut result = vec![];
                 for group in outer_list.iter() {
-                    let inner_list = group.downcast::<PyList>()?;
+                    let inner_list = group.cast::<PyList>()?;
                     let mut group_queries = vec![];
                     for query_obj in inner_list.iter() {
                         let local_query: LocalAqlQuery = query_obj.extract()?;
@@ -286,7 +302,7 @@ impl FromPyObject<'_> for AqlDataLoadRequest {
 /// Parse attributes from either dict format {"attr": "type"} or list format [{"name": "attr", "type": "type"}]
 fn parse_attributes(ob: Bound<'_, PyAny>) -> PyResult<Vec<DataItem>> {
     // Try dict format first: {"attr1": "string", "attr2": "number"}
-    if let Ok(dict) = ob.downcast::<PyDict>() {
+    if let Ok(dict) = ob.cast::<PyDict>() {
         let mut items = vec![];
         for (key, value) in dict.iter() {
             let name: String = key.extract()?;
@@ -298,7 +314,7 @@ fn parse_attributes(ob: Bound<'_, PyAny>) -> PyResult<Vec<DataItem>> {
     }
 
     // Try list format: [{"name": "attr1", "type": "string"}, ...]
-    if let Ok(list) = ob.downcast::<PyList>() {
+    if let Ok(list) = ob.cast::<PyList>() {
         let mut items = vec![];
         for item in list.iter() {
             let local_item: LocalDataItem = item.extract()?;

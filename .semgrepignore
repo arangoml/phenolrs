@@ -1,0 +1,20 @@
+# A committed .semgrepignore replaces Semgrep's built-in list wholesale, which is the reason to commit one:
+# the built-in list drops test/, tests/, build/, dist/ and vendor/, and python/tests/ starts a real ArangoDB
+# and talks to it with real credentials.
+# Guarded in both directions, because narrowing SAST scope is how a SAST gate dies without ever going red:
+# semgrep-scan gets the paths that must not be excluded, disposition-check gets the allowlist of lines this
+# file may contain. Adding a line here also takes a reviewed change to semgrepignore-allowed in config.yml.
+
+.git/
+.venv/
+venv/
+__pycache__/
+build/
+dist/
+target/
+vendor/
+
+# The committed test-server key for the local ArangoDB fixture, a genuine finding excluded from SAST only:
+# secret-scan still reports it every run, which is the tier whose job committed key material is.
+# The real fix is generating this key at fixture start-up.
+docker/server.pem

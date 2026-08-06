@@ -1,0 +1,54 @@
+# Guard for the day a builder image grows a COPY: none of the three has one today, but docker build still
+# uploads the whole context, so a COPY . added later would pull in every path listed below.
+# Patterns are both root-anchored and **/-anchored: a bare *.pem misses docker/server.pem one level down.
+
+# Key material
+*.pem
+**/*.pem
+*.key
+**/*.key
+*.p12
+**/*.p12
+*.pfx
+**/*.pfx
+id_rsa
+**/id_rsa
+id_ed25519
+**/id_ed25519
+*.keystore
+**/*.keystore
+.netrc
+**/.netrc
+.npmrc
+**/.npmrc
+.pypirc
+**/.pypirc
+
+# Credential-carrying config
+.env
+**/.env
+.env.*
+**/.env.*
+*.tfvars
+**/*.tfvars
+.aws/
+**/.aws/
+.docker/config.json
+**/.docker/config.json
+
+# Local ArangoDB fixture: TLS material plus the JWT files start_db.sh generates at run time.
+docker/server.pem
+docker/jwtHeader
+docker/jwtSecret
+
+# Build and VCS noise, so the context stays small
+.git/
+.github/
+target/
+dist/
+build/
+**/__pycache__/
+**/*.py[cod]
+.venv/
+venv/
+.pytest_cache/

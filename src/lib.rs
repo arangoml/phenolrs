@@ -17,9 +17,8 @@ use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 #[cfg(not(test))]
 use pyo3::types::PyDict;
-use pyo3::IntoPy;
+use pyo3::IntoPyObjectExt;
 use pyo3::Py;
-use pyo3::ToPyObject;
 
 use graph::{NetworkXGraph, NumpyGraph};
 
@@ -36,7 +35,7 @@ create_exception!(phenolrs, PhenolError, PyException);
 fn graph_to_numpy_format(
     py: Python,
     request: DataLoadRequest,
-) -> PyResult<(PyObject, PyObject, PyObject, PyObject)> {
+) -> PyResult<(Py<PyAny>, Py<PyAny>, Py<PyAny>, Py<PyAny>)> {
     let _ = env_logger::try_init();
 
     let graph_factory = NumpyGraph::new;
@@ -67,10 +66,10 @@ fn graph_to_numpy_format(
     info!("Built. Took: {:?}", start_time.elapsed());
 
     let res = (
-        col_to_features.into_py(py),
-        coo_by_from_edge_to.into_py(py),
-        cols_to_keys_to_inds.into_py(py),
-        cols_to_inds_to_keys.into_py(py),
+        col_to_features.into_py_any(py)?,
+        coo_by_from_edge_to.into_py_any(py)?,
+        cols_to_keys_to_inds.into_py_any(py)?,
+        cols_to_inds_to_keys.into_py_any(py)?,
     );
 
     Ok(res)
@@ -83,13 +82,13 @@ fn graph_to_networkx_format(
     request: DataLoadRequest,
     graph_config: NetworkXGraphConfig,
 ) -> PyResult<(
-    PyObject,
-    PyObject,
-    PyObject,
-    PyObject,
-    PyObject,
-    PyObject,
-    PyObject,
+    Py<PyAny>,
+    Py<PyAny>,
+    Py<PyAny>,
+    Py<PyAny>,
+    Py<PyAny>,
+    Py<PyAny>,
+    Py<PyAny>,
 )> {
     let _ = env_logger::try_init();
 
@@ -140,13 +139,13 @@ fn graph_to_networkx_format(
     let edge_values = construct::construct_edge_value_dict(graph.edge_values, py)?;
 
     let res = (
-        node_dict.into_py(py),
-        adj_dict.into_py(py),
-        src_indices.into_py(py),
-        dst_indices.into_py(py),
-        edge_indices.into_py(py),
-        vertex_id_to_index.into_py(py),
-        edge_values.into_py(py),
+        node_dict.into_py_any(py)?,
+        adj_dict.into_py_any(py)?,
+        src_indices.into_py_any(py)?,
+        dst_indices.into_py_any(py)?,
+        edge_indices.into_py_any(py)?,
+        vertex_id_to_index.into_py_any(py)?,
+        edge_values.into_py_any(py)?,
     );
 
     Ok(res)
@@ -167,7 +166,7 @@ fn graph_to_networkx_format(
 fn graph_aql_to_numpy_format(
     py: Python,
     request: AqlDataLoadRequest,
-) -> PyResult<(PyObject, PyObject, PyObject, PyObject)> {
+) -> PyResult<(Py<PyAny>, Py<PyAny>, Py<PyAny>, Py<PyAny>)> {
     let _ = env_logger::try_init();
 
     let graph_factory = NumpyGraph::new;
@@ -198,10 +197,10 @@ fn graph_aql_to_numpy_format(
     info!("Built. Took: {:?}", start_time.elapsed());
 
     let res = (
-        col_to_features.into_py(py),
-        coo_by_from_edge_to.into_py(py),
-        cols_to_keys_to_inds.into_py(py),
-        cols_to_inds_to_keys.into_py(py),
+        col_to_features.into_py_any(py)?,
+        coo_by_from_edge_to.into_py_any(py)?,
+        cols_to_keys_to_inds.into_py_any(py)?,
+        cols_to_inds_to_keys.into_py_any(py)?,
     );
 
     Ok(res)
@@ -215,13 +214,13 @@ fn graph_aql_to_networkx_format(
     request: AqlDataLoadRequest,
     graph_config: NetworkXGraphConfig,
 ) -> PyResult<(
-    PyObject,
-    PyObject,
-    PyObject,
-    PyObject,
-    PyObject,
-    PyObject,
-    PyObject,
+    Py<PyAny>,
+    Py<PyAny>,
+    Py<PyAny>,
+    Py<PyAny>,
+    Py<PyAny>,
+    Py<PyAny>,
+    Py<PyAny>,
 )> {
     let _ = env_logger::try_init();
 
@@ -275,13 +274,13 @@ fn graph_aql_to_networkx_format(
     let edge_values = construct::construct_edge_value_dict(graph.edge_values, py)?;
 
     let res = (
-        node_dict.into_py(py),
-        adj_dict.into_py(py),
-        src_indices.into_py(py),
-        dst_indices.into_py(py),
-        edge_indices.into_py(py),
-        vertex_id_to_index.into_py(py),
-        edge_values.into_py(py),
+        node_dict.into_py_any(py)?,
+        adj_dict.into_py_any(py)?,
+        src_indices.into_py_any(py)?,
+        dst_indices.into_py_any(py)?,
+        edge_indices.into_py_any(py)?,
+        vertex_id_to_index.into_py_any(py)?,
+        edge_values.into_py_any(py)?,
     );
 
     Ok(res)

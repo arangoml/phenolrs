@@ -1,10 +1,71 @@
 version: 2.1
 
+# Pin exact orb versions: a float lets a future orb publish change what runs here with no repo diff.
+orbs:
+  trivy-scan: arangoml/trivy-scan@1.6.0
+  semgrep-scan: arangoml/semgrep-scan@1.0.0
+  supply-chain: arangoml/supply-chain@1.0.0
+
+parameters:
+  # Security-gate configuration, single source of truth.
+  waiver-windows:
+    type: string
+    description: "Per-severity waiver expiry windows (days from `detected`). Kept identical to the POA&M window table in SECURITY.md so the repo has ONE window policy."
+    default: "critical=30,high=30,medium=90,low=180,design=366,kev=14"
+  waivers-path:
+    type: string
+    description: "Structured accepted-risk waivers, subtracted at gate time only (the published report keeps every finding)."
+    default: ".circleci/security-waivers.yaml"
+  secret-config-path:
+    type: string
+    description: "Trivy secret-scanner config. Its disable-allow-rules: [tests] is what puts test code back in secret scope."
+    default: ".circleci/trivy-secret.yaml"
+  semgrepignore-allowed:
+    type: string
+    description: "Entries .semgrepignore is ALLOWED to contain. Anything beyond this list fails disposition-check, because quietly deleting a directory from SAST scope is how a SAST gate dies without going red. Entries are compared literally against the .semgrepignore lines. NOTE the inverse sense of sast-required-paths below: the two orbs take opposite-polarity guards under the same parameter name."
+    default: ".git/ .venv/ venv/ __pycache__/ build/ dist/ target/ vendor/ docker/server.pem"
+  sast-required-paths:
+    type: string
+    description: "Trees that must NOT be excluded from the SAST scan by the effective .semgrepignore. python/tests/ is the one that matters: Semgrep's built-in ignore list drops tests/ wholesale, and test code runs in CI against a real database, which is the whole reason this repo commits a .semgrepignore at all."
+    default: "src/ python/ python/tests/"
+  # Read off a real run's target list (trivy v0.72.0): one cargo target today.
+  expect-targets:
+    type: string
+    description: "Substrings that MUST each appear in the scanned target list. require-targets is only a floor of one, so a repo that later gains a second manifest and then loses it would still pass; naming the manifests makes a vanished one fail by name."
+    default: "Cargo.lock"
+  # Trivy's pip analyzer matches only the literal name requirements.txt, so dev- and test-requirements.txt are skipped.
+  # Not extra-args: that path word-splits the regex. Resolves nothing today because both files are unpinned.
+  pip-file-patterns:
+    type: string
+    default: 'pip:.*requirements\.txt'
+  # The builder files are named Dockerfile-build*, which trivy's dockerfile analyzer does not match.
+  # Measured on v0.72.0: zero targets and exit 0 without this pattern, three targets and six HIGHs with it.
+  dockerfile-file-patterns:
+    type: string
+    default: 'dockerfile:Dockerfile-build.*'
+  dockerfiles:
+    type: string
+    description: "Explicit list for the credential guard, which fails when it inspected ZERO files rather than passing vacuously."
+    default: "Dockerfile-build Dockerfile-build-linux-arm64 Dockerfile-build-linux-x86_64"
+  # Supply-chain wiring: opt-in, inert until the infrastructure exists.
+  evidence-bucket:
+    type: string
+    description: "S3 bucket for durable scan evidence (AU-11, CA-7). Empty = publish-evidence logs why it did nothing and exits 0. Needs a bucket with a COMPLIANCE-mode default retention period, an org-owner action."
+    default: ""
+  dtrack-url:
+    type: string
+    description: "Dependency-Track 5 base URL for SBOM ingestion (RV.1.2). Empty = dtrack-upload logs why it did nothing and exits 0."
+    default: ""
+
 executors:
   generate-executor:
     machine:
       image: ubuntu-2204:2024.01.1
     working_directory: ~/project
+  # Digest-pinned: a floating tag can be re-pushed and swap the environment the gating scans run in.
+  scan-executor:
+    docker:
+      - image: cimg/python:3.12@sha256:9c796c23c84e84a66a964acb508d39dc5433c81a47e07efd56dccbbc2427e07c
 
 workflows:
   version: 2
@@ -12,7 +73,28 @@ workflows:
     jobs:
       - lint-python
       - lint-rust
+      # Explicit name: on every gate instance. CircleCI appends unpredictable suffixes when a job runs in two
+      # workflows (dependency-cve-scan reported as dependency-cve-scan-1), which invalidates required-checks.txt.
+      - dependency-cve-scan:
+          name: dependency-cve-scan
+          context: [github-pr-comments]
+      - secret-scan:
+          name: secret-scan
+      - sast-scan:
+          name: sast-scan
+      - sast-scan-diff:
+          name: sast-scan-diff
+      - dockerfile-scan:
+          name: dockerfile-scan
+      - disposition-check:
+          name: disposition-check
+      - required-checks-drift:
+          name: required-checks-drift
       - build:
+          # No wheels from a vulnerable tree; disposition-check too, since a bad waiver widens that gate.
+          requires:
+            - dependency-cve-scan
+            - disposition-check
           matrix:
             parameters:
               python-version: ["3.10", "3.13"]
@@ -32,7 +114,379 @@ workflows:
               db-mode: ["single", "cluster"]
               db-version: ["3.12"]
 
+  # No runtime image or deploy here, so the nightly exposure is Cargo.lock drift plus newly published rules.
+  # Superseded mechanism: a legacy in-config schedule runs on one branch only. Replacing it with Scheduled
+  # Pipelines has to happen in the same change, or nightly scanning stops silently.
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 3 * * *"
+          filters:
+            branches:
+              only: main
+    jobs:
+      # Positive control first: if it goes green on a clean fixture, everything below it passed vacuously.
+      - nightly-self-test
+      - nightly-dependency-scan
+      - sast-scan:
+          name: sast-scan-nightly
+      - secret-scan:
+          name: secret-scan-nightly
+      - dockerfile-scan:
+          name: dockerfile-scan-nightly
+      # One nightly instance so date-based expiry still fires without a push.
+      - disposition-check:
+          name: disposition-check-nightly
+
 jobs:
+  # Blocking band: fixable CRITICAL,HIGH only, the fleet calibration.
+  # UNKNOWN reports but never gates: absence of a score is a data-source property, not a risk.
+  dependency-cve-scan:
+    executor: scan-executor
+    steps:
+      - checkout
+      - trivy-scan/scan:
+          scan-type: fs
+          scan-path: "."
+          # Secrets are covered by the report-only secret-scan job, so a test fixture cannot block this gate.
+          scanners: "vuln"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          fail-on-findings: true
+          pr-comment: true
+          # --severity applies at scan time, so a narrow band erases MEDIUM/LOW/UNKNOWN from the report, JUnit
+          # and SBOM as well as the gate. Wide report, narrow gate, one scan.
+          report-severity: "CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN"
+          # Not ignorefile-path: an ignorefile prunes the published report too, so a waived finding goes invisible.
+          waivers-path: << pipeline.parameters.waivers-path >>
+          waiver-windows: << pipeline.parameters.waiver-windows >>
+          expect-targets: << pipeline.parameters.expect-targets >>
+          file-patterns: << pipeline.parameters.pip-file-patterns >>
+          store-junit-results: true
+          # CycloneDX for the pipeline, SPDX for agency requests. poetry.lock was dropped in this branch:
+          # maturin builds from pyproject.toml, so that lock scanned versions that never shipped.
+          sbom-format: both
+          sbom-output: /tmp/sbom.cdx.json
+          sbom-spdx-output: /tmp/sbom.spdx.json
+      # CISA's 2025 Minimum Elements make tool, generation context and component identity required.
+      # The fleet has shipped wrong-subject and empty SBOMs that otherwise looked fine.
+      - supply-chain/validate-sbom:
+          sbom-path: /tmp/sbom.cdx.json
+          # Measured 202 components from Cargo.lock's 201 packages on v0.72.0; 150 still fails a collapsed inventory.
+          min-components: "150"
+      - store_artifacts:
+          path: /tmp/sbom.cdx.json
+          destination: sbom.cdx.json
+      - store_artifacts:
+          path: /tmp/sbom.spdx.json
+          destination: sbom.spdx.json
+      # Evidence (AU-11, CA-7) and re-analysis (RV.1.2), both inert while the URLs are empty:
+      # each step logs why it did nothing and exits 0, so nothing depends on infrastructure that does not exist.
+      - supply-chain/publish-evidence:
+          s3-bucket: << pipeline.parameters.evidence-bucket >>
+          subject: "${CIRCLE_SHA1}"
+          project: "phenolrs-dependency-gate"
+          report-json: /tmp/trivy-results.json
+          report-table: /tmp/trivy-results.txt
+          sbom-cyclonedx: /tmp/sbom.cdx.json
+          sbom-spdx: /tmp/sbom.spdx.json
+          scanner-provenance: /tmp/trivy-scanner-provenance.json
+      - supply-chain/dtrack-upload:
+          dtrack-url: << pipeline.parameters.dtrack-url >>
+          sbom-path: /tmp/sbom.cdx.json
+          project-name: "phenolrs"
+          project-version: "${CIRCLE_BRANCH:-${CIRCLE_TAG}}"
+
+  # Report-only: surfaces committed credentials without gating the PR. Today it reports docker/server.pem,
+  # the unencrypted test-server key. Flip criterion: one cycle with trivy-secret.yaml to enumerate the real
+  # fixtures and give them dated allow-rules, then fail-on-findings: true, required-checks and build's
+  # requires. Flipping first reds the gate on unreviewed fixtures, which is how a gate gets switched off.
+  secret-scan:
+    executor: scan-executor
+    steps:
+      - checkout
+      - trivy-scan/scan:
+          scan-type: fs
+          scan-path: "."
+          scanners: "secret"
+          # Trivy's built-in allow-rules exclude test code from secret detection entirely (measured on v0.72.0).
+          # python/tests/ runs against a real database with real credentials, so this config puts it back in scope.
+          secret-config-path: << pipeline.parameters.secret-config-path >>
+          # Report-only, so a wider band costs the gate nothing and surfaces the MEDIUM/LOW secret rules.
+          severity: "CRITICAL,HIGH,MEDIUM,LOW"
+          fail-on-findings: false
+          store-junit-results: true
+
+  # Tier 1: gating SAST over first-party code, high-confidence rules only. Semgrep CE, no SEMGREP_APP_TOKEN.
+  # The dependency and secret scans cover everything except the code we write ourselves.
+  # Suppressions are inline nosemgrep comments whose expiry disposition-check enforces.
+  sast-scan:
+    executor: scan-executor
+    steps:
+      - checkout
+      - semgrep-scan/scan:
+          # p/default carries no Rust rules and src/ is where this library lives. All 11 p/rust rules are WARNING,
+          # so they bite in the diff tier below rather than here.
+          rulesets: "p/default p/rust"
+          # Gate at ERROR. `severity` stays at the orb's INFO default, which is the report floor, not the gate:
+          # the JSON, SARIF and JUnit carry the whole band so the gate's exclusions are still evidenced.
+          fail-on-severity: ERROR
+          # Semgrep's built-in ignore list drops test/, build/, dist/ and vendor/ wholesale, and python/tests/
+          # talks to a real database. The baseline is what stops someone quietly re-excluding a tree
+          # (opposite polarity to the identically named parameter on disposition-check).
+          scan-tests: true
+          semgrepignore-baseline: << pipeline.parameters.sast-required-paths >>
+          # Local artifact only: uploading SARIF to code scanning needs the paid SKU this org does not buy.
+          sarif-output: /tmp/semgrep.sarif
+
+  # Tier 2, diff-aware. The full-repo gate runs ERROR only, leaving 722 of p/default's 1074 rules and all
+  # 11 p/rust rules unused. Blocking the wider band on newly introduced findings only avoids a
+  # backlog-clearing project first (10 pre-existing mutable-action-tag findings). require-targets goes
+  # inert once baseline-commit is set, so a docs-only PR cannot red on zero targets.
+  sast-scan-diff:
+    executor: scan-executor
+    steps:
+      - checkout
+      - semgrep-scan/scan:
+          rulesets: "p/default p/rust"
+          baseline-commit: main
+          fail-on-severity: WARNING
+          scan-tests: true
+          semgrepignore-baseline: << pipeline.parameters.sast-required-paths >>
+          # Distinct prefix so this job's reports do not collide with sast-scan's artifact names.
+          output-prefix: semgrep-diff
+
+  # The three builder Dockerfiles were invisible to every scanner for a naming reason, not a policy one.
+  # Misconfig is report-only by decision: today's six HIGHs (DS-0002 root, DS-0015, DS-0029) all describe
+  # ephemeral build images that are never pushed, and DS-0002 is load-bearing because a non-root UID cannot
+  # write the wheel back to the host-owned mount (carried as a dated, path-scoped waiver). Flip criterion:
+  # fix DS-0015 and DS-0029, then gate. The credential guard below IS blocking, fails when it inspected zero
+  # files rather than passing vacuously, and catches the baked build-time key this fleet has actually hit.
+  dockerfile-scan:
+    executor: scan-executor
+    steps:
+      - checkout
+      - trivy-scan/scan:
+          scan-type: fs
+          scan-path: "."
+          scanners: "misconfig"
+          file-patterns: << pipeline.parameters.dockerfile-file-patterns >>
+          severity: "CRITICAL,HIGH,MEDIUM,LOW"
+          fail-on-findings: false
+          store-junit-results: true
+          waivers-path: << pipeline.parameters.waivers-path >>
+          waiver-windows: << pipeline.parameters.waiver-windows >>
+          output-prefix: "dockerfile-"
+      - trivy-scan/dockerfile-credential-guard:
+          dockerfiles: << pipeline.parameters.dockerfiles >>
+
+  # Wired onto the PR, not only the nightly: otherwise an undated waiver or nosemgrep merges and surfaces
+  # up to 24 hours later as a red main. Blocking because this is whether the exception path can be trusted
+  # at all; a missing or malformed waivers file fails rather than reading as an empty waiver set.
+  disposition-check:
+    executor: scan-executor
+    steps:
+      - checkout
+      - trivy-scan/disposition-check:
+          # The committed .trivyignore is empty; listing the paths guards against a dated-entry file coming back.
+          ignorefiles: ".trivyignore,.trivyignore.yaml,.trivyignore.yml"
+          secret-config-path: << pipeline.parameters.secret-config-path >>
+          semgrepignore-path: ".semgrepignore"
+          semgrepignore-baseline: << pipeline.parameters.semgrepignore-allowed >>
+          poam-windows: "critical=30,high=30,medium=90,low=180"
+      # Waiver integrity: schema, scope, dates, windows, and an approved-by that resolves to CODEOWNERS.
+      # Runs on every PR, so an added undated, unattributed or over-window entry cannot merge.
+      - trivy-scan/validate-waivers:
+          waivers-path: << pipeline.parameters.waivers-path >>
+          waiver-windows: << pipeline.parameters.waiver-windows >>
+          codeowners-path: ".github/CODEOWNERS"
+
+  # A job rename or workflow-count change renumbers CircleCI's instance suffixes, which either blocks every
+  # merge or leaves a required check pointing at a context nobody emits. This repo just went through that.
+  # Warn-only for now: no ruleset here lists required status checks at all, so a blocking comparison would
+  # red every PR. Once one exists and matches required-checks.txt, flip the exit 0 lines to exit 1.
+  required-checks-drift:
+    executor: scan-executor
+    steps:
+      - checkout
+      - run:
+          name: Compare the live rulesets against .github/required-checks.txt
+          command: |
+            set -eu
+            LIST=".github/required-checks.txt"
+            if [ ! -s "${LIST}" ]; then
+              echo "WARNING: ${LIST} is missing or empty, so there is no committed list to compare the rulesets against. Commit it." >&2
+              exit 0
+            fi
+            # A list that is non-empty but all comments yields zero matches, which pipefail would turn into a failure.
+            { grep -vE '^[[:space:]]*(#|$)' "${LIST}" || true; } \
+              | sed -e 's/[[:space:]]*$//' | sort -u > /tmp/required-expected.txt
+            echo "Committed required contexts (${LIST}):"
+            sed -e 's/^/  /' /tmp/required-expected.txt
+            if [ -z "${GITHUB_TOKEN:-}" ]; then
+              echo "WARNING: GITHUB_TOKEN is not in the environment, so the live rulesets could not be read and drift is UNVERIFIED on this run. Attach a context carrying a read-only token with repository administration:read." >&2
+              exit 0
+            fi
+            # Enumerate rather than pin a ruleset id: this repo has no repository-level ruleset yet.
+            # includes_parents picks up the org and enterprise rulesets that apply to main.
+            # one were added at that level.
+            if ! curl -sSfL --retry 3 --retry-delay 2 --max-time 60 \
+                  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "X-GitHub-Api-Version: 2022-11-28" \
+                  -o /tmp/rulesets.json \
+                  "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/rules/branches/main"; then
+              echo "WARNING: could not read the effective branch rules for main, so drift is UNVERIFIED on this run." >&2
+              exit 0
+            fi
+            # grep/sed rather than a heredoc-fed interpreter: CircleCI reserves the double-less-than operator for
+            # parameter interpolation, so a heredoc in a command body is a standing edit hazard. Zero matches is a
+            # real state, not an error, hence the || true: grep's exit 1 would kill the script under -eo pipefail.
+            { grep -oE '"context":[[:space:]]*"[^"]*"' /tmp/rulesets.json || true; } \
+              | sed -e 's/.*"\([^"]*\)"$/\1/' | sort -u > /tmp/required-live.txt
+            echo "Live required contexts on main:"
+            sed -e 's/^/  /' /tmp/required-live.txt
+            MISSING="$(comm -23 /tmp/required-expected.txt /tmp/required-live.txt)"
+            EXTRA="$(comm -13 /tmp/required-expected.txt /tmp/required-live.txt)"
+            if [ -z "${MISSING}" ] && [ -z "${EXTRA}" ]; then
+              echo "Rulesets match the committed list."
+              exit 0
+            fi
+            if [ -n "${MISSING}" ]; then
+              echo "DRIFT: committed but NOT required on main, so these gates do not block a merge:" >&2
+              printf '%s\n' "${MISSING}" | sed -e 's/^/  /' >&2
+            fi
+            if [ -n "${EXTRA}" ]; then
+              echo "DRIFT: required on main but NOT in the committed list. A required context that no job emits is fail-closed and blocks every merge; one that matches the wrong job silently drops the intended gate:" >&2
+              printf '%s\n' "${EXTRA}" | sed -e 's/^/  /' >&2
+            fi
+            echo "WARN-ONLY until a repository ruleset lists the gate contexts. See the flip note in .circleci/config.yml." >&2
+            exit 0
+
+  # Two-pass. The single widened pass it replaces kept fail-on-findings hardcoded true, so it went red on
+  # any MEDIUM, LOW, UNKNOWN or unfixed finding and nobody read it. The passes cannot be collapsed onto
+  # report-severity because they differ in ignore-unfixed. Report pass runs first: a failing gate pass
+  # would skip any later step lacking when: always.
+  nightly-dependency-scan:
+    executor: scan-executor
+    steps:
+      - checkout
+      # Pass 2, visibility, never fails the job: full band, unfixed and dev deps included, plus licenses.
+      # This is where the bands the blocking gate does not count become visible at all.
+      - trivy-scan/scan:
+          scan-type: fs
+          scan-path: "."
+          scanners: "vuln,license"
+          severity: "CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN"
+          ignore-unfixed: false
+          fail-on-findings: false
+          license-full: true
+          # Empty on purpose: this pass produces the baseline that decides what belongs here. A cold license gate
+          # reds on things nobody has reviewed.
+          ignored-licenses: ""
+          file-patterns: << pipeline.parameters.pip-file-patterns >>
+          # Cargo.lock already resolves the full graph; this only matters once the pip manifests are pinned.
+          extra-args: "--include-dev-deps"
+          expect-targets: << pipeline.parameters.expect-targets >>
+          store-junit-results: true
+          sbom-format: both
+          sbom-output: /tmp/sbom-full.cdx.json
+          sbom-spdx-output: /tmp/sbom-full.spdx.json
+          output-prefix: "full-"
+      - supply-chain/validate-sbom:
+          sbom-path: /tmp/sbom-full.cdx.json
+          min-components: "150"
+      - store_artifacts:
+          path: /tmp/sbom-full.cdx.json
+          destination: sbom-full.cdx.json
+      - store_artifacts:
+          path: /tmp/sbom-full.spdx.json
+          destination: sbom-full.spdx.json
+      # Exploitation signals rather than CVSS bands, against the full-severity report: SECURITY.md commits to
+      # remediating a KEV finding by its CISA due date regardless of the windows, and a KEV-listed MEDIUM sits
+      # below every gate band. KEV drives BOD 26-04 deadlines; EPSS is a complementary signal, not mandated.
+      # Both feeds are free.
+      - trivy-scan/kev-epss-check:
+          report-path: /tmp/full-trivy-results.json
+          # KEV blocks. EPSS is disabled here (1.0 is unreachable): KEV membership is a fact with a dated federal
+          # deadline, while a high EPSS on an unfixed finding is usually not actionable in this repo.
+          epss-threshold: "1.0"
+          fail-on-match: true
+      - trivy-scan/kev-epss-check:
+          report-path: /tmp/full-trivy-results.json
+          # Report-only: records the EPSS scores that order triage without the gate depending on them.
+          epss-threshold: "0.1"
+          fail-on-match: false
+      - supply-chain/publish-evidence:
+          s3-bucket: << pipeline.parameters.evidence-bucket >>
+          subject: "${CIRCLE_SHA1}"
+          project: "phenolrs-nightly-dependency-report"
+          report-json: /tmp/full-trivy-results.json
+          report-table: /tmp/full-trivy-results.txt
+          sbom-cyclonedx: /tmp/sbom-full.cdx.json
+          sbom-spdx: /tmp/sbom-full.spdx.json
+          scanner-provenance: /tmp/full-trivy-scanner-provenance.json
+      - supply-chain/dtrack-upload:
+          dtrack-url: << pipeline.parameters.dtrack-url >>
+          sbom-path: /tmp/sbom-full.cdx.json
+          project-name: "phenolrs-full-graph"
+          project-version: "main"
+      # Pass 1, the gate: same band and same waiver set as the commit-time gate, so a red nightly means what a
+      # red PR means. Catches a CVE published against an unchanged Cargo.lock between pushes.
+      - trivy-scan/scan:
+          scan-type: fs
+          scan-path: "."
+          scanners: "vuln"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          fail-on-findings: true
+          report-severity: "CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN"
+          waivers-path: << pipeline.parameters.waivers-path >>
+          waiver-windows: << pipeline.parameters.waiver-windows >>
+          expect-targets: << pipeline.parameters.expect-targets >>
+          file-patterns: << pipeline.parameters.pip-file-patterns >>
+          store-junit-results: true
+
+  # Permanent positive control. A gate that has never failed is indistinguishable from no gate, and this
+  # fleet has confirmed instances of exactly that: vacuous require-targets, PLACEHOLDER chart versions,
+  # the rootfs aggregate-Target false clean. Fails the nightly if the fixture comes back clean.
+  nightly-self-test:
+    executor: scan-executor
+    steps:
+      - trivy-scan/scan:
+          # python:3.9-slim, digest-pinned so the fixture cannot drift. Not an EOL alpine tag: an EOL distro stops
+          # publishing fix data, so ignore-unfixed would leave almost nothing to detect.
+          image-ref: "python:3.9-slim@sha256:2d97f6910b16bd338d3060f261f53f144965f755599aab1acda1e13cf1731b1b"
+          image-src: remote
+          scanners: "vuln"
+          # Same band and ignore-unfixed as the real gates, so this proves the configuration they actually run.
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          # false so the assertion below owns the verdict: the orb has no expect-failure mode, and a red scan here is a PASS.
+          fail-on-findings: false
+          output-prefix: "selftest-"
+          store-junit-results: false
+      - run:
+          name: Assert the positive control detected findings
+          command: |
+            set -eu
+            REPORT="/tmp/selftest-trivy-results.json"
+            FLOOR=5
+            if [ ! -s "${REPORT}" ]; then
+              echo "ERROR: the positive control produced no report at ${REPORT}, so the scan machinery did not run. This is a broken gate, not a clean image." >&2
+              exit 1
+            fi
+            COUNT="$(grep -oE '"VulnerabilityID":[[:space:]]*"[^"]+"' "${REPORT}" | sort -u | wc -l | tr -d ' ')"
+            echo "Positive control: ${COUNT} unique fixable CRITICAL/HIGH id(s) in the pinned fixture image (floor ${FLOOR})."
+            if [ "${COUNT}" -lt "${FLOOR}" ]; then
+              echo "ERROR: the pinned known-vulnerable fixture came back with ${COUNT} findings, below the floor of ${FLOOR}. The vulnerability database, the scanner install or the severity filter is broken, so every OTHER gate in this pipeline is currently passing vacuously. Do not disposition this; fix the scanner." >&2
+              exit 1
+            fi
+            echo "Detection is proven for this configuration on this run."
+      - store_artifacts:
+          path: /tmp/selftest-trivy-results.json
+          destination: selftest-trivy-results.json
+
   lint-python:
     docker:
       - image: cimg/python:3.10
@@ -64,6 +518,17 @@ jobs:
       - image: cimg/rust:1.90
     steps:
       - checkout
+      # Runs before any other cargo invocation: clippy, maturin and the builder images all update a stale lock
+      # in place. The dependency gate's whole view of the graph is Cargo.lock, so a drifted lock means it
+      # reports versions no build resolves, at exit 0. --locked makes cargo refuse and exit nonzero instead.
+      - run:
+          name: Assert Cargo.lock is current for Cargo.toml
+          command: |
+            if ! cargo metadata --locked --format-version 1 > /dev/null; then
+              echo "ERROR: Cargo.lock does not satisfy Cargo.toml, so the dependency gate is scanning a lockfile that no longer describes what this crate builds. Run 'cargo update --workspace' (or 'cargo check') and commit the resulting Cargo.lock." >&2
+              exit 1
+            fi
+            echo "Cargo.lock resolves Cargo.toml with no update needed."
       - run:
           name: Install clippy
           command: rustup component add clippy

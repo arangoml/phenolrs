@@ -1,0 +1,23 @@
+# Structured accepted-risk waivers for the Trivy gates. Schema and validation live in arangoml/trivy-scan.
+# Not .trivyignore: a bare rule id waives a control repo-wide and forever, with no scope, date or approver.
+# Subtracted at gate time only, never passed as --ignorefile, so the report, JUnit and SBOM keep every finding.
+# Windows match the POA&M table in SECURITY.md. A waiver cannot cure an SLA breach: a finding already past
+# its window has no valid expiry left, and validate-waivers rejects it.
+# Strict YAML subset: one key: value per line, no block scalars, unknown keys rejected. Do not pretty-print.
+# No dependency waivers at HEAD. Deliberately not waived: DS-0015, DS-0029 and docker/server.pem, which are
+# fixes rather than acceptances and are what the dockerfile-scan flip criterion is waiting on.
+
+waivers:
+  # Design acceptance, so it is re-reviewed at most every 12 months rather than scheduled for remediation.
+  # Scoped by path, not by rule id: a bare DS-0002 would accept a root user in any Dockerfile this repo gains.
+  - id: DS-0002
+    kind: misconfiguration
+    class: design-acceptance
+    paths:
+      - Dockerfile-build
+      - Dockerfile-build-linux-arm64
+      - Dockerfile-build-linux-x86_64
+    detected: 2026-07-29
+    expires: 2027-07-29
+    reason: "these three images are ephemeral build tools, never pushed to a registry and never run outside a CI job: their entrypoint is maturin against a bind-mounted /io, and a non-root UID in the container cannot write the built wheel back to the host-owned mount, so the root user is load-bearing rather than incidental; the exit criterion is a build that no longer needs a host bind mount"
+    approved-by: "@MarkusReadius"

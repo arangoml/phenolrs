@@ -1,0 +1,26 @@
+# Review routing for the security-relevant configuration here, and the approver registry for
+# .circleci/security-waivers.yaml: validate-waivers rejects an approved-by that does not resolve to an
+# owner listed below. require_code_owner_review is deliberately not requested on main, because GitHub does
+# not count a PR author's own approval and a sole security owner would deadlock their own PRs.
+
+# CI and gate configuration
+/.circleci/                 @MarkusReadius
+/.github/                   @MarkusReadius
+/.semgrepignore             @MarkusReadius
+/.trivyignore               @MarkusReadius
+/.dockerignore              @MarkusReadius
+/.pre-commit-config.yaml    @MarkusReadius
+/.security/                 @MarkusReadius
+/SECURITY.md                @MarkusReadius
+
+# Dependency manifests and lockfiles: the scanned surface
+/Cargo.toml                 @MarkusReadius
+/Cargo.lock                 @MarkusReadius
+/pyproject.toml             @MarkusReadius
+/dev-requirements.txt       @MarkusReadius
+/test-requirements.txt      @MarkusReadius
+
+# Build inputs for the published wheels
+/Dockerfile-build           @MarkusReadius
+/Dockerfile-build-linux-arm64   @MarkusReadius
+/Dockerfile-build-linux-x86_64  @MarkusReadius
